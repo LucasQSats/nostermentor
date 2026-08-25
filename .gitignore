@@ -1,0 +1,22 @@
+# dependências de desenvolvimento (só esbuild/playwright; nada disto entra no produto)
+node_modules/
+
+# builds: dist/ só é gravado em marcos de release (15 §7, P-11)
+dist/
+
+# rascunhos e saídas de teste
+scratch/
+*.log
+test-results/
+playwright-report/
+
+# NUNCA: chaves, configurações com segredo, material do teste Bostil
+*.key
+*nsec*
+.nsite/
+.env
+.env.*
+
+# sistema
+.DS_Store
+Thumbs.db

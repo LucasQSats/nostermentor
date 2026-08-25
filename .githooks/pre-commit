@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Salvaguarda do `02` §B.2: nsec nunca em commit.
+# Recusa qualquer conteúdo em staging que contenha uma nsec REAL
+# (bech32 completo: "nsec1" + 58 caracteres). Exemplos truncados e
+# inválidos como "nsec1…exemplo…" passam — é o que a KB manda usar.
+set -euo pipefail
+padrao='nsec1[023456789acdefghjklmnpqrstuvwxyz]{58}'
+if git diff --cached -U0 | grep -E '^\+' | grep -Eq "$padrao"; then
+  echo "✗ COMMIT RECUSADO: há uma chave privada (nsec) no conteúdo em staging." >&2
+  echo "  Remova-a. Em exemplos use 'nsec1…exemplo…' (inválida e truncada)." >&2
+  git diff --cached -U0 | grep -E '^\+' | grep -En "$padrao" | sed 's/nsec1[a-z0-9]\{58\}/nsec1[REDIGIDA]/g' >&2
+  exit 1
+fi
