@@ -148,6 +148,12 @@ table.lista td.data{font-family:ui-monospace,Menlo,Consolas,monospace;white-spac
 a.botao-link{display:inline-block;border:1px solid var(--acento);background:var(--acento);color:#fff;border-radius:3px;padding:7px 14px;text-decoration:none}
 a.botao-link:hover{background:var(--acento-escuro)}
 #exp-estimativa{margin-top:8px}
+/* barra de progresso do preparo (14 T9) — o <progress> nativo é o único
+   controle de progresso disponível sem script externo; sem valor, os três
+   motores desenham a animação indeterminada */
+.progresso{margin:10px 0 0}
+.progresso progress{width:100%;max-width:420px;height:14px;display:block}
+.progresso .passo{display:block;margin-top:4px;color:var(--suave);font-size:14px}
 input[type=search]{font:inherit}
 </style>
 <body>

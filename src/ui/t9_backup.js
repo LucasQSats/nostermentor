@@ -40,6 +40,25 @@
     const pPronto = h('p', { id: 'exp-pronto', class: 'apoio', hidden: true });
     const pErroExp = h('p', { id: 'exp-erro', class: 'erro', role: 'alert', hidden: true });
     const pBaixado = h('p', { id: 'exp-baixado', class: 'apoio', hidden: true }, X.baixado);
+    // barra de progresso do preparo: indeterminada enquanto lê e monta,
+    // determinada durante a mídia (é o único passo com total conhecido)
+    const medidor = h('progress', { id: 'exp-progresso-barra' });
+    const spanPasso = h('span', { id: 'exp-passo', class: 'passo' });
+    const divProgresso = h('div', { id: 'exp-progresso', class: 'progresso', role: 'status', hidden: true }, medidor, spanPasso);
+
+    function progresso(p) {
+      divProgresso.hidden = false;
+      if (p.passo === 'midia') {
+        // max antes de value: sem max o <progress> assume 1 e a barra estoura
+        medidor.setAttribute('max', String(p.total));
+        medidor.setAttribute('value', String(p.feitos));
+        spanPasso.textContent = texto(X.passoMidia, { f: p.feitos, t: p.total, x: formatarBytes(p.bytes) });
+      } else {
+        medidor.removeAttribute('value'); medidor.removeAttribute('max');
+        spanPasso.textContent = p.passo === 'montando' ? X.passoMontando : X.passoLendo;
+      }
+    }
+    function limparProgresso() { divProgresso.hidden = true; medidor.removeAttribute('value'); medidor.removeAttribute('max'); spanPasso.textContent = ''; }
 
     async function estimar() {
       try {
@@ -48,7 +67,7 @@
         pGrande.hidden = est.bytes < 30 * 1024 * 1024;
       } catch (e) { pEstimativa.textContent = ''; }
     }
-    function limparPreparado() { soltarBlob(); linkBaixar.hidden = true; linkBaixar.removeAttribute('href'); linkBaixar.removeAttribute('download'); linkBaixar.textContent = ''; pPronto.hidden = true; pBaixado.hidden = true; }
+    function limparPreparado() { limparProgresso(); soltarBlob(); linkBaixar.hidden = true; linkBaixar.removeAttribute('href'); linkBaixar.removeAttribute('download'); linkBaixar.textContent = ''; pPronto.hidden = true; pBaixado.hidden = true; }
     rNecessario.addEventListener('change', function () { limparPreparado(); estimar(); });
     rCompleto.addEventListener('change', function () { limparPreparado(); estimar(); });
 
@@ -57,7 +76,7 @@
       pErroExp.hidden = true; pErroExp.textContent = '';
       btnPreparar.disabled = true; btnPreparar.textContent = X.preparando;
       try {
-        const r = await Backup.exportar(db, { completo: rCompleto.checked, pubkey: s.pubkey, npub: s.npub });
+        const r = await Backup.exportar(db, { completo: rCompleto.checked, pubkey: s.pubkey, npub: s.npub, progresso: progresso });
         urlBlob = URL.createObjectURL(r.blob);
         linkBaixar.setAttribute('href', urlBlob);
         linkBaixar.setAttribute('download', r.nome);
@@ -68,7 +87,7 @@
       } catch (e) {
         pErroExp.textContent = e && e.codigo === 'tripwire' ? X.tripwire : texto(X.erro, { e: e && e.message ? e.message : String(e) });
         pErroExp.hidden = false;
-      } finally { btnPreparar.disabled = false; btnPreparar.textContent = X.preparar; }
+      } finally { limparProgresso(); btnPreparar.disabled = false; btnPreparar.textContent = X.preparar; }
     }
     // 14 T-13: o app não sabe se o arquivo chegou ao disco; o contador zera ao disparar o download
     async function baixou() {
@@ -85,7 +104,7 @@
       h('label', { class: 'inline', for: 'exp-completo' }, rCompleto, X.completo, ' ', h('span', { class: 'apoio' }, '— ' + X.completoApoio)),
       pEstimativa, pGrande,
       h('div', { class: 'acoes' }, btnPreparar, linkBaixar),
-      pPronto, pErroExp, pBaixado,
+      divProgresso, pPronto, pErroExp, pBaixado,
       h('p', { class: 'apoio' }, X.tails), h('p', { class: 'apoio' }, X.falhou));
 
     // --- importar ---------------------------------------------------------------

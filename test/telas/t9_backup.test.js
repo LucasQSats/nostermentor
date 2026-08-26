@@ -59,6 +59,48 @@ module.exports = async function (ctx, u) {
     return nome + ' (' + arquivo.length + ' B)';
   });
 
+  // Achado do teste do usuário (2026-08-26): o preparo trancava a linha de
+  // execução do início ao fim, então nenhuma barra chegava a ser desenhada.
+  await it('barra de progresso: com várias mídias, o preparo relata "Preparando a mídia: N de M" com o <progress> avançando, a tela continua respondendo, e a barra some no fim', async () => {
+    const muitas = [];
+    for (let i = 1; i <= 5; i++) muitas.push({ op: 'put', store: 'media', valor: Object.assign({}, midia, { id: 'm-p' + i, path: '/img/p' + i + '.png' }) });
+    const p = await sessao(ch, muitas);
+    await p.pg.evaluate(async (pk) => {
+      const db = await Db.abrir(pk);
+      for (let i = 1; i <= 5; i++) { const m = await db.get('media', 'm-p' + i); m.bytes = new Blob([new Uint8Array(60000)], { type: 'image/png' }); await db.put('media', m); }
+      db.fechar();
+    }, ch.pubkey);
+    await p.pg.click('#btn-backup'); await p.pg.waitForSelector('#t9');
+    // observa a barra ao longo do preparo, sem bloquear o clique
+    await p.pg.evaluate(() => {
+      window.__amostras = [];
+      const alvo = document.getElementById('exp-progresso');
+      new MutationObserver(() => {
+        const b = document.getElementById('exp-progresso-barra');
+        window.__amostras.push({ oculto: alvo.hidden, texto: document.getElementById('exp-passo').textContent, valor: b.getAttribute('value'), max: b.getAttribute('max') });
+      }).observe(alvo, { subtree: true, childList: true, characterData: true, attributes: true });
+    });
+    await p.pg.click('#exp-preparar');
+    // se a linha de execução estivesse trancada, este clique não seria atendido
+    // enquanto o preparo corresse: o próprio waitForSelector abaixo mede isso
+    await p.pg.waitForSelector('#exp-baixar:not([hidden])', { timeout: 20000 });
+    const am = await p.pg.evaluate(() => window.__amostras);
+    const daMidia = am.filter(a => /^Preparando a mídia: \d+ de \d+ \(/.test(a.texto));
+    const valores = daMidia.map(a => Number(a.valor)).filter(v => !Number.isNaN(v));
+    const total = daMidia.length ? Number(daMidia[0].max) : 0;
+    assert(daMidia.length >= 3, 'poucas amostras da mídia: ' + JSON.stringify(am.map(a => a.texto)));
+    assert(total >= 5 && daMidia.every(a => Number(a.max) === total), 'max instável: ' + JSON.stringify(daMidia.map(a => a.max)));
+    assert(valores[valores.length - 1] === total, 'a barra não chegou ao fim: ' + valores[valores.length - 1] + '/' + total);
+    assert(valores.length >= 3 && valores[valores.length - 1] > valores[0], 'o <progress> não avançou: ' + JSON.stringify(valores));
+    assert(am.some(a => a.texto === 'Montando o arquivo…'), 'não passou por "Montando o arquivo…": ' + JSON.stringify(am.map(a => a.texto)));
+    const fim = await p.pg.evaluate(() => ({ oculto: document.getElementById('exp-progresso').hidden, texto: document.getElementById('exp-passo').textContent, botao: document.getElementById('exp-preparar').textContent }));
+    assert(fim.oculto && fim.texto === '' && fim.botao === 'Preparar o backup', JSON.stringify(fim));
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.evaluate(async (pk) => { const db = await Db.abrir(pk); for (let i = 1; i <= 5; i++) await db.del('media', 'm-p' + i); db.fechar(); }, ch.pubkey);
+    await p.pg.close();
+    return daMidia.length + ' amostras, <progress> ' + valores[0] + '→' + valores[valores.length - 1] + '/' + total;
+  });
+
   await it('tripwire na tela: uma nsec num campo → "Backup interrompido por segurança…", sem link de download, contador intacto', async () => {
     const p = await sessao(ch, [{ op: 'put', store: 'pages', valor: Object.assign(pagina('p-trip', 'Trip', '2026-08-26T10:00:00Z'), { body: 'x ' + outra.nsec }) }]);
     await p.pg.click('#btn-backup'); await p.pg.waitForSelector('#t9');

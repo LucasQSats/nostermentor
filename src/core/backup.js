@@ -24,6 +24,12 @@ const Backup = (function () {
 
   function nomeArquivo(npub, quando) { return 'nostermentor-backup-' + Chave.npub8(npub) + '-' + Modelo.formatarData(quando || Modelo.agora()) + '.json'; }
 
+  // Cede a linha de execução para o navegador desenhar (a barra de progresso
+  // de 14 T9). setTimeout(0) e não um Worker: a CSP de 02 G.1.1 e o "um só
+  // HTML" de 15 §2 não admitem script externo, e um blob: worker seria
+  // código gerado em tempo de execução.
+  function respirar() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
   // --- base64 sem fetch (a CSP barra fetch a data:) ------------------------
   function blobParaBase64(blob) {
     return new Promise(function (resolve, reject) {
@@ -68,15 +74,32 @@ const Backup = (function () {
   }
 
   // → { texto, blob, bytes, nome, exported_at, contagens } ou lança (codigo 'tripwire')
+  // o.progresso(p) é opcional e segue o idioma de Rede.reconstruir (14 T2):
+  //   { passo:'lendo' } → { passo:'midia', feitos, total, bytes } → { passo:'montando' }
+  // Entre uma mídia e a seguinte o laço cede a linha de execução: sem isso a
+  // tela congela durante todo o preparo e a própria barra nunca é desenhada
+  // (achado do teste do usuário em 2026-08-26).
   async function exportar(db, o) {
+    const aviso = typeof o.progresso === 'function' ? o.progresso : function () {};
+    aviso({ passo: 'lendo' });
     const t = await lerTudo(db);
     const site = t.site || Modelo.sitePadrao(o.pubkey, o.npub);
+    const total = t.media.filter(m => levaBytes(m, o.completo)).length;
     const media = [];
+    let feitos = 0, lidos = 0;
+    if (total) { aviso({ passo: 'midia', feitos: 0, total: total, bytes: 0 }); await respirar(); }
     for (const m of t.media) {
       const c = Object.assign({}, m); delete c.bytes;
-      c.bytes_base64 = levaBytes(m, o.completo) ? await blobParaBase64(m.bytes) : null;
+      if (levaBytes(m, o.completo)) {
+        c.bytes_base64 = await blobParaBase64(m.bytes);
+        feitos++; lidos += tamanhoDe(m);
+        aviso({ passo: 'midia', feitos: feitos, total: total, bytes: lidos });
+        await respirar();
+      } else c.bytes_base64 = null;
       media.push(c);
     }
+    aviso({ passo: 'montando' });
+    if (total) await respirar();
     const exported_at = Modelo.agora();
     const dados = { format: FORMATO, version: Modelo.SCHEMA_VERSION, exported_at: exported_at, app_version: window.APP_VERSION,
       site: site, pages: t.pages, posts: t.posts, media: media, published: t.published, meta: { schema_version: Modelo.SCHEMA_VERSION } };
