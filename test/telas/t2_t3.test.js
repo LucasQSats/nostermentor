@@ -50,7 +50,8 @@ module.exports = async function (ctx, u) {
     assert(/^Site carregado: 2 páginas, 3 artigos, 1 arquivos de mídia\. Publicado pela última vez em \d{4}-\d{2}-\d{2}\.$/.test(est.resumo), est.resumo);
     assert(est.saude === 'Seu site está em 2 de 4 relays', est.saude);
     assert(est.relays.join(' ') === `atual:${f.ws('t-atual')} atual:${f.ws('t-lento')} antigo:${f.ws('t-antigo')} sem:${f.ws('t-vazio')}`, est.relays.join(' '));
-    assert(/^Verificado em \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/.test(est.quando) && est.republicar === true, est.quando + ' / republicar=' + est.republicar);
+    // desde o M4 o botão está ligado (reenvia o manifest já assinado, sem a chave)
+    assert(/^Verificado em \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/.test(est.quando) && est.republicar === false, est.quando + ' / republicar=' + est.republicar);
     assert(est.alteracoes === 'Tudo o que está aqui está publicado.' && est.backup === 'Nada só neste navegador: tudo o que está aqui veio da rede.', est.alteracoes + ' | ' + est.backup);
     assert(est.verSite === `https://${ch.npub}.nsite.lol/`, est.verSite);
     assert(est.ultimos.length === 3 && /^2026-08-20 Terceiro artigo/.test(est.ultimos[0]), JSON.stringify(est.ultimos));

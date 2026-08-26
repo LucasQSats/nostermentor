@@ -273,10 +273,12 @@ module.exports = async function (ctx, u) {
     await p.pg.close();
   });
 
-  await it('"Publicar (N)" aceso leva a T8 com a mensagem honesta ("chega no marco M4"); barra de ferramentas envolve a seleção (negrito, título, lista, link, código)', async () => {
+  await it('"Publicar (N)" aceso leva a T8 real (diff com o total e o botão "Assinar e publicar"); barra de ferramentas envolve a seleção (negrito, título, lista, link, código)', async () => {
     const p = await sessao();
-    await p.pg.click('#btn-publicar'); await p.pg.waitForSelector('#t8');
-    assert(/Publicar chega no marco M4/.test(await p.pg.textContent('#t8 p')), await p.pg.textContent('#t8 p'));
+    await p.pg.click('#btn-publicar'); await p.pg.waitForSelector('#t8-total', { timeout: 15000 });
+    const total = await p.pg.textContent('#t8-total');
+    assert(/^\d+ arquivo\(s\), .+ para subir, \d+ relays\.$/.test(total), total);
+    assert(await p.pg.$('#t8-assinar'), 'faltou o botão de publicar');
     await p.pg.click('#menu .item[data-tela="t5"]'); await p.pg.waitForSelector('#t5');
     await p.pg.click('#novo-registro'); await p.pg.waitForSelector('#editor');
     await p.pg.fill('#ed-corpo', 'abc def');

@@ -115,7 +115,10 @@ const Textos = Object.freeze({
       verificar: 'Verificar de novo',
       verificando: 'Verificando…',
       republicar: 'Republicar',
-      republicarM4: 'Republicar chega no marco M4 desta versão de desenvolvimento.',
+      republicando: 'Republicando…',
+      republicadoOk: 'Reenviado. Aceito em {n} de {m} relays.',
+      republicadoFalhou: 'Nenhum relay aceitou o reenvio. Tente de novo em instantes.',
+      republicarApoio: 'Reenvia o mapa já assinado — não precisa da sua chave.',
       maisNovoAviso: 'Um relay tem uma versão mais nova do seu site do que a deste navegador. Recarregue da rede antes de publicar por cima.',
       recarregar: 'Recarregar da rede',
       naoPublicado: 'Seu site ainda não foi publicado.',
@@ -227,6 +230,125 @@ const Textos = Object.freeze({
   },
 
   // 14 T9 — backup
+  // T6 / T6a / T6b (14 T6, T6a, T6b) — mídia. No M4 entra o essencial:
+  // enviar com nome/alt/legenda, limpeza de metadados por padrão, pré-flight
+  // por servidor e a lista com remoção. O resto (relato de remoção detalhado,
+  // "Reconferir", aba de herdados) é M5.
+  t6: {
+    titulo: 'Mídia',
+    vazio: 'Nenhum arquivo ainda. Envie imagens para usar nas páginas e nos artigos.',
+    enviar: 'Enviar arquivos',
+    coluna: { arquivo: 'Arquivo', caminho: 'Caminho no site', tamanho: 'Tamanho', estado: 'Estado', acoes: '' },
+    herdado: 'herdado (veio da rede)',
+    soLocal: 'só neste navegador',
+    remover: 'Remover',
+    desfazer: 'Desfazer',
+    copiarMarcacao: 'Copiar marcação',
+    copiado: 'Copiado.',
+    naoPublicadas: '{n} arquivo(s) ainda não publicado(s).',
+    remocaoRelato: 'Apagado de: {ok}. Não consegui apagar de: {nao}.'
+  },
+  t6a: {
+    titulo: 'Enviar mídia',
+    escolher: 'Escolher arquivos',
+    apoio: 'No Tails, o seletor alcança o Persistent Storage e o pendrive. Se aparecer uma janela pedindo para confirmar, clique OK.',
+    nomeNoSite: 'Nome no site',
+    nomeApoio: 'O nome original do arquivo não é guardado.',
+    caminhoFinal: 'Ficará em {p}',
+    alt: 'Descreva a imagem',
+    altApoio: 'É acessibilidade e ajuda a ser encontrado.',
+    legenda: 'Legenda',
+    limpar: 'Limpar metadados (câmera, data, GPS)',
+    limparAviso: 'Publicar é irreversível: o que subir com metadados fica.',
+    semLimpeza: 'Este tipo pode conter metadados que o app não remove.',
+    svg: 'Será limpo de scripts.',
+    paraOnde: 'Para onde vai',
+    preflight: { aceita: 'vai aceitar', recusa: 'vai recusar', indeterminado: 'não consegui verificar', verificando: 'verificando…' },
+    nenhumServidor: 'Nenhum dos seus servidores aceita este tipo ou tamanho. O arquivo não entra.',
+    adicionar: 'Adicionar à biblioteca',
+    adicionadas: '{n} arquivo(s) na biblioteca. Nada subiu ainda — subir é o que "Publicar" faz.',
+    erroLeitura: 'Não consegui ler este arquivo.',
+    repetido: 'Já existe um arquivo com este caminho.',
+    cancelar: 'Cancelar'
+  },
+  t6b: {
+    titulo: 'Remover {p} do site?',
+    tirar: 'Tirar do site: sempre funciona — na próxima publicação o arquivo some de todas as páginas e do mapa do site.',
+    apagar: 'Apagar dos servidores: o Nostermentor tenta em cada um e depois mostra, servidor por servidor, onde conseguiu. Onde não conseguir, o arquivo continua acessível para quem tiver o endereço dele.',
+    usadaEm: 'Páginas e artigos que ainda usam este arquivo: {n}. Eles ficarão com a imagem quebrada.',
+    remover: 'Remover',
+    cancelar: 'Cancelar'
+  },
+
+  // T8 (14 T8) — o botão único com diff prévio, o placar honesto (D8) e a
+  // guarda contra publicar por cima de outra máquina (13 §6.3 item 5).
+  t8: {
+    titulo: 'Publicar',
+    conferindo: 'Conferindo o que mudou…',
+    conferindoRede: 'Conferindo se alguém publicou este site em outra máquina…',
+    naoConferi: 'Não consegui conferir se houve publicação em outra máquina.',
+    concorrente: 'Outra máquina publicou este site em {d}. Recarregue da rede antes de publicar por cima — o último a publicar apaga o anterior.',
+    recarregar: 'Recarregar da rede',
+    vazio: 'Nada a publicar — o site está igual ao que está aqui.',
+    blocos: { sobe: 'Sobe', atualiza: 'Atualiza', some: 'Some', herdados: 'Fica como está (veio de outra ferramenta)' },
+    porques: {
+      blog: 'porque um artigo mudou',
+      home: 'porque a inicial mostra artigos recentes',
+      site_json: 'sempre que algo muda',
+      tema: 'porque o tema mudou',
+      alias: 'redirecionamento',
+      apagar: 'e o app vai tentar apagar dos servidores',
+      sai: 'sai do mapa do site'
+    },
+    eventosTitulo: 'Eventos assinados',
+    eventos: { manifest: 'Mapa do site (manifest)', kind0: 'Perfil', kind10002: 'Lista de relays', kind10063: 'Lista de servidores' },
+    total: '{n} arquivo(s), {x} para subir, {m} relays.',
+    tor: 'Pelo Tor cada conexão demora de 2 a 8 vezes mais — não feche o navegador.',
+    bloqueado: 'Um arquivo não pode subir em nenhum servidor. Remova-o ou mude de servidor para poder publicar.',
+    assinar: 'Assinar e publicar',
+    publicando: 'Publicando…',
+    passos: {
+      upload: 'Enviando arquivos: {f} de {t}',
+      assinar: 'Assinando o mapa do site',
+      relays: 'Enviando aos relays',
+      metadados: 'Enviando os dados da identidade',
+      remover: 'Apagando arquivos removidos'
+    },
+    interrompida: 'Publicação interrompida: {p} não subiu em nenhum servidor. Nada mudou no seu site.',
+    interrompidaApoio: 'Os arquivos que subiram ficam registrados — não se perde o trabalho.',
+    semRelay: 'Os arquivos subiram, mas nenhum relay aceitou o mapa do site. O site publicado continua o de antes. Tente de novo em instantes ou confira os relays em Avançado.',
+    semServidor: 'Não há servidores configurados para receber os arquivos.',
+    erroAssinar: 'Não consegui assinar. Entre de novo com a sua chave.',
+    publicado: 'Publicado.',
+    placarArquivos: 'Arquivos: {n} de {t} em {s}.',
+    placarRelays: 'Mapa do site aceito em {n} de {m} relays.',
+    placarRelaysDetalhe: '{r} recusou(aram), {q} não respondeu(eram) — você pode "Republicar" no Início mais tarde.',
+    placarRemocao: '{p}: apagada de {ok}.',
+    placarRemocaoNao: '{p}: {nao} não deixou(aram) apagar — o arquivo continua acessível para quem tiver o endereço.',
+    demora: 'Os endereços públicos levam minutos para atualizar — e o nsite.cloud pode levar dias.',
+    confira: 'Confira em',
+    backupAgora: 'Faça o backup agora — ele guarda o mapa assinado, que é o que permite republicar sem a chave.',
+    exportar: 'Exportar backup',
+    voltar: 'Voltar ao início',
+    motivos: {
+      tipo_nao_aceito: 'tipo não aceito',
+      grande_demais: 'grande demais',
+      sem_permissao: 'sem permissão',
+      politica: 'recusado pela política do servidor',
+      pagamento: 'exige pagamento',
+      limite: 'limite de uso atingido',
+      indisponivel: 'servidor indisponível',
+      malformado: 'pedido malformado',
+      hash_diferente: 'o servidor devolveu outro arquivo',
+      origem_inacessivel: 'não conseguiu buscar o arquivo',
+      nao_implementa: 'não faz a verificação prévia',
+      rede: 'não consegui falar com o servidor',
+      timeout: 'demorou demais',
+      recusado: 'recusado'
+    },
+    relayEstados: { aceito: 'aceitou', recusado: 'recusou', timeout: 'não respondeu', erro: 'não consegui conectar', fechou: 'fechou a conexão', invalida: 'endereço inválido', cancelado: 'cancelado' }
+  },
+
   t9: {
     titulo: 'Backup',
     porque: 'O que está neste navegador não é durável: no Tor Browser some ao fechar. O backup é a única cópia que sobrevive.',
@@ -300,8 +422,7 @@ const Textos = Object.freeze({
 
   stub: {
     texto: 'Esta tela ainda não foi implementada nesta versão de desenvolvimento.',
-    // 00 §6.1 (decisão de 2026-08-26): o "Publicar" acende no M3 mas só funciona no M4 — a mensagem é honesta
-    porTela: { t8: 'Publicar chega no marco M4 desta versão de desenvolvimento. O que você escreveu está salvo neste navegador — exporte o backup para não perder.' }
+    porTela: {}
   },
 
   fixos: {

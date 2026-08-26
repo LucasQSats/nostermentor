@@ -1,7 +1,8 @@
 /* ui/t3_inicio.js — T3 Início (14 T3; 03 §3.6 "resumo do site"): saúde da
    publicação (13 §5.5), alterações não publicadas, backup, atalhos, últimos
-   artigos e o cartão "Apoie". Neste marco (M2) o cartão de saúde verifica;
-   "Republicar" fica visível e desligado até o M4. Datas em AAAA-MM-DD UTC. */
+   artigos e o cartão "Apoie". Desde o M4 o cartão de saúde verifica E
+   republica: reenvia o manifest já assinado aos relays que não o têm, sem
+   pedir a chave. Datas em AAAA-MM-DD UTC. */
 (function () {
   'use strict';
   let apoioFechado = false;      // T-16: por sessão, não persiste
@@ -49,9 +50,33 @@
       const acoes = h('div', { class: 'acoes' });
       const btnVerificar = h('button', { type: 'button', id: 'verificar-saude', class: 'secundario', onclick: verificar }, T.saude.verificar);
       acoes.appendChild(btnVerificar);
-      if (n.antigo + n.sem > 0) { acoes.appendChild(h('button', { type: 'button', id: 'republicar', disabled: true, title: T.saude.republicarM4 }, T.saude.republicar)); acoes.appendChild(h('span', { class: 'apoio' }, T.saude.republicarM4)); }
+      if (n.antigo + n.sem > 0) {
+        acoes.appendChild(h('button', { type: 'button', id: 'republicar', onclick: republicar }, T.saude.republicar));
+        acoes.appendChild(h('span', { class: 'apoio' }, T.saude.republicarApoio));
+      }
       cartaoSaude.appendChild(acoes);
       if (n.mais_novo > 0) Shell.faixa(T.saude.maisNovoAviso, null, { rotulo: T.saude.recarregar, fn: function () { Shell.ir('t2'); } });
+    }
+    // 13 §5.5: reenvia o evento JÁ ASSINADO aos relays que não o têm — um
+    // clique, sem pedir a chave (é para isto que published.manifest_event
+    // existe). Só aos que estão sem ou com versão antiga.
+    async function republicar() {
+      const btn = document.getElementById('republicar');
+      if (btn) { btn.disabled = true; btn.textContent = T.saude.republicando; }
+      const hs = published.health || {};
+      const alvos = Modelo.uniao(hs.relays_missing, hs.relays_outdated, hs.relays_unreachable);
+      ctrl = new AbortController();
+      const meu = ctrl;
+      try {
+        const r = await Publicar.republicar({ published: published, relays: alvos, sinal: meu.signal });
+        if (meu.signal.aborted) return;
+        if (r.desfecho === 'republicado') Shell.faixa(texto(T.saude.republicadoOk, { n: r.placar.com, m: r.placar.total }));
+        else Shell.faixa(T.saude.republicadoFalhou, 'erro');
+        await verificar();
+      } catch (e) {
+        if (!meu.signal.aborted) Shell.erro(e && e.message ? e.message : String(e));
+        renderSaude();
+      } finally { if (ctrl === meu) ctrl = null; }
     }
     async function verificar() {
       const btn = document.getElementById('verificar-saude');
