@@ -2,12 +2,15 @@
    HTML — 14 §0.12) e a SESSÃO: a chave vive só dentro deste fecho, em
    memória (02 §B.1, 14 §0.3). Nunca vai a `window`, ao DOM, à URL, ao
    título nem a qualquer armazenamento. Quem precisa assinar chama
-   `Shell.assinar(modelo)`; ninguém recebe a `sk`. */
+   `Shell.assinar(modelo)`; ninguém recebe a `sk`.
+   Desde M2: `Shell.dados()` guarda o que a sessão carregou (o banco aberto,
+   a última carga da rede); "Trancar" fecha o banco e esquece tudo. */
 const Shell = (function () {
   'use strict';
 
   let sessao = null;                 // { sk: Uint8Array, pubkey: hex, npub }
-  const telas = Object.create(null); // nome → { montar(raiz, params) }
+  let dados = null;                  // { db, ultimaCarga } — só enquanto há sessão
+  const telas = Object.create(null); // nome → { montar(raiz, params), desmontar?() }
   let telaAtual = null;
   const contadores = { publicar: 0, naoExportadas: 0 };
 
@@ -46,6 +49,8 @@ const Shell = (function () {
     if (!sessao) throw new Error('sem sessão: não há chave para assinar');
     return Chave.assinar(modelo, sessao.sk);
   }
+  function obterDados() { return dados; }
+  function definirDados(d) { if (!sessao) throw new Error('sem sessão'); dados = d; }
 
   function nomeDaTela(nome) { return (Textos.moldura.nomes && Textos.moldura.nomes[nome]) || nome; }
 
@@ -81,14 +86,22 @@ const Shell = (function () {
     }
   }
 
-  function faixa(msg, tipo) {
+  // Barra: nome do site (14 §2) — nunca a chave, nunca o título da janela (T-18)
+  function atualizarSite(site) {
+    const n = el('nome-site');
+    if (n) n.textContent = (site && site.title) ? site.title : Textos.moldura.siteSemNome;
+  }
+
+  function faixa(msg, tipo, acao) {
     const f = el('faixa');
     if (!f) return;
-    f.textContent = msg;
+    limpar(f);
+    f.appendChild(document.createTextNode(String(msg)));
+    if (acao && acao.rotulo && typeof acao.fn === 'function') { f.appendChild(document.createTextNode(' ')); f.appendChild(h('button', { type: 'button', class: 'ligacao', onclick: acao.fn }, acao.rotulo)); }
     f.className = tipo === 'erro' ? 'erro' : '';
     f.hidden = false;
   }
-  function limparFaixa() { const f = el('faixa'); if (f) { f.textContent = ''; f.hidden = true; f.className = ''; } }
+  function limparFaixa() { const f = el('faixa'); if (f) { limpar(f); f.hidden = true; f.className = ''; } }
   function erro(msg) { faixa(String(msg), 'erro'); }
 
   function montarMoldura() {
@@ -116,9 +129,15 @@ const Shell = (function () {
 
   function desmontarMoldura() { const app = el('app'); if (app) limpar(app); }
 
+  function desmontarAtual() {
+    const def = telaAtual && telas[telaAtual];
+    if (def && typeof def.desmontar === 'function') { try { def.desmontar(); } catch (e) {} }
+  }
+
   function ir(nome, params) {
     if (!sessao && nome !== 't1') nome = 't1';
     if (sessao && nome === 't1') { trancar(); return; }
+    desmontarAtual();
     const def = telas[nome] || { montar: montarStub };
     let raiz;
     if (sessao) {
@@ -138,11 +157,16 @@ const Shell = (function () {
   function entrar(chave) {
     if (!chave || !(chave.sk instanceof Uint8Array) || !chave.pubkey || !chave.npub) throw new Error('chave inválida');
     sessao = { sk: chave.sk, pubkey: chave.pubkey, npub: chave.npub };
+    dados = null;
     montarMoldura();
     ir('t2');
   }
 
   function trancar() {
+    desmontarAtual();
+    telaAtual = null;
+    if (dados && dados.db) { try { dados.db.fechar(); } catch (e) {} }
+    dados = null;
     if (sessao) Chave.apagar(sessao.sk);
     sessao = null;
     desmontarMoldura();
@@ -153,6 +177,7 @@ const Shell = (function () {
     h: h, limpar: limpar,
     registrar: registrar, ir: ir, telaAtual: function () { return telaAtual; },
     entrar: entrar, trancar: trancar, temSessao: temSessao, sessao: sessaoPublica, assinar: assinar,
+    dados: obterDados, definirDados: definirDados, atualizarSite: atualizarSite,
     faixa: faixa, limparFaixa: limparFaixa, erro: erro, contadores: atualizarContadores
   });
 })();

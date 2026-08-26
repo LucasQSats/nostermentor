@@ -10,11 +10,13 @@ Gerenciador de publicação de sites e blogs no protocolo **nsite**
 
 ## Estado
 
-**Marco M1 em curso (2026-08-26)** — esqueleto e entrada: `dist/nostermentor.html`
-abre de `file://` sob a CSP do produto, mostra o canário (T0) e a tela
-Entrar (T1: colar a chave, escolher o arquivo com a chave, ou gerar uma
-chave nova), e a moldura do painel com as demais telas marcadas "ainda não
-implementado". Nada é lido da rede nem publicado ainda (M2–M4).
+**Marco M2 em curso (2026-08-26)** — ler da rede: depois de entrar (T1), o
+painel reconstrói o site a partir da npub (T2: manifest `15128` nos relays,
+`site.json` com hash conferido, arquivos herdados de sites publicados por
+outra ferramenta, mesclagem por `id` com o que já estava no navegador) e
+mostra o Início (T3: "seu site está em N de M relays", alterações, backup,
+atalhos). M1 (esqueleto, T0/T1, moldura) está concluído. Nada é publicado
+ainda (M4); editor e backup chegam no M3.
 
 ```
 ./gera_bundle.sh      # (só se mudar a versão do nostr-tools) regenera src/libs/nostr-tools.inline.js

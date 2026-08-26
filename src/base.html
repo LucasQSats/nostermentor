@@ -60,6 +60,29 @@ label.inline{display:inline-flex;gap:6px;align-items:center;margin:8px 0}
 .contador.pendente{background:#d63638;border-color:#d63638}
 .contador.ok{background:var(--ok);border-color:var(--ok)}
 .contador.nada{background:#50575e;border-color:#50575e}
+#t2,#t3{max-width:1100px}
+.passos{margin:12px 0;padding-left:22px}
+.passos li{margin:6px 0}
+.passos li .estado{font-weight:600}
+.passos li.pendente{color:var(--suave)}
+.passos li.andando .estado{color:var(--acento)}
+.passos li.feito .estado{color:var(--ok)}
+.passos li.falhou .estado{color:var(--erro)}
+.passos li.pulado{color:var(--suave)}
+.passos li .detalhe{display:block;color:var(--suave);font-size:13px}
+#desfecho{margin:14px 0}
+.cartoes{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.cartao .destaque{font-size:17px;font-weight:600;margin:0 0 8px}
+.cartao p{margin:0 0 8px}
+.cartao ul{margin:0 0 8px;padding-left:18px}
+.lista-relays li{margin:2px 0;font-size:14px}
+.lista-relays li.atual code{color:var(--ok)}
+.lista-relays li.antigo code,.lista-relays li.mais_novo code{color:var(--alerta-borda)}
+.lista-relays li.sem code{color:var(--erro)}
+.lista-relays li.nao_respondeu code{color:var(--suave)}
+.lista-artigos .data{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--suave)}
+.cartao.apoie{grid-column:1/-1;background:#f0f6fc}
+#faixa button.ligacao{margin-left:6px}
 </style>
 <body>
 <div id="semjs">

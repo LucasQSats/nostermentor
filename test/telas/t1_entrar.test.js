@@ -101,7 +101,7 @@ module.exports = async function (ctx, u) {
     pulado('colar a nsec do Bostil → npub de 09 §2 + varredura + Trancar', 'NOSTERMENTOR_NSEC_TESTE_ARQUIVO não definido ou sem nsec');
     pulado('arquivo com a nsec do Bostil pelo seletor → mesma npub + varredura', 'idem');
   } else {
-    await it('colar a nsec do Bostil → moldura com npub abreviada de 09 §2; T2 "ainda não implementado"; varredura limpa; Trancar volta a T1 limpo', async () => {
+    await it('colar a nsec do Bostil → moldura com npub abreviada de 09 §2; T2 real começa (passos + npub completa); varredura limpa; Trancar volta a T1 limpo', async () => {
       const p = await abrir(ctx, u.url);
       await p.pg.fill('#nsec', nsecBostil);
       await p.pg.click('#entrar-colar');
@@ -120,7 +120,7 @@ module.exports = async function (ctx, u) {
       await p.pg.screenshot({ path: u.captura('t2-bostil'), fullPage: true });
       assert(est.abrev === abreviar(u.NPUB_BOSTIL), 'npub abreviada: ' + est.abrev);
       assert(est.completo === u.NPUB_BOSTIL, 'npub completa em T2: ' + est.completo);
-      assert(/ainda não implementado/i.test(est.t2), 'T2 sem "ainda não implementado"');
+      assert(/Conectando aos relays/.test(est.t2) && /Cancelar/.test(est.t2), 'T2 sem os passos de 14 T2 (M2)');
       assert(!est.t1, 'T1 continua no DOM depois de entrar');
       assert(/^Nostermentor \d+\.\d+\.\d+(-dev)?$/.test(est.rodape), est.rodape);
       assert(est.publicar === 'Nada a publicar' && est.publicarDesligado && est.backup === 'Backup em dia', JSON.stringify([est.publicar, est.backup]));
@@ -225,19 +225,22 @@ module.exports = async function (ctx, u) {
   });
 
   // --- moldura e stubs (o que M1 promete além de T1) --------------------------
-  await it('moldura: menu leva a telas "ainda não implementado"; Publicar/Backup abrem stubs; rodapé com a versão; "Apoie" abre Ajuda', async () => {
+  await it('moldura: menu leva às telas (T3 real desde M2; as demais "ainda não implementado"); Publicar/Backup abrem stubs; rodapé com a versão; "Apoie" abre Ajuda', async () => {
     const p = await abrir(ctx, u.url);
     await p.pg.click('#btn-gerar'); await p.pg.check('#copiei'); await p.pg.click('#entrar-nova');
     await p.pg.waitForSelector('#moldura');
-    const esperados = [['t3', 'Início'], ['t4', 'Páginas'], ['t5', 'Artigos'], ['t6', 'Mídia'], ['t7', 'Configurações'], ['t11', 'Ajuda e Sobre']];
-    for (const [tela, nome] of esperados) {
+    const esperados = [['t3', 'Início', false], ['t4', 'Páginas', true], ['t5', 'Artigos', true], ['t6', 'Mídia', true], ['t7', 'Configurações', true], ['t11', 'Ajuda e Sobre', true]];
+    for (const [tela, nome, stub] of esperados) {
       await p.pg.click(`#menu .item[data-tela="${tela}"]`);
+      await p.pg.waitForSelector('#conteudo h1', { timeout: 10000 });   // T3 monta depois de ler o banco (assíncrona desde M2)
       const est = await p.pg.evaluate((tela) => ({ h1: document.querySelector('#conteudo h1').textContent, stub: !!document.querySelector('#conteudo .stub'), atual: document.querySelector('#menu .item.atual').getAttribute('data-tela'), tela: Shell.telaAtual() }), tela);
-      assert(est.h1 === nome && est.stub && est.atual === tela && est.tela === tela, JSON.stringify(est));
+      assert(est.h1 === nome && est.stub === stub && est.atual === tela && est.tela === tela, JSON.stringify(est));
     }
     await p.pg.click('#btn-backup');
+    await p.pg.waitForSelector('#conteudo h1');
     assert((await p.pg.textContent('#conteudo h1')) === 'Backup');
     await p.pg.click('#rodape .ligacao');
+    await p.pg.waitForSelector('#conteudo h1');
     assert((await p.pg.textContent('#conteudo h1')) === 'Ajuda e Sobre');
     await p.pg.screenshot({ path: u.captura('moldura'), fullPage: true });
     assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));

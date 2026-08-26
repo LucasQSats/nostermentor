@@ -1,26 +1,24 @@
-/* arranque.js — o ÚLTIMO script do HTML. Confere que tudo carregou, regista
-   as telas que ainda não existem como "ainda não implementado" (15 M1) e
-   inverte o canário (14 T0): esconde o aviso, mostra T1. */
+/* arranque.js — o ÚLTIMO script do HTML. Confere que tudo carregou, deixa as
+   telas que ainda não existem como "ainda não implementado" (stub do Shell)
+   e inverte o canário (14 T0): esconde o aviso, mostra T1. */
 (function () {
   'use strict';
   const exigidos = {
     NT: function () { return NT; }, DOMPurify: function () { return DOMPurify; },
     marked: function () { return marked; }, Mustache: function () { return Mustache; },
-    Textos: function () { return Textos; }, Chave: function () { return Chave; }, Shell: function () { return Shell; }
+    Textos: function () { return Textos; }, Chave: function () { return Chave; }, Modelo: function () { return Modelo; },
+    Relay: function () { return Relay; }, Blossom: function () { return Blossom; }, Db: function () { return Db; },
+    SiteJson: function () { return SiteJson; }, Saude: function () { return Saude; }, Rede: function () { return Rede; },
+    Shell: function () { return Shell; }
   };
   const faltam = Object.keys(exigidos).filter(function (n) {
     try { return typeof exigidos[n]() === 'undefined'; } catch (e) { return true; }
   });
   if (faltam.length) { window.__falhaDeArranque('faltam ' + faltam.join(', ')); return; }
-
-  // T2 em M1: só diz quem entrou e que a leitura da rede vem no M2.
-  Shell.registrar('t2', { montar: function (raiz) {
-    const h = Shell.h, s = Shell.sessao();
-    raiz.appendChild(h('section', { id: 't2' },
-      h('h1', {}, Textos.t2.titulo),
-      h('p', { class: 'alerta' }, Textos.t2.naoImplementado),
-      h('p', {}, Textos.t2.entrouComo, h('code', { id: 'npub-completo' }, s.npub))));
-  } });
+  if (typeof indexedDB === 'undefined' || !window.crypto || !crypto.subtle || typeof WebSocket === 'undefined') {
+    window.__falhaDeArranque('este navegador não tem IndexedDB, crypto.subtle ou WebSocket');
+    return;
+  }
 
   // Inverte o canário e SÓ DEPOIS monta T1: o foco inicial só pega com o
   // painel visível. Se a montagem lançar, __arrancou ainda é false e o
