@@ -57,6 +57,7 @@ const Listas = (function () {
       return;
     }
     const db = dados.db;
+    const npub = Shell.sessao().npub, gateway = Modelo.GATEWAYS.find(g => g.principal);
     let site = (await db.get('site', 'site')) || null;
     let regs = [];
     let filtro = 'todos', busca = '';
@@ -113,9 +114,10 @@ const Listas = (function () {
 
     function linha(reg) {
       const ehInicio = tipo === 'page' && site && site.home && site.home.mode === 'page' && site.home.page_id === reg.id;
+      const jaPublicado = reg.status === 'published' || reg.status === 'modified';
       const tds = [
         h('td', { class: 'titulo' }, h('button', { type: 'button', class: 'ligacao acao-editar', onclick: function () { Shell.ir(tela, { editar: reg.id }); } }, reg.title || '(sem título)'), ehInicio ? h('span', { class: 'selo' }, ' ' + T.selo) : null),
-        h('td', {}, h('code', {}, caminhoDe(tipo, reg, site)))
+        h('td', {}, h('code', {}, caminhoDe(tipo, reg, site)), jaPublicado ? [' ', h('a', { class: 'ligacao acao-ver-online', href: Modelo.urlDoSite(npub, gateway.host) + caminhoDe(tipo, reg, site).replace(/^\//, ''), target: '_blank', rel: 'noopener noreferrer' }, L.verOnline)] : null)
       ];
       if (tipo === 'post') tds.push(h('td', { class: 'data' }, Modelo.formatarData(reg.date) || L.semData), h('td', { class: 'etiquetas' }, (reg.tags || []).join(', ')));
       tds.push(h('td', {}, h('span', { class: 'estado ' + reg.status, title: T.estadosDica[reg.status] || '' }, T.estados[reg.status] || reg.status)));

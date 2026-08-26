@@ -36,7 +36,7 @@ module.exports = async function (ctx, u) {
   }, [ch.pubkey, ch.npub, extra || null]);
 
   await semear({ relays, servers });
-  let primeira;
+  let primeira, paths2, man2;
   await it('carregado: manifest em 2 relays (1 antigo), site.json baixado com hash conferido → 2 páginas, 3 artigos, 1 mídia publicadas; nada herdado; site do site.json; metadados guardados', async () => {
     primeira = await reconstruir();
     const { r, banco } = primeira;
@@ -81,8 +81,8 @@ module.exports = async function (ctx, u) {
     await pg.evaluate(async ([pk]) => { const db = await Db.abrir(pk); await db.put('pages', Object.assign(Modelo.novaPagina('Toma o slug'), { id: 'local-4', slug: 'novidade' })); db.fechar(); }, [ch.pubkey]);
     const sj2 = F.siteExemplo(ch, { servers, mutar: (d) => { d.pages[1].title = 'Sobre (versão da rede)'; d.pages.push({ id: 'p-nova', slug: 'novidade', title: 'Novidade', body: 'x', body_format: 'markdown', in_menu: false }); d.posts.pop(); } });
     f.blob(sj2.bytes, 'application/json');
-    const paths2 = F.pathsDoExemplo(sj2); delete paths2['/blog/terceiro.html']; paths2['/novidade.html'] = F.sha256('n');
-    const man2 = F.manifest(ch, { paths: paths2, servers, created_at: F.agora() });
+    paths2 = F.pathsDoExemplo(sj2); delete paths2['/blog/terceiro.html']; paths2['/novidade.html'] = F.sha256('n');
+    man2 = F.manifest(ch, { paths: paths2, servers, created_at: F.agora() });
     f.relay('r-atual', { eventos: [man2, man1, k0] });
     const r = await reconstruir();
     assert(r.r.desfecho === 'carregado' && r.r.concorrente === true, JSON.stringify([r.r.desfecho, r.r.concorrente]));
@@ -101,6 +101,19 @@ module.exports = async function (ctx, u) {
     const r = await reconstruir();
     assert(r.r.redeAntiga === true && r.banco.published.manifest_event_id !== man1.id && r.banco.pages.find(x => x.id === 'p-nova'), JSON.stringify([r.r.redeAntiga, r.r.desfecho]));
     assert(r.banco.published.relays[f.ws('r-atual')] === 'antigo' && r.banco.published.relays[f.ws('r-antigo')] === 'antigo', JSON.stringify(r.banco.published.relays));
+  });
+  await it('18: manifest com id/created_at diferente mas o MESMO mapa de caminhos → não é concorrente de verdade; rascunho local não publicado sobrevive', async () => {
+    // rascunho local (status "modified") sobre um registro já publicado, sem publicar
+    await pg.evaluate(async ([pk]) => { const db = await Db.abrir(pk); const sobre = await db.get('pages', 'p-sobre'); await db.put('pages', Object.assign({}, sobre, { status: 'modified', title: 'Sobre (rascunho ainda não publicado)' })); db.fechar(); }, [ch.pubkey]);
+    // mesmo site.json/paths de man2 (nenhum arquivo mudou de verdade), só um evento novo, mais recente
+    const man3 = F.manifest(ch, { paths: paths2, servers, created_at: F.agora() + 20 });
+    f.relay('r-atual', { eventos: [man3, man2, k0] });
+    const r = await reconstruir();
+    assert(r.r.desfecho === 'carregado' && r.r.concorrente === false, JSON.stringify([r.r.desfecho, r.r.concorrente]));
+    assert(r.r.resumo.sobrescritos.length === 0, JSON.stringify(r.r.resumo.sobrescritos));
+    const sobre = r.banco.pages.find(x => x.id === 'p-sobre');
+    assert(sobre.status === 'modified' && sobre.title === 'Sobre (rascunho ainda não publicado)', 'rascunho local foi perdido: ' + JSON.stringify(sobre));
+    assert(r.banco.published.manifest_event_id === man3.id, 'published não acompanhou o evento mais novo');
   });
 
   // --- herdado (o caso do Bostil) -------------------------------------------

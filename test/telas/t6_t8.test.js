@@ -290,6 +290,27 @@ module.exports = async function (ctx, u) {
     return 'apagado dos 2 servidores e fora do mapa';
   });
 
+  await it('16: contador de uso de mídia enxerga a imagem de CAPA de um artigo, não só a citada no corpo', async () => {
+    const { p, ch } = await sessao({ relays: [f.ws('m-ok')] });
+    await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6a');
+    await escolherArquivo(p.pg, 'capa.jpg', EXIF, 'image/jpeg');
+    await p.pg.click('#t6a-adicionar'); await p.pg.waitForSelector('#t6-tabela');
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    const media = banco.media[0];
+    await p.pg.evaluate(async ([pubkey, mediaId]) => {
+      const db = await Db.abrir(pubkey);
+      const artigo = (await db.getAll('posts'))[0];   // criado por sessao(), corpo sem citar a imagem
+      await db.put('posts', Object.assign({}, artigo, { cover_media_id: mediaId }));
+      db.fechar();
+    }, [ch.pubkey, media.id]);
+    await p.pg.click('#t6-tabela .ligacao');
+    await p.pg.waitForSelector('#t6b-remover');
+    const modal = await p.pg.textContent('#modal-corpo, .modal-corpo');
+    assert(/ainda usam este arquivo: 1/.test(modal), 'devia contar o artigo pela capa, não só pelo corpo: ' + modal.slice(0, 200));
+    await p.pg.close();
+    return 'capa contada: ' + modal.match(/ainda usam este arquivo: \d+/)[0];
+  });
+
   await it('herdados (T-7): um caminho publicado por outra ferramenta continua no manifest depois de o app publicar', async () => {
     const ch = F.chave();
     const sj = F.siteExemplo(ch, { servers: SERVIDORES });

@@ -186,7 +186,7 @@ const Textos = Object.freeze({
   listas: {
     busca: 'Buscar por título', buscaRotulo: 'Buscar',
     acoes: { editar: 'Editar', ver: 'Ver', remover: 'Remover', desfazer: 'Desfazer remoção', excluir: 'Excluir', inicio: 'Definir como Início', confirmar: 'Confirmar', cancelar: 'Cancelar' },
-    menuSim: '✓', menuNao: '—', semData: '—'
+    verOnline: 'Ver online ↗', menuSim: '✓', menuNao: '—', semData: '—'
   },
 
   // 14 T4a / T5a — editor
@@ -201,15 +201,19 @@ const Textos = Object.freeze({
       data: 'Data', dataApoio: 'O leitor vê só o dia (a hora de publicação fica escondida).',
       resumo: 'Resumo', resumoApoio: 'Aparece na lista do blog; se vazio, o primeiro parágrafo.',
       etiquetas: 'Etiquetas', etiquetasApoio: 'Separadas por vírgula. Só para exibir — páginas por etiqueta vêm numa fase seguinte.',
-      capa: 'Imagem de capa', capaNenhuma: '(nenhuma)', capaApoio: 'Escolha da biblioteca de Mídia.',
+      capa: 'Imagem de capa', capaNenhuma: '(nenhuma)', capaApoio: 'Escolha da biblioteca de Mídia.', capaEscolher: 'Escolher…',
       menu: 'Mostrar no menu'
     },
     ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', lista: 'Lista', citacao: 'Citação', codigo: 'Código' },
     modelos: { negrito: 'texto em negrito', italico: 'texto em itálico', titulo: 'Título', link: 'texto do link', lista: 'item', citacao: 'citação', codigo: 'código' },
     imagem: {
       titulo: 'Inserir imagem da biblioteca',
-      nenhuma: 'Ainda não há imagens na biblioteca. Enviar mídia chega no marco M4 desta versão de desenvolvimento.',
-      inserir: 'Inserir', fechar: 'Fechar'
+      nenhuma: 'Ainda não há imagens na biblioteca. Envie uma em Mídia.',
+      inserir: 'Inserir', comLink: 'Inserir com link…', linkTitulo: 'Endereço do link', linkPlaceholder: 'https://', linkConfirmar: 'Inserir com link', linkCancelar: 'Cancelar', fechar: 'Fechar'
+    },
+    capaModal: {
+      titulo: 'Escolher imagem de capa', nenhuma: 'Ainda não há imagens na biblioteca. Envie uma em Mídia.',
+      semCapa: '(nenhuma)', enviarNova: 'Enviar nova imagem…'
     },
     previa: { titulo: 'Pré-visualização', rotulo: 'Pré-visualização do conteúdo (isolada)' },
     lateral: {

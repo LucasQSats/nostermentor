@@ -112,6 +112,12 @@ const Rede = (function () {
     return s;
   }
   function ehGerado(path, gerados) { return gerados.has(path) || path.indexOf('/tema/') === 0; }
+  // O que importa para o dono é o conteúdo publicado (path → sha256), não o
+  // id/created_at do evento — dois manifests com o mesmo mapa não são uma
+  // divergência real, ainda que relays inconsistentes na regra de empate de
+  // evento substituível (NIP-01) tenham feito o id "vencedor" mudar.
+  function chaveMapaDePaths(paths) { return Object.keys(paths).sort().map(p => p + '=' + paths[p]).join('\n'); }
+  function mesmoConteudo(a, b) { return chaveMapaDePaths(lerManifest(a).paths) === chaveMapaDePaths(lerManifest(b).paths); }
   function serversPorHash(mapa) {
     const s = {};
     for (const p of Object.keys(mapa.paths)) s[mapa.paths[p]] = mapa.servers.slice();
@@ -241,7 +247,8 @@ const Rede = (function () {
       return { desfecho: 'sem_site', placar: placar, tinhaConteudo: tinhaConteudo, siteLocal: siteLocal, metadata: porKind };
     }
     let concorrente = false, redeAntiga = false;
-    if (publicadoLocal && publicadoLocal.manifest_event && publicadoLocal.manifest_event_id !== manifest.id) {
+    if (publicadoLocal && publicadoLocal.manifest_event && publicadoLocal.manifest_event_id !== manifest.id
+        && !mesmoConteudo(manifest, publicadoLocal.manifest_event)) {
       if (Saude.comparar(manifest, publicadoLocal.manifest_event) < 0) redeAntiga = true;   // o local publicou algo que hoje nenhum relay que respondeu tem
       else concorrente = true;                                                              // 13 §6.3 item 5
     }

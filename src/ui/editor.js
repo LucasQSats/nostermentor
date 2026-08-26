@@ -80,12 +80,16 @@ const Editor = (function () {
     const inDescricao = h('input', { type: 'text', id: 'ed-descricao', value: reg.description || '', disabled: removido });
     const taCorpo = h('textarea', { id: 'ed-corpo', rows: 14, spellcheck: 'true', disabled: removido });
     taCorpo.value = reg.body || '';
-    let inData = null, inResumo = null, inEtiquetas = null, selCapa = null, cbMenu = null;
+    let inData = null, inResumo = null, inEtiquetas = null, capaBloco = null, spanCapaAtual = null, cbMenu = null;
+    let capaId = reg.cover_media_id || null;
+    function rotuloCapa() { const m = imagens.find(x => x.id === capaId); return m ? m.path : C.capaNenhuma; }
     if (tipo === 'post') {
       inData = h('input', { type: 'date', id: 'ed-data', value: Modelo.formatarData(reg.date), disabled: removido });   // E7: ler só .value
       inResumo = h('textarea', { id: 'ed-resumo', rows: 2, disabled: removido }); inResumo.value = reg.excerpt || '';
       inEtiquetas = h('input', { type: 'text', id: 'ed-etiquetas', value: (reg.tags || []).join(', '), disabled: removido });
-      selCapa = h('select', { id: 'ed-capa', disabled: removido }, h('option', { value: '' }, C.capaNenhuma), imagens.map(m => h('option', { value: m.id, selected: reg.cover_media_id === m.id }, m.path + (m.alt ? ' — ' + m.alt : ''))));
+      spanCapaAtual = h('span', { id: 'ed-capa-atual' }, rotuloCapa());
+      capaBloco = h('div', { class: 'linha-capa' }, spanCapaAtual, ' ',
+        h('button', { type: 'button', id: 'ed-capa-escolher', class: 'secundario', disabled: removido, onclick: function () { escolherCapa(); } }, C.capaEscolher));
     } else cbMenu = h('input', { type: 'checkbox', id: 'ed-menu', checked: reg.in_menu !== false, disabled: removido });
 
     function coletar() {
@@ -100,9 +104,27 @@ const Editor = (function () {
         c.date = dia + hora;
         c.excerpt = inResumo.value.trim();
         c.tags = Array.from(new Set(inEtiquetas.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean))).slice(0, 50);
-        c.cover_media_id = selCapa.value || null;
+        c.cover_media_id = capaId;
       } else c.in_menu = cbMenu.checked;
       return c;
+    }
+    // 19(a): modal com miniaturas da biblioteca (mesmo padrão de inserirImagem);
+    // "Enviar nova" leva a T6 — sair do editor já salva o rascunho (desmontar()).
+    function escolherCapa() {
+      const M = T.capaModal;
+      if (!imagens.length) { Shell.modal({ titulo: M.titulo, conteudo: h('p', { class: 'alerta', id: 'capa-sem-imagens' }, M.nenhuma) }); return; }
+      function definir(id) {
+        capaId = id; spanCapaAtual.textContent = rotuloCapa(); Shell.fecharModal();
+        e.sujo = JSON.stringify(coletar()) !== e.instantaneo;
+        salvar(e, { silencioso: true, motivo: 'auto' });
+      }
+      const grade = h('div', { class: 'grade-capas' },
+        h('button', { type: 'button', class: 'capa-opcao' + (!capaId ? ' selecionada' : ''), onclick: function () { definir(null); } }, M.semCapa),
+        imagens.map(m => h('button', { type: 'button', class: 'capa-opcao' + (capaId === m.id ? ' selecionada' : ''), 'data-media-id': m.id, onclick: function () { definir(m.id); } },
+          m.bytes ? h('img', { src: URL.createObjectURL(m.bytes), alt: m.alt || '' }) : null,
+          h('span', {}, m.path))));
+      const rodape = h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.fecharModal(); Shell.ir('t6', { enviar: true }); } }, M.enviarNova));
+      Shell.modal({ titulo: M.titulo, conteudo: [grade, rodape] });
     }
     e.instantaneo = JSON.stringify(coletar());
 
@@ -122,7 +144,7 @@ const Editor = (function () {
     const pStatus = h('p', { id: 'ed-status', class: 'apoio', 'aria-live': 'polite' });
     const pErro = h('p', { id: 'ed-erro', class: 'erro', role: 'alert', hidden: true });
     const acoesEstado = h('div', { id: 'ed-acoes-estado' });
-    e.el = { inTitulo, inSlug, inDescricao, taCorpo, inData, inResumo, inEtiquetas, selCapa, cbMenu, spanEstado, pUltima, btnSalvar, pStatus, pErro, acoesEstado };
+    e.el = { inTitulo, inSlug, inDescricao, taCorpo, inData, inResumo, inEtiquetas, cbMenu, spanEstado, pUltima, btnSalvar, pStatus, pErro, acoesEstado };
     e.coletar = coletar; e.validar = validar; e.TL = TL;
 
     function renderAcoesEstado() {
@@ -168,8 +190,20 @@ const Editor = (function () {
     function inserirImagem() {
       const M = T.imagem;
       if (!imagens.length) { Shell.modal({ titulo: M.titulo, conteudo: h('p', { class: 'alerta', id: 'sem-imagens' }, M.nenhuma) }); return; }
+      function marcacaoDe(m) { return '![' + (m.alt || '').replace(/[\[\]]/g, '') + '](' + m.path + ')'; }
+      // 19(b): "[![alt](img)](url)" já é Markdown válido hoje (renderizado e
+      // sanitizado como qualquer link/imagem) — este formulário só poupa o
+      // dono de escrever a sintaxe à mão.
+      function formLink(m) {
+        const inUrl = h('input', { type: 'text', id: 'img-link-url', placeholder: M.linkPlaceholder });
+        Shell.modal({ titulo: M.linkTitulo, conteudo: h('div', {}, h('label', {}, M.linkTitulo), inUrl,
+          h('div', { class: 'acoes' },
+            h('button', { type: 'button', id: 'img-link-confirmar', onclick: function () { const url = inUrl.value.trim() || 'https://'; Shell.fecharModal(); envolver('[' + marcacaoDe(m) + '](' + url + ')', '', ''); } }, M.linkConfirmar),
+            h('button', { type: 'button', class: 'secundario', id: 'img-link-cancelar', onclick: function () { Shell.fecharModal(); } }, M.linkCancelar))) });
+      }
       const lista = h('ul', { class: 'lista-imagens' }, imagens.map(m => h('li', {}, h('code', {}, m.path), ' ', h('span', { class: 'apoio' }, m.alt || ''), ' ',
-        h('button', { type: 'button', class: 'secundario escolher-imagem', 'data-path': m.path, onclick: function () { Shell.fecharModal(); envolver('![' + (m.alt || '').replace(/[\[\]]/g, '') + '](' + m.path + ')', '', ''); } }, M.inserir))));
+        h('button', { type: 'button', class: 'secundario escolher-imagem', 'data-path': m.path, onclick: function () { Shell.fecharModal(); envolver(marcacaoDe(m), '', ''); } }, M.inserir), ' ',
+        h('button', { type: 'button', class: 'secundario com-link', 'data-path': m.path, onclick: function () { formLink(m); } }, M.comLink))));
       Shell.modal({ titulo: M.titulo, conteudo: lista });
     }
     const M = T.modelos;
@@ -198,16 +232,21 @@ const Editor = (function () {
       tipo === 'post' ? [
         h('div', { class: 'duas-colunas-campos' },
           h('div', {}, h('label', { for: 'ed-data' }, C.data), inData, h('p', { class: 'apoio' }, C.dataApoio)),
-          h('div', {}, h('label', { for: 'ed-capa' }, C.capa), selCapa, h('p', { class: 'apoio' }, C.capaApoio))),
+          h('div', {}, h('label', {}, C.capa), capaBloco, h('p', { class: 'apoio' }, C.capaApoio))),
         h('label', { for: 'ed-resumo' }, C.resumo), inResumo, h('p', { class: 'apoio' }, C.resumoApoio),
         h('label', { for: 'ed-etiquetas' }, C.etiquetas), inEtiquetas, h('p', { class: 'apoio' }, C.etiquetasApoio)
       ] : h('label', { class: 'inline', for: 'ed-menu' }, cbMenu, C.menu),
       h('label', { for: 'ed-corpo' }, C.conteudo), ferramentas, taCorpo, h('p', { class: 'apoio' }, C.conteudoApoio));
+    // 19(d): só faz sentido depois de já ter ido ao ar ao menos uma vez.
+    const jaPublicado = !novo && (reg.status === 'published' || reg.status === 'modified');
+    const gateway = Modelo.GATEWAYS.find(g => g.principal);
+    const linkVerOnline = jaPublicado ? h('a', { id: 'ed-ver-online', class: 'ligacao', href: Modelo.urlDoSite(s.npub, gateway.host) + Listas.caminhoDe(tipo, reg, site).replace(/^\//, ''), target: '_blank', rel: 'noopener noreferrer' }, Textos.listas.verOnline) : null;
     const lateral = h('aside', { class: 'editor-lateral' },
       h('p', {}, T.lateral.estado + ': ', spanEstado), pUltima,
       btnSalvar, h('p', { class: 'apoio', id: 'ed-legenda' }, Textos.fixos.salvoNaoBackup), pStatus, pErro,
       h('button', { type: 'button', id: 'ed-publicar', class: 'secundario', onclick: function () { Shell.ir('t8'); } }, T.lateral.publicar),
       h('button', { type: 'button', id: 'ed-ver', class: 'secundario', onclick: async function () { const c = coletar(); await verComoFicara(db, Object.assign({}, e.reg, c), tipo); } }, T.lateral.ver),
+      linkVerOnline ? h('p', {}, linkVerOnline) : null,
       acoesEstado);
     const titulo = novo ? (tipo === 'page' ? T.titulos.novaPagina : T.titulos.novoArtigo) : (tipo === 'page' ? T.titulos.editarPagina : T.titulos.editarArtigo);
     raiz.appendChild(h('section', { id: 'editor', class: 'editor', 'data-tipo': tipo },

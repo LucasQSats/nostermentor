@@ -199,7 +199,11 @@
 
     // --- T6: a biblioteca -------------------------------------------------
     async function remover(m) {
-      const usada = (await db.getAll('pages')).concat(await db.getAll('posts')).filter(r => String(r.body || '').indexOf(m.path) !== -1);
+      const pages = await db.getAll('pages');
+      const posts = await db.getAll('posts');
+      const noCorpo = r => String(r.body || '').indexOf(m.path) !== -1;
+      const comoCapa = r => r.cover_media_id === m.id;
+      const usada = pages.filter(noCorpo).concat(posts.filter(r => noCorpo(r) || comoCapa(r)));
       const TB = Textos.t6b;
       const modal = Shell.modal({ titulo: texto(TB.titulo, { p: m.path }), conteudo: [
         h('p', {}, TB.tirar), h('p', {}, TB.apagar),

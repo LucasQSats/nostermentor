@@ -26,6 +26,19 @@ module.exports = async function (ctx, u) {
     await p.pg.waitForSelector('#t3');
     return p;
   }
+  // Como sessao(), mas com uma chave própria e o banco apagado no fim — para
+  // não acumular estado que os testes sequenciais desta suíte (mesmo `ch`)
+  // dependem em ordem exata (ex.: "últimos artigos" do T3).
+  async function sessaoIsolada(extra) {
+    const chI = F.chave();
+    const p = await abrir(ctx, u.url);
+    await semearSite(p.pg, chI, { relays: relaysMortos, servers: [], extra: extra || [] });
+    await entrarCom(p.pg, chI.nsec);
+    await p.pg.waitForSelector('#continuar-sem-rede', { timeout: 60000 });
+    await p.pg.click('#continuar-sem-rede');
+    await p.pg.waitForSelector('#t3');
+    return { p, ch: chI };
+  }
   const limparBanco = (pg) => pg.evaluate(async (pk) => { await Db.apagar(pk); }, ch.pubkey);
 
   let idPagina = null, idArtigo = null;
@@ -77,7 +90,11 @@ module.exports = async function (ctx, u) {
     await p.pg.fill('#ed-data', '2026-08-20');
     await p.pg.fill('#ed-resumo', 'Resumo do primeiro');
     await p.pg.fill('#ed-etiquetas', 'Nostr, teste , nostr,,');
-    await p.pg.selectOption('#ed-capa', 'm-teste');
+    await p.pg.click('#ed-capa-escolher');
+    await p.pg.waitForSelector('#modal');
+    await p.pg.click('.capa-opcao[data-media-id="m-teste"]');
+    assert(!(await p.pg.$('#modal')), 'modal da capa não fechou');
+    assert((await p.pg.textContent('#ed-capa-atual')) === '/img/foto.png', await p.pg.textContent('#ed-capa-atual'));
     await p.pg.fill('#ed-corpo', 'Texto.');
     await p.pg.click('.ferramenta[data-acao="imagem"]');
     await p.pg.waitForSelector('#modal');
@@ -104,6 +121,28 @@ module.exports = async function (ctx, u) {
     await p.pg.screenshot({ path: u.captura('t5-lista'), fullPage: true });
     assert((await p.pg.textContent('#btn-publicar')) === 'Publicar (4)', await p.pg.textContent('#btn-publicar'));   // 1 página + 2 artigos + 1 mídia rascunho
     assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.close();
+  });
+
+  await it('19(b): "Imagem" → "Inserir com link…" produz [![alt](img)](url), Markdown de imagem clicável', async () => {
+    const midia = { id: 'm-link', path: '/img/quadro.png', mime: 'image/png', size: 70, sha256: 'f'.repeat(64), width: 1, height: 1, alt: 'Um quadro', caption: '', bytes: null, status: 'draft', servers: [], removal: null, metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload', created_at: '2026-08-26T00:00:00Z', updated_at: '2026-08-26T00:00:00Z', previous_status: null };
+    const { p, ch: chI } = await sessaoIsolada([{ op: 'put', store: 'media', valor: midia }]);
+    await p.pg.evaluate(async ([pk, b64]) => { const db = await Db.abrir(pk); const m = await db.get('media', 'm-link'); const bin = atob(b64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); m.bytes = new Blob([u8], { type: 'image/png' }); await db.put('media', m); db.fechar(); }, [chI.pubkey, PNG_B64]);
+    await p.pg.click('#menu .item[data-tela="t5"]'); await p.pg.waitForSelector('#t5');
+    await p.pg.click('#novo-registro'); await p.pg.waitForSelector('#editor[data-tipo="post"]');
+    await p.pg.fill('#ed-titulo', 'Artigo com link'); await p.pg.fill('#ed-corpo', 'Antes.');
+    await p.pg.click('.ferramenta[data-acao="imagem"]'); await p.pg.waitForSelector('#modal');
+    await p.pg.click('.com-link[data-path="/img/quadro.png"]');
+    await p.pg.waitForSelector('#img-link-url');
+    await p.pg.fill('#img-link-url', 'https://exemplo.test/original.png');
+    await p.pg.click('#img-link-confirmar');
+    assert(!(await p.pg.$('#modal')), 'modal não fechou');
+    const corpo = await p.pg.inputValue('#ed-corpo');
+    assert(corpo === 'Antes.[![Um quadro](/img/quadro.png)](https://exemplo.test/original.png)', corpo);
+    await p.pg.click('#ed-salvar'); await statusSalvo(p.pg);
+    const b = await lerBanco(p.pg, chI.pubkey);
+    assert(b.posts.length === 1 && b.posts[0].body === corpo, 'não persistiu: ' + JSON.stringify(b.posts.map(x => x.body)));
+    await p.pg.evaluate(async (pk) => { await Db.apagar(pk); }, chI.pubkey);
     await p.pg.close();
   });
 
@@ -179,6 +218,24 @@ module.exports = async function (ctx, u) {
     await p.pg.click('.filtro[data-filtro="todos"]'); assert((await contar()) === 2, 'todas');
     await p.pg.fill('#busca', 'ANTIGA'); assert((await contar()) === 1, 'busca');
     assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.close();
+  });
+
+  await it('19(d): "Ver online" aparece na lista e no editor para quem já foi publicado (não para rascunho), com o endereço público certo', async () => {
+    const pub = Modelo_pagina('Já publicada', 'ja-publicada', 'published');
+    const rasc = Modelo_pagina('Rascunho', 'rascunho-nunca-publicado', 'draft');
+    const { p, ch: chI } = await sessaoIsolada([{ op: 'put', store: 'pages', valor: pub }, { op: 'put', store: 'pages', valor: rasc }]);
+    await p.pg.click('#menu .item[data-tela="t4"]'); await p.pg.waitForSelector('#t4');
+    const esperado = 'https://' + chI.npub + '.nsite.lol/ja-publicada.html';
+    const linkPub = await p.pg.getAttribute('#lista-pages tr[data-id="' + pub.id + '"] .acao-ver-online', 'href');
+    assert(linkPub === esperado, linkPub);
+    assert(!(await p.pg.$('#lista-pages tr[data-id="' + rasc.id + '"] .acao-ver-online')), 'rascunho não devia ter link');
+    await p.pg.click('#lista-pages tr[data-id="' + pub.id + '"] .acao-editar'); await p.pg.waitForSelector('#editor');
+    assert((await p.pg.getAttribute('#ed-ver-online', 'href')) === esperado, 'link no editor');
+    await p.pg.click('#ed-voltar'); await p.pg.waitForSelector('#lista-pages');
+    await p.pg.click('#lista-pages tr[data-id="' + rasc.id + '"] .acao-editar'); await p.pg.waitForSelector('#editor');
+    assert(!(await p.pg.$('#ed-ver-online')), 'rascunho não devia ter link no editor');
+    await p.pg.evaluate(async (pk) => { await Db.apagar(pk); }, chI.pubkey);
     await p.pg.close();
   });
 
