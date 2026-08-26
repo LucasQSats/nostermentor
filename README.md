@@ -10,13 +10,16 @@ Gerenciador de publicação de sites e blogs no protocolo **nsite**
 
 ## Estado
 
-**Marco M2 em curso (2026-08-26)** — ler da rede: depois de entrar (T1), o
-painel reconstrói o site a partir da npub (T2: manifest `15128` nos relays,
-`site.json` com hash conferido, arquivos herdados de sites publicados por
-outra ferramenta, mesclagem por `id` com o que já estava no navegador) e
-mostra o Início (T3: "seu site está em N de M relays", alterações, backup,
-atalhos). M1 (esqueleto, T0/T1, moldura) está concluído. Nada é publicado
-ainda (M4); editor e backup chegam no M3.
+**Marco M3 concluído (2026-08-26)** — editar e guardar: listas de Páginas
+(T4) e Artigos (T5) com os quatro estados e ações (remover / desfazer /
+excluir / definir como Início), o editor (T4a/T5a: Markdown com botões +
+pré-visualização isolada em iframe de origem opaca, gravação automática,
+slug travado após a publicação com aliases), o gerador determinístico do
+site (tema padrão em Mustache, `site.json`) e o Backup (T9: exportar com
+tripwire de nsec, importar com resumo, juntar ou substituir). M1
+(esqueleto, T0/T1, moldura) e M2 (ler da rede: T2/T3) estão concluídos.
+Nada é publicado ainda — o botão "Publicar" acende, mas leva a um aviso
+honesto: publicar é o M4.
 
 ```
 ./gera_bundle.sh      # (só se mudar a versão do nostr-tools) regenera src/libs/nostr-tools.inline.js

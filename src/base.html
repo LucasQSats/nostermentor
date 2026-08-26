@@ -83,6 +83,72 @@ label.inline{display:inline-flex;gap:6px;align-items:center;margin:8px 0}
 .lista-artigos .data{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--suave)}
 .cartao.apoie{grid-column:1/-1;background:#f0f6fc}
 #faixa button.ligacao{margin-left:6px}
+/* M3 — listas (T4/T5) */
+.cabeca-lista{display:flex;align-items:center;gap:16px;margin-bottom:10px}
+.cabeca-lista h1{margin:0}
+.barra-lista{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:0 0 12px}
+.filtros{display:flex;flex-wrap:wrap;gap:4px}
+.filtros .filtro{background:none;border:0;color:var(--acento);padding:3px 8px;border-radius:3px}
+.filtros .filtro.atual{background:var(--acento);color:#fff}
+#busca{padding:6px 9px;border:1px solid #8c8f94;border-radius:3px;min-width:220px}
+table.lista{width:100%;border-collapse:collapse;background:var(--papel);border:1px solid var(--linha);font-size:14px}
+table.lista th,table.lista td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--linha);vertical-align:top}
+table.lista th{background:#f6f7f7;font-weight:600}
+table.lista tr.removida td.titulo{text-decoration:line-through;color:var(--suave)}
+table.lista .acoes-linha button.ligacao{margin-right:10px}
+table.lista td.data{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap;color:var(--suave)}
+.estado{display:inline-block;padding:1px 8px;border-radius:10px;font-size:13px;border:1px solid transparent}
+.estado.draft{background:#f0f0f1;color:#50575e}
+.estado.published{background:#edfaef;color:#007017;border-color:#b8e6bf}
+.estado.modified{background:var(--alerta-fundo);color:#8a6d00;border-color:var(--alerta-borda)}
+.estado.removed{background:var(--erro-fundo);color:var(--erro);border-color:#f1acac}
+.selo{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--acento);color:var(--acento);border-radius:3px;font-size:12px}
+.confirmacao{background:var(--alerta-fundo);border:1px solid var(--alerta-borda);padding:8px 10px;border-radius:3px;margin:4px 0}
+.confirmacao .alerta{margin:0 0 8px;background:none;border:0;padding:0}
+.confirmacao button{margin-right:8px}
+/* M3 — editor (T4a/T5a), pensado para 1200×600 (14 §0.10) */
+.editor-cabeca{display:flex;align-items:baseline;gap:16px;margin-bottom:8px}
+.editor-cabeca h1{margin:0}
+.editor-grade{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 170px;gap:16px;align-items:start}
+.editor-campos label{margin:10px 0 4px;font-weight:600}
+.editor-campos label.inline{font-weight:400}
+.editor-campos .apoio{margin:2px 0 0}
+.editor-campos textarea{width:100%;padding:7px 9px;border:1px solid #8c8f94;border-radius:3px;font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:14px;line-height:1.45}
+.editor-campos select{width:100%;padding:6px 9px;border:1px solid #8c8f94;border-radius:3px;background:#fff}
+.editor-campos input[type=date]{padding:6px 9px;border:1px solid #8c8f94;border-radius:3px;width:100%}
+.linha-caminho{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.linha-caminho label{margin:10px 0 4px}
+.linha-caminho .caminho{display:inline-flex;align-items:center;gap:2px;flex:1;min-width:220px}
+.linha-caminho .caminho input{width:auto;flex:1;min-width:120px}
+.duas-colunas-campos{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ferramentas{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}
+.ferramentas .ferramenta{padding:3px 8px;font-size:13px}
+.editor-previa{position:sticky;top:0}
+.editor-previa h2{margin:10px 0 4px;font-size:14px;font-weight:600}
+#ed-previa{width:100%;height:470px;border:1px solid var(--linha);background:#fff;border-radius:3px}
+.editor-lateral{background:var(--papel);border:1px solid var(--linha);border-radius:4px;padding:12px;position:sticky;top:0}
+.editor-lateral p{margin:0 0 8px}
+.editor-lateral button{width:100%;margin:0 0 8px}
+.editor-lateral button.ligacao{width:auto;margin-right:10px}
+#ed-status{min-height:1.4em}
+/* M3 — modal */
+#modal-fundo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+#modal{background:var(--papel);border-radius:4px;width:560px;max-width:100%;max-height:100%;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+#modal.largo{width:1100px;height:100%}
+.modal-cabeca{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--linha)}
+.modal-cabeca h2{margin:0;font-size:17px}
+.modal-corpo{padding:12px 16px;overflow:auto;flex:1;min-height:0;display:flex;flex-direction:column}
+#previa-completa{width:100%;flex:1;min-height:400px;border:1px solid var(--linha);background:#fff}
+.lista-imagens{list-style:none;margin:0;padding:0}
+.lista-imagens li{padding:6px 0;border-bottom:1px solid var(--linha)}
+/* M3 — backup (T9) */
+#t9{max-width:1100px}
+.resumo-import p{margin:0 0 6px}
+.ok{color:#007017}
+a.botao-link{display:inline-block;border:1px solid var(--acento);background:var(--acento);color:#fff;border-radius:3px;padding:7px 14px;text-decoration:none}
+a.botao-link:hover{background:var(--acento-escuro)}
+#exp-estimativa{margin-top:8px}
+input[type=search]{font:inherit}
 </style>
 <body>
 <div id="semjs">

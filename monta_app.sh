@@ -21,7 +21,7 @@ HTML="$SAIDA/nostermentor.html"
 LIBS=(nostr-tools.inline.js purify.min.js marked.umd.js mustache.min.js)
 CORE=$(ls src/core/*.js 2>/dev/null | sort)
 TEMA=$(find src/tema -name '*.js' 2>/dev/null | sort || true)
-UI="src/ui/shell.js $(ls src/ui/t*.js | sort)"
+UI="src/ui/shell.js $(ls src/ui/*.js | grep -v '/shell\.js$' | sort)"
 LOGICA="src/textos.js $CORE $TEMA $UI src/arranque.js"
 
 script() { printf '<script>\n'; cat "$1"; printf '\n</script>\n'; }

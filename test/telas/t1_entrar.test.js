@@ -225,11 +225,11 @@ module.exports = async function (ctx, u) {
   });
 
   // --- moldura e stubs (o que M1 promete além de T1) --------------------------
-  await it('moldura: menu leva às telas (T3 real desde M2; as demais "ainda não implementado"); Publicar/Backup abrem stubs; rodapé com a versão; "Apoie" abre Ajuda', async () => {
+  await it('moldura: menu leva às telas (T3 real desde M2; T4/T5/T9 desde M3; as demais "ainda não implementado"); Backup abre T9; rodapé com a versão; "Apoie" abre Ajuda', async () => {
     const p = await abrir(ctx, u.url);
     await p.pg.click('#btn-gerar'); await p.pg.check('#copiei'); await p.pg.click('#entrar-nova');
     await p.pg.waitForSelector('#moldura');
-    const esperados = [['t3', 'Início', false], ['t4', 'Páginas', true], ['t5', 'Artigos', true], ['t6', 'Mídia', true], ['t7', 'Configurações', true], ['t11', 'Ajuda e Sobre', true]];
+    const esperados = [['t3', 'Início', false], ['t4', 'Páginas', false], ['t5', 'Artigos', false], ['t6', 'Mídia', true], ['t7', 'Configurações', true], ['t11', 'Ajuda e Sobre', true]];
     for (const [tela, nome, stub] of esperados) {
       await p.pg.click(`#menu .item[data-tela="${tela}"]`);
       await p.pg.waitForSelector('#conteudo h1', { timeout: 10000 });   // T3 monta depois de ler o banco (assíncrona desde M2)
@@ -238,7 +238,7 @@ module.exports = async function (ctx, u) {
     }
     await p.pg.click('#btn-backup');
     await p.pg.waitForSelector('#conteudo h1');
-    assert((await p.pg.textContent('#conteudo h1')) === 'Backup');
+    assert((await p.pg.textContent('#conteudo h1')) === 'Backup' && !(await p.pg.$('#conteudo .stub')));
     await p.pg.click('#rodape .ligacao');
     await p.pg.waitForSelector('#conteudo h1');
     assert((await p.pg.textContent('#conteudo h1')) === 'Ajuda e Sobre');

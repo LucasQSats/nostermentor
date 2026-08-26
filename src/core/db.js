@@ -75,11 +75,25 @@ const Db = (function () {
     function put(store, valor, chave) { return escrever([{ op: 'put', store: store, valor: valor, chave: chave }]); }
     function del(store, chave) { return escrever([{ op: 'del', store: store, chave: chave }]); }
     function getMeta(key) { return get('meta', key).then(r => (r ? r.value : undefined)); }
+    // Soma n (padrão 1) a um contador do meta numa transação só (14 §2: "N não exportadas")
+    function incrementar(key, n) {
+      return new Promise(function (resolve, reject) {
+        let t;
+        try { t = tx('meta', 'readwrite'); } catch (e) { return reject(e); }
+        const s = t.objectStore('meta');
+        let valor = 0;
+        const g = s.get(key);
+        g.onsuccess = function () { valor = (g.result && typeof g.result.value === 'number' ? g.result.value : 0) + (typeof n === 'number' ? n : 1); s.put({ key: key, value: valor }); };
+        t.oncomplete = function () { resolve(valor); };
+        t.onerror = function () { reject(t.error || new Error('falha ao gravar')); };
+        t.onabort = function () { reject(t.error || new Error('gravação abortada')); };
+      });
+    }
     function setMeta(key, value) { return put('meta', { key: key, value: value }); }
     function limparTudo() { return escrever(STORES.map(s => ({ op: 'clear', store: s }))); }
     function fechar() { if (aberto) { aberto = false; try { db.close(); } catch (e) {} } }
 
-    return Object.freeze({ nome: nomeBanco, criado: criado, get, getAll, count, porIndice, escrever, put, del, getMeta, setMeta, limparTudo, fechar, estaAberto: () => aberto });
+    return Object.freeze({ nome: nomeBanco, criado: criado, get, getAll, count, porIndice, escrever, put, del, getMeta, setMeta, incrementar, limparTudo, fechar, estaAberto: () => aberto });
   }
 
   function abrir(pubkey) {

@@ -1,8 +1,9 @@
 /* core/site_json.js — leitura do espelho estruturado /nostermentor/site.json
    (13 §6). É DADO vindo da rede (02 G.0): tudo passa por lista branca de
    campos e tipos; o que não bate é descartado, nunca "lido o que der".
-   Versão maior que a do app é recusada com mensagem (13 §7.4). A escrita
-   (gerar o site.json) chega no M4. */
+   Versão maior que a do app é recusada com mensagem (13 §7.4). Desde M3,
+   `escrever` produz o texto DETERMINÍSTICO (13 §5.2): chaves na ordem de
+   13 §6.1, arrays ordenados, JSON compacto, sem data de geração. */
 const SiteJson = (function () {
   'use strict';
 
@@ -92,5 +93,45 @@ const SiteJson = (function () {
     return { ok: true, version: j.version, dados: { site: site, pages: pages, posts: posts, media: media, theme: theme }, ignorados: ignorados };
   }
 
-  return Object.freeze({ CAMINHO, FORMATO, decodificar, ler });
+  // --- escrita (13 §6.1) --------------------------------------------------
+  function ordenarChaves(v) {
+    if (Array.isArray(v)) return v.map(ordenarChaves);
+    if (!obj(v)) return v;
+    const o = {};
+    for (const k of Object.keys(v).sort()) o[k] = ordenarChaves(v[k]);
+    return o;
+  }
+  const s200 = v => str(v, 200), s1000 = v => str(v, 1000);
+  function escreverSite(s) {
+    const o = {
+      pubkey: s.pubkey, npub: s.npub, title: s200(s.title), description: s1000(s.description), language: str(s.language, 20) || 'pt-BR',
+      profile: { name: s200(s.profile && s.profile.name), about: str(s.profile && s.profile.about, 2000), picture_media_id: idOuNulo(s.profile && s.profile.picture_media_id) },
+      home: { mode: s.home && s.home.mode === 'page' ? 'page' : 'blog', page_id: idOuNulo(s.home && s.home.page_id), latest_posts: inteiro(s.home && s.home.latest_posts, 5, 0, 100) },
+      blog: { prefix: Modelo.PREFIXO_BLOG, title: str(s.blog && s.blog.title, 100) || 'Blog' },
+      menu: arr(s.menu).map(lerItemMenu).filter(Boolean),
+      theme: { id: str(s.theme && s.theme.id, 50) || 'padrao', version: inteiro(s.theme && s.theme.version, 1, 1), options: ordenarChaves(obj(s.theme && s.theme.options) ? s.theme.options : {}) },
+      donations: { lightning_address: s200(s.donations && s.donations.lightning_address), support_block: !!(s.donations && s.donations.support_block === true), footer_credit: !(s.donations && s.donations.footer_credit === false) },
+      privacy: { show_publish_time: !!(s.privacy && s.privacy.show_publish_time === true) }
+    };
+    if (s.discovery && eStr(s.discovery.canonical_base)) o.discovery = { canonical_base: s.discovery.canonical_base.slice(0, 300) };
+    o.network = { relays: urls(s.network && s.network.relays, 'wss:'), servers: urls(s.network && s.network.servers, 'https:') };
+    return o;
+  }
+  const comum = p => ({ id: p.id, slug: p.slug, aliases: arr(p.aliases).filter(eStr).slice().sort(), title: str(p.title, 300), description: s1000(p.description), body: String(p.body == null ? '' : p.body), body_format: 'markdown' });
+  function escreverPagina(p) { const c = comum(p); c.in_menu = p.in_menu === true; return c; }
+  function escreverArtigo(p) { const c = comum(p); c.date = str(p.date, 25); c.excerpt = str(p.excerpt, 2000); c.tags = arr(p.tags).filter(eStr).map(t => t.toLowerCase()).slice(0, 50); c.cover_media_id = idOuNulo(p.cover_media_id); return c; }
+  function escreverMidia(m) { return { id: m.id, path: m.path, mime: eStr(m.mime) ? m.mime : Modelo.mimePorCaminho(m.path), size: Number.isInteger(m.size) ? m.size : null, sha256: m.sha256, width: Number.isInteger(m.width) ? m.width : null, height: Number.isInteger(m.height) ? m.height : null, alt: str(m.alt, 500), caption: s1000(m.caption) }; }
+  const porSlug = (a, b) => String(a.slug).localeCompare(String(b.slug));
+
+  // dados: { site, pages, posts, media } — só o que se publica (o chamador filtra). → texto
+  function escrever(dados) {
+    const site = escreverSite(dados.site || {});
+    const pages = arr(dados.pages).map(escreverPagina).sort(porSlug);
+    const posts = arr(dados.posts).map(escreverArtigo).sort((a, b) => (String(b.date).localeCompare(String(a.date))) || porSlug(a, b));
+    const media = arr(dados.media).filter(m => m && eStr(m.sha256) && RE_SHA.test(m.sha256)).map(escreverMidia).sort((a, b) => String(a.path).localeCompare(String(b.path)));
+    const saida = { format: FORMATO, version: Modelo.SCHEMA_VERSION, site: site, pages: pages, posts: posts, media: media, theme: site.theme };
+    return JSON.stringify(saida);
+  }
+
+  return Object.freeze({ CAMINHO, FORMATO, decodificar, ler, lerSite, escrever });
 })();

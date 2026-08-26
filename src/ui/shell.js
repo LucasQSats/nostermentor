@@ -57,7 +57,49 @@ const Shell = (function () {
   function montarStub(raiz, params) {
     raiz.appendChild(h('section', { id: params.nome, class: 'stub' },
       h('h1', {}, nomeDaTela(params.nome)),
-      h('p', { class: 'alerta' }, Textos.stub.texto)));
+      h('p', { class: 'alerta' }, (Textos.stub.porTela && Textos.stub.porTela[params.nome]) || Textos.stub.texto)));
+  }
+
+  // Desde M3: os contadores da barra lidos do banco (14 §2) — "Publicar (N)"
+  // = registros com status ≠ published; "Backup: N não exportadas" =
+  // meta.alteracoes_nao_exportadas (13 §1).
+  async function atualizarBarra() {
+    const d = dados;
+    if (!d || !d.db || !d.db.estaAberto()) return;
+    try {
+      const c = await Rede.contagens(d.db);
+      const n = await d.db.getMeta('alteracoes_nao_exportadas');
+      if (d === dados) atualizarContadores({ publicar: c.pendentes, naoExportadas: typeof n === 'number' ? n : 0 });
+    } catch (e) {}
+  }
+  // Toda gravação no banco passa por aqui: sobe o contador e redesenha a barra.
+  async function registrarAlteracao(n) {
+    const d = dados;
+    if (!d || !d.db || !d.db.estaAberto()) return;
+    await d.db.incrementar('alteracoes_nao_exportadas', typeof n === 'number' ? n : 1);
+    await atualizarBarra();
+  }
+
+  // Modal simples (editor: imagem da biblioteca, "ver como ficará"). Sem
+  // innerHTML; fecha por botão, Esc ou clique no fundo. → { fechar }
+  function modal(o) {
+    fecharModal();
+    const corpo = h('div', { id: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': o.titulo || '', class: o.largo ? 'largo' : '' },
+      h('div', { class: 'modal-cabeca' }, h('h2', {}, o.titulo || ''), h('button', { type: 'button', id: 'modal-fechar', class: 'secundario', onclick: fecharModal }, Textos.fixos.fechar)),
+      h('div', { class: 'modal-corpo' }, o.conteudo));
+    const fundo = h('div', { id: 'modal-fundo', onclick: function (ev) { if (ev.target === fundo) fecharModal(); } }, corpo);
+    function aoTeclar(ev) { if (ev.key === 'Escape') fecharModal(); }
+    document.addEventListener('keydown', aoTeclar);
+    fundo.__aoTeclar = aoTeclar;
+    document.body.appendChild(fundo);
+    const b = el('modal-fechar'); if (b) b.focus();
+    return { fechar: fecharModal };
+  }
+  function fecharModal() {
+    const f = el('modal-fundo');
+    if (!f) return;
+    if (f.__aoTeclar) document.removeEventListener('keydown', f.__aoTeclar);
+    f.remove();
   }
 
   function marcarMenu(nome) {
@@ -138,6 +180,7 @@ const Shell = (function () {
     if (!sessao && nome !== 't1') nome = 't1';
     if (sessao && nome === 't1') { trancar(); return; }
     desmontarAtual();
+    fecharModal();
     const def = telas[nome] || { montar: montarStub };
     let raiz;
     if (sessao) {
@@ -178,6 +221,7 @@ const Shell = (function () {
     registrar: registrar, ir: ir, telaAtual: function () { return telaAtual; },
     entrar: entrar, trancar: trancar, temSessao: temSessao, sessao: sessaoPublica, assinar: assinar,
     dados: obterDados, definirDados: definirDados, atualizarSite: atualizarSite,
-    faixa: faixa, limparFaixa: limparFaixa, erro: erro, contadores: atualizarContadores
+    faixa: faixa, limparFaixa: limparFaixa, erro: erro, contadores: atualizarContadores,
+    atualizarBarra: atualizarBarra, registrarAlteracao: registrarAlteracao, modal: modal, fecharModal: fecharModal
   });
 })();

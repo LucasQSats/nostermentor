@@ -10,7 +10,7 @@ const [, , HTML, RES] = process.argv;
 if (!HTML || !RES) { console.error('uso: node test/roda.js <html> <pasta-resultados>'); process.exit(2); }
 fs.mkdirSync(RES, { recursive: true });
 
-const MARCO = 'm2';
+const MARCO = 'm3';
 const SUITES = [
   ['core/chave', require('./core/chave.test.js')],
   ['core/modelo', require('./core/modelo.test.js')],
@@ -19,8 +19,13 @@ const SUITES = [
   ['core/saude', require('./core/saude.test.js')],
   ['core/relay', require('./core/relay.test.js')],
   ['core/rede', require('./core/rede.test.js')],
+  ['core/limpeza', require('./core/limpeza.test.js')],
+  ['core/gerador', require('./core/gerador.test.js')],
+  ['core/backup', require('./core/backup.test.js')],
   ['telas/t1_entrar', require('./telas/t1_entrar.test.js')],
   ['telas/t2_t3', require('./telas/t2_t3.test.js')],
+  ['telas/t4_t5_editor', require('./telas/t4_t5_editor.test.js')],
+  ['telas/t9_backup', require('./telas/t9_backup.test.js')],
   ['rede/bostil', require('./rede/bostil.test.js')],
 ];
 const SO = process.env.NOSTERMENTOR_SUITES ? process.env.NOSTERMENTOR_SUITES.split(',') : null;

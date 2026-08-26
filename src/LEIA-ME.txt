@@ -27,8 +27,11 @@ A chave
   a chave é o dono do site; não existe recuperação.
 
 Estado desta versão
-  Marco M1: entrada com a chave (colar, arquivo ou gerar uma nova). A
-  leitura do site pela rede, o editor, o backup e a publicação chegam nos
-  marcos seguintes.
+  Marcos M1–M3: entrada com a chave (colar, arquivo ou gerar uma nova),
+  leitura do site pela rede (o painel reconstrói o site a partir da sua
+  chave pública), páginas e artigos com editor e pré-visualização, e o
+  backup (exportar/importar). A PUBLICAÇÃO ainda não existe: o botão
+  "Publicar" avisa que ela chega no marco seguinte. O que você escrever
+  fica só neste navegador até exportar o backup.
 
 Licença: MIT. Código: repositório do projeto (a anotar quando for público).

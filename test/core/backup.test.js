@@ -1,0 +1,126 @@
+// test/core/backup.test.js — core/backup.js (13 §7) dentro da página:
+// aceite 5 de 15 M3 — exportar (forma, regra da mídia de 13 §7.2),
+// tripwire, apagar o banco → importar → idêntico por id, outra npub
+// recusada, version 99 recusada com o texto de 13 §7.4, mesclagem com
+// updated_at mais recente vencendo, substituir tudo, colisão de slug.
+const { abrir, coletor, assert } = require('../util.js');
+const F = require('../fabrica.js');
+
+module.exports = async function (ctx, u) {
+  const { R, it } = coletor();
+  const p = await abrir(ctx, u.url);
+  const ch = F.chave(), outra = F.chave();
+  const man = F.manifest(ch, { paths: { '/index.html': F.sha256('i') }, servers: ['https://s.test'], title: 'T' });
+  const r = await p.pg.evaluate(async ([ch, outra, man]) => {
+    const out = {};
+    await Db.apagar(ch.pubkey);
+    const db = await Db.abrir(ch.pubkey);
+    const site = Modelo.sitePadrao(ch.pubkey, ch.npub); site.title = 'Site A'; site.network.relays = ['wss://r1.test']; site.network.servers = ['https://s.test'];
+    const pg1 = Modelo.novaPagina('Página um'); pg1.body = 'um';
+    const pg2 = Modelo.novaPagina('Página dois'); pg2.status = 'published'; pg2.published_hash = 'd'.repeat(64);
+    const a1 = Modelo.novoArtigo('Artigo'); a1.tags = ['x']; a1.status = 'modified';
+    const bytesA = new Uint8Array([1, 2, 3, 4, 5]), bytesB = new Uint8Array([9, 8, 7]);
+    const mA = { id: 'm-a', path: '/img/a.png', mime: 'image/png', size: 5, sha256: await Gerador.sha256Hex(bytesA), width: 1, height: 1, alt: 'a', caption: '', bytes: new Blob([bytesA], { type: 'image/png' }), status: 'draft', servers: [], removal: null, metadata: { stripped: true, removed_segments: ['exif'], warning: null }, origin: 'upload', created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null };
+    const mB = Object.assign({}, mA, { id: 'm-b', path: '/img/b.png', bytes: new Blob([bytesB], { type: 'image/png' }), sha256: await Gerador.sha256Hex(bytesB), size: 3, status: 'published', servers: ['https://s.test'] });
+    const mC = Object.assign({}, mA, { id: 'm-c', path: '/img/c.png', bytes: null, status: 'published', servers: ['https://s.test'] });
+    const published = { manifest_event: man, manifest_event_id: man.id, created_at: man.created_at, paths: { '/index.html': 'a'.repeat(64) }, relays: {}, servers: {}, metadata_events: { kind0: null, kind10002: null, kind10063: null }, health: { checked_at: Modelo.agora(), relays_with_manifest: ['wss://r1.test'], relays_outdated: [], relays_newer: [], relays_missing: [], relays_unreachable: [] } };
+    await db.escrever([{ op: 'put', store: 'site', chave: 'site', valor: site }, { op: 'put', store: 'pages', valor: pg1 }, { op: 'put', store: 'pages', valor: pg2 }, { op: 'put', store: 'posts', valor: a1 },
+      { op: 'put', store: 'media', valor: mA }, { op: 'put', store: 'media', valor: mB }, { op: 'put', store: 'media', valor: mC }, { op: 'put', store: 'published', chave: 'current', valor: published }]);
+    // exportar "o necessário"
+    const est = await Backup.estimar(db, false);
+    const ex = await Backup.exportar(db, { completo: false, pubkey: ch.pubkey, npub: ch.npub });
+    const j = JSON.parse(ex.texto);
+    out.estimativa = est; out.exportado = { nome: ex.nome, bytes: ex.bytes, contagens: ex.contagens, chaves: Object.keys(j), format: j.format, version: j.version, exported_at: j.exported_at, app: j.app_version, meta: j.meta,
+      media: j.media.map(m => ({ id: m.id, b64: m.bytes_base64, temBytes: 'bytes' in m })), pages: j.pages.length, posts: j.posts.length, publishedId: j.published && j.published.manifest_event_id, tags: j.posts[0].tags };
+    const exC = await Backup.exportar(db, { completo: true, pubkey: ch.pubkey, npub: ch.npub });
+    out.completo = JSON.parse(exC.texto).media.map(m => ({ id: m.id, b64: m.bytes_base64 }));
+    // tripwire: uma nsec num campo de texto aborta a exportação
+    const pgT = Modelo.novaPagina('Tripwire'); pgT.body = 'segredo: ' + outra.nsec;
+    await db.put('pages', pgT);
+    try { await Backup.exportar(db, { completo: false, pubkey: ch.pubkey, npub: ch.npub }); out.tripwire = 'exportou (ERRADO)'; } catch (e) { out.tripwire = { codigo: e.codigo, msg: e.message }; }
+    await db.del('pages', pgT.id);
+    // apagar o banco → importar (substituir) → idêntico por id
+    await db.limparTudo();
+    const an = Backup.analisar(ex.texto, { pubkey: ch.pubkey, npub: ch.npub });
+    out.analise = { ok: an.ok, mesmaChave: an.mesmaChave, version: an.version, contagens: an.contagens, published: !!an.dados.published, npub: an.npub === ch.npub };
+    const plano = await Backup.planejar(db, an.dados);
+    out.planoVazio = { novos: plano.novos.length, atualizados: plano.atualizados.length };
+    const imp = await Backup.importar(db, an, { modo: 'substituir', pubkey: ch.pubkey, npub: ch.npub });
+    const lerTudo = async () => ({ site: await db.get('site', 'site'), pages: (await db.getAll('pages')).sort((a, b) => a.id.localeCompare(b.id)), posts: await db.getAll('posts'), media: (await db.getAll('media')).sort((a, b) => a.id.localeCompare(b.id)), published: await db.get('published', 'current'), meta: await db.getAll('meta') });
+    const dep = await lerTudo();
+    const sha = async (b) => (b ? await Gerador.sha256Hex(new Uint8Array(await b.arrayBuffer())) : null);
+    out.depois = { imp: { modo: imp.modo, novos: imp.novos }, siteTitulo: dep.site.title, relays: dep.site.network.relays, pubkey: dep.site.pubkey === ch.pubkey,
+      pages: dep.pages.map(x => [x.id, x.status, x.published_hash, x.updated_at]), posts: dep.posts.map(x => [x.id, x.status, x.tags.join()]),
+      media: await Promise.all(dep.media.map(async m => [m.id, m.status, m.bytes ? m.bytes.size : null, await sha(m.bytes), m.sha256, m.metadata.removed_segments.join()])),
+      publishedId: dep.published && dep.published.manifest_event_id, verifica: dep.published && Chave.verificar(dep.published.manifest_event),
+      meta: Object.fromEntries(dep.meta.map(m => [m.key, m.value])) };
+    out.original = { pages: [pg1, pg2].sort((a, b) => a.id.localeCompare(b.id)).map(x => [x.id, x.status, x.published_hash, x.updated_at]), posts: [[a1.id, a1.status, 'x']], shaA: mA.sha256, shaB: mB.sha256 };
+    // versão maior → recusa com o texto de 13 §7.4
+    const j99 = Object.assign({}, j, { version: 99 });
+    out.v99 = Backup.analisar(JSON.stringify(j99), { pubkey: ch.pubkey, npub: ch.npub });
+    // outra npub → mesmaChave false; importar como conteúdo desta chave não traz o published
+    const exO = JSON.parse(ex.texto); exO.site.pubkey = outra.pubkey; exO.site.npub = outra.npub;
+    const anO = Backup.analisar(JSON.stringify(exO), { pubkey: ch.pubkey, npub: ch.npub });
+    out.outra = { ok: anO.ok, mesmaChave: anO.mesmaChave, npub: anO.npub === outra.npub, published: anO.dados.published };
+    // lixo
+    out.lixo = [Backup.analisar('{"a":1}', {}).codigo, Backup.analisar('nada', {}).codigo, Backup.analisar('{"format":"nostermentor-backup"}', {}).codigo, Backup.analisar('{"format":"nostermentor-backup","version":1,"pages":[{"id":"x"}]}', {}).ok];
+    // mesclagem: local mais recente fica; backup mais recente vence; novo entra; igual ignorado
+    const local1 = Object.assign({}, dep.pages[0], { title: 'Local mais recente', updated_at: '2030-01-01T00:00:00Z' });
+    await db.put('pages', local1);
+    const j2 = JSON.parse(ex.texto);
+    const alvo = j2.pages.find(x => x.id === dep.pages[1].id); alvo.title = 'Do backup, mais novo'; alvo.updated_at = '2031-01-01T00:00:00Z';
+    const novoDoBackup = Modelo.novaPagina('Só no backup'); j2.pages.push(novoDoBackup);
+    const colide = Modelo.novaPagina('Colide'); colide.slug = local1.slug; j2.pages.push(colide);   // mesmo slug de um local que fica
+    const an2 = Backup.analisar(JSON.stringify(j2), { pubkey: ch.pubkey, npub: ch.npub });
+    const plano2 = await Backup.planejar(db, an2.dados);
+    out.plano2 = { novos: plano2.novos.map(x => x.rotulo).sort(), atualizados: plano2.atualizados.map(x => x.rotulo), iguais: plano2.iguais.length, locais: plano2.locais.map(x => x.rotulo) };
+    const imp2 = await Backup.importar(db, an2, { modo: 'juntar', pubkey: ch.pubkey, npub: ch.npub });
+    const dep2 = await lerTudo();
+    out.juntar = { imp: { novos: imp2.novos, atualizados: imp2.atualizados, iguais: imp2.iguais, locais: imp2.locais, sobrescritos: imp2.sobrescritos, renomeados: imp2.renomeados, vazio: imp2.bancoEstavaVazio }, titulos: dep2.pages.map(x => x.title).sort(), slugs: dep2.pages.map(x => x.slug).sort(), meta: Object.fromEntries(dep2.meta.map(m => [m.key, m.value])) };
+    // base64 ida e volta com bytes "difíceis"
+    const dif = new Uint8Array(70000); for (let i = 0; i < dif.length; i++) dif[i] = (i * 31) & 255;
+    const b64 = await Backup.blobParaBase64(new Blob([dif]));
+    const volta = Backup.base64ParaBytes(b64);
+    out.b64 = volta.length === dif.length && volta.every((v, i) => v === dif[i]);
+    db.fechar(); await Db.apagar(ch.pubkey);
+    return JSON.parse(JSON.stringify(out));
+  }, [ch, outra, man]);
+  await it('exportar: nome nostermentor-backup-<npub8>-<data>.json, chaves de 13 §7.1 na ordem, format/version/exported_at/app_version, meta.schema_version', () => {
+    const e = r.exportado;
+    assert(e.nome === 'nostermentor-backup-' + ch.npub.slice(5, 13) + '-' + e.exported_at.slice(0, 10) + '.json', e.nome);
+    assert(e.chaves.join(',') === 'format,version,exported_at,app_version,site,pages,posts,media,published,meta' && e.format === 'nostermentor-backup' && e.version === 1 && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(e.exported_at) && /^\d+\.\d+\.\d+/.test(e.app) && e.meta.schema_version === 1, JSON.stringify(e));
+    assert(e.pages === 2 && e.posts === 1 && e.publishedId === man.id && e.tags.join() === 'x' && e.contagens.comArquivo === 1, JSON.stringify(e.contagens));
+  });
+  await it('13 §7.2: "necessário" leva bytes_base64 só da mídia que só existe aqui (m-a); "completo" também da publicada com bytes (m-b); sem bytes → null; o campo `bytes` nunca vai', () => {
+    const n = Object.fromEntries(r.exportado.media.map(m => [m.id, m.b64])), c = Object.fromEntries(r.completo.map(m => [m.id, m.b64]));
+    assert(n['m-a'] === 'AQIDBAU=' && n['m-b'] === null && n['m-c'] === null, JSON.stringify(n));
+    assert(c['m-a'] === 'AQIDBAU=' && c['m-b'] === 'CQgH' && c['m-c'] === null, JSON.stringify(c));
+    assert(r.exportado.media.every(m => !m.temBytes), 'campo bytes no JSON');
+    assert(r.estimativa.arquivos === 1 && r.estimativa.soAqui === 1 && r.estimativa.bytes > 1000, JSON.stringify(r.estimativa));
+  });
+  await it('tripwire (13 §7.3): nsec num campo → exportar aborta com codigo tripwire e o texto de 14 T9', () => assert(r.tripwire && r.tripwire.codigo === 'tripwire' && /Backup interrompido por segurança/.test(r.tripwire.msg), JSON.stringify(r.tripwire)));
+  await it('analisar: ok, mesma chave, versão 1, contagens, published verificado; banco vazio → tudo "novo"', () => assert(r.analise.ok && r.analise.mesmaChave && r.analise.version === 1 && r.analise.contagens.pages === 2 && r.analise.contagens.comArquivo === 1 && r.analise.published && r.analise.npub && r.planoVazio.novos === 6 && r.planoVazio.atualizados === 0, JSON.stringify([r.analise, r.planoVazio])));
+  await it('aceite 5: apagar o banco → importar → conteúdo idêntico por id (status, published_hash, updated_at, tags, bytes da mídia com sha conferido, published assinado); last_export_at = exported_at e contador 0', () => {
+    const d = r.depois;
+    assert(JSON.stringify(d.pages) === JSON.stringify(r.original.pages) && JSON.stringify(d.posts) === JSON.stringify(r.original.posts), JSON.stringify([d.pages, r.original.pages]));
+    const m = Object.fromEntries(d.media.map(x => [x[0], x]));
+    assert(m['m-a'][2] === 5 && m['m-a'][3] === r.original.shaA && m['m-a'][4] === r.original.shaA && m['m-a'][5] === 'exif' && m['m-b'][2] === null && m['m-c'][2] === null, JSON.stringify(d.media));
+    assert(d.siteTitulo === 'Site A' && JSON.stringify(d.relays) === '["wss://r1.test"]' && d.pubkey && d.publishedId === man.id && d.verifica === true, JSON.stringify([d.siteTitulo, d.relays, d.publishedId, d.verifica]));
+    assert(d.meta.schema_version === 1 && d.meta.alteracoes_nao_exportadas === 0 && d.meta.last_export_at === r.exportado.exported_at, JSON.stringify(d.meta));
+  });
+  await it('version 99 → recusado com o texto de 13 §7.4', () => assert(!r.v99.ok && r.v99.codigo === 'versao_maior' && r.v99.motivo === 'Este backup foi feito por um Nostermentor mais novo — atualize o app para abri-lo.', JSON.stringify(r.v99)));
+  await it('backup de outra npub → mesmaChave=false (a tela recusa); o published assinado pela outra chave não entra', () => assert(r.outra.ok && !r.outra.mesmaChave && r.outra.npub && r.outra.published === null, JSON.stringify(r.outra)));
+  await it('lixo: JSON sem format, texto solto, sem version, registros malformados → recusa/ignora sem lançar', () => assert(JSON.stringify(r.lixo) === '["formato","json","estrutura",true]', JSON.stringify(r.lixo)));
+  await it('mesclagem (13 §6.3 item 3 / 14 T9): local mais recente mantido, backup mais recente vence e é listado, novo entra, igual ignorado, colisão de slug renomeada; contador intacto (banco não estava vazio)', () => {
+    const j = r.juntar;
+    // rótulos = o título LOCAL (o que o dono vê hoje) quando o registro já existe
+    assert(JSON.stringify(r.plano2.novos) === JSON.stringify(['Colide', 'Só no backup']) && r.plano2.atualizados.length === 1 && /^Página (um|dois)$/.test(r.plano2.atualizados[0]) && r.plano2.iguais === 4 && r.plano2.locais.length === 1 && r.plano2.locais[0] === 'Local mais recente', JSON.stringify(r.plano2));
+    assert(j.imp.novos === 2 && j.imp.atualizados === 1 && j.imp.iguais === 4 && j.imp.locais === 1 && /^Página (um|dois)$/.test(j.imp.sobrescritos.join()) && j.imp.renomeados.length === 1 && /-2$/.test(j.imp.renomeados[0]) && j.imp.vazio === false, JSON.stringify(j.imp));
+    assert(j.titulos.includes('Local mais recente') && j.titulos.includes('Do backup, mais novo') && j.titulos.includes('Só no backup') && j.titulos.includes('Colide') && new Set(j.slugs).size === j.slugs.length, JSON.stringify(j.titulos));
+    assert(j.meta.alteracoes_nao_exportadas === 0, JSON.stringify(j.meta));
+  });
+  await it('base64 ida e volta (70.000 bytes) sem fetch', () => assert(r.b64 === true));
+  await it('sem erros de página/console', () => assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros })));
+  await p.pg.close();
+  return R;
+};
