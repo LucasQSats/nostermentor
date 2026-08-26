@@ -1,0 +1,34 @@
+NOSTERMENTOR — versão __APP_VERSION__ (versão de DESENVOLVIMENTO: ainda não publica nada)
+
+O que é
+  Um painel para editar e publicar o seu site no protocolo nsite (Nostr +
+  Blossom). É um único arquivo, nostermentor.html. Não instala nada: o
+  navegador é o programa.
+
+Como abrir
+  Tails (o caso mais restrito — vale para todos):
+    1. Copie a pasta do Nostermentor para a pasta Documents. Faça isso a
+       cada sessão: o Tor Browser não abre o painel a partir do pendrive
+       nem do Persistent Storage.
+    2. Abra o Tor Browser e, nele, abra o arquivo nostermentor.html
+       (Ctrl+O, ou arraste o arquivo para a janela).
+    3. Nível de segurança: Standard ou Safer. Em Safest o painel não
+       arranca (o próprio painel explica isso na tela).
+    4. Se o painel abrir e ficar parado no aviso inicial, recarregue (F5).
+    5. Os seus dados (chave, backup, imagens) ficam no Persistent Storage:
+       o painel os alcança pelo seletor de arquivos.
+  Windows e Linux:
+    Guarde a pasta numa pasta pessoal (Documentos) e abra o
+    nostermentor.html no Firefox ou no Chrome (duplo clique).
+
+A chave
+  O painel não guarda a sua chave (nsec). Ela fica só na memória da aba e
+  some ao fechar. Guarde-a no KeePassXC ou no Persistent Storage. Quem tem
+  a chave é o dono do site; não existe recuperação.
+
+Estado desta versão
+  Marco M1: entrada com a chave (colar, arquivo ou gerar uma nova). A
+  leitura do site pela rede, o editor, o backup e a publicação chegam nos
+  marcos seguintes.
+
+Licença: MIT. Código: repositório do projeto (a anotar quando for público).

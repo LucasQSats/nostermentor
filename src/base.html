@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt">
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; connect-src https: wss:; img-src 'self' data: blob:; style-src 'unsafe-inline'; frame-src 'self' data: blob:;">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="nostermentor-version" content="__APP_VERSION__">
+<title>Nostermentor</title>
+<style>
+:root{--fundo:#f4f5f7;--papel:#fff;--tinta:#1d2327;--suave:#646970;--linha:#dcdcde;--acento:#2271b1;--acento-escuro:#135e96;--erro:#b32d2e;--erro-fundo:#fcf0f1;--alerta-fundo:#fcf9e8;--alerta-borda:#dba617;--ok:#00a32a}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--fundo);color:var(--tinta);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Noto Sans",sans-serif}
+#semjs{max-width:760px;margin:40px auto;padding:20px 24px;border:3px solid #d63638;background:#fff;font-size:17px}
+#semjs p{margin:0 0 10px}
+#semjs-titulo{font-size:22px}
+.semjs-noscript{max-width:760px;margin:0 auto;color:var(--suave)}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer;border:1px solid var(--acento);background:var(--acento);color:#fff;border-radius:3px;padding:7px 14px}
+button:hover{background:var(--acento-escuro)}
+button:disabled{cursor:not-allowed;opacity:.5}
+button.secundario{background:#fff;color:var(--acento)}
+button.secundario:hover{background:#f0f6fc}
+button.ligacao{background:none;border:0;color:var(--acento);text-decoration:underline;padding:0}
+button.ligacao:hover{background:none;color:var(--acento-escuro)}
+a{color:var(--acento)}
+code{font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:.95em}
+code.chave{display:block;padding:10px;background:#f0f0f1;border:1px solid var(--linha);word-break:break-all;user-select:all;font-size:15px}
+.cartao{background:var(--papel);border:1px solid var(--linha);border-radius:4px;padding:18px 20px}
+.cartao h2{margin:0 0 12px;font-size:18px}
+.erro{color:var(--erro);background:var(--erro-fundo);border-left:4px solid var(--erro);padding:8px 12px;margin:10px 0}
+.alerta{background:var(--alerta-fundo);border-left:4px solid var(--alerta-borda);padding:8px 12px;margin:10px 0}
+.apoio{color:var(--suave);font-size:14px}
+[hidden]{display:none!important}
+#t1{max-width:980px;margin:24px auto;padding:0 20px}
+#t1 h1{font-size:24px;margin:0 0 16px}
+.duas-colunas{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.linha{display:flex;gap:6px;align-items:center}
+.linha input{flex:1;min-width:0}
+input[type=password],input[type=text]{padding:7px 9px;border:1px solid #8c8f94;border-radius:3px;width:100%}
+label{display:block;margin-bottom:6px}
+label.inline{display:inline-flex;gap:6px;align-items:center;margin:8px 0}
+.acoes{margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#moldura{display:grid;grid-template-columns:190px 1fr;grid-template-rows:auto auto 1fr auto;min-height:100vh}
+#barra{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:8px 16px;background:#1d2327;color:#f0f0f1}
+#barra .site{font-weight:600}
+#barra code{color:#c3c4c7}
+#barra .espaco{flex:1}
+#barra button{padding:5px 12px}
+#barra button.secundario{background:transparent;color:#f0f0f1;border-color:#8c8f94}
+#faixa{grid-column:1/-1;padding:8px 16px;background:var(--alerta-fundo);border-bottom:1px solid var(--alerta-borda)}
+#faixa.erro{background:var(--erro-fundo);border-color:var(--erro);color:var(--erro);margin:0}
+#menu{background:#fff;border-right:1px solid var(--linha);padding:10px 0;display:flex;flex-direction:column}
+#menu .item{display:block;text-align:left;padding:8px 18px;color:var(--tinta);background:none;border:0;border-radius:0}
+#menu .item:hover{background:#f0f6fc}
+#menu .item.atual{background:var(--acento);color:#fff}
+#conteudo{padding:20px 24px;overflow:auto}
+#conteudo h1{font-size:22px;margin:0 0 14px}
+#rodape{grid-column:1/-1;padding:6px 16px;border-top:1px solid var(--linha);color:var(--suave);font-size:13px;display:flex;gap:16px;align-items:center}
+.contador.pendente{background:#d63638;border-color:#d63638}
+.contador.ok{background:var(--ok);border-color:var(--ok)}
+.contador.nada{background:#50575e;border-color:#50575e}
+</style>
+<body>
+<div id="semjs">
+  <p id="semjs-titulo"><strong>O Nostermentor precisa de JavaScript</strong></p>
+  <p><strong>Primeiro, recarregue a página (F5).</strong> Às vezes o Tor Browser abre o arquivo antes de estar pronto e o painel fica parado neste aviso.</p>
+  <p>Se continuar aqui: o seu navegador está bloqueando o JavaScript nesta página. <strong>No Tor Browser:</strong> clique no escudo, em "Change" e escolha <strong>Safer</strong> ou <strong>Standard</strong>. O nível <strong>Safest</strong> desliga o JavaScript em páginas locais e o painel não consegue arrancar.</p>
+</div>
+<noscript><p class="semjs-noscript">(O navegador confirma: o JavaScript está desligado nesta página.)</p></noscript>
+<div id="app" style="display:none"></div>
+<script>
+/* Rede de segurança — declarada ANTES de qualquer biblioteca ou lógica
+   (00 6.2 item 7; 14 T0; 07 §3.1.1). Um erro de arranque vira texto na
+   tela, nunca página muda. */
+window.APP_VERSION = '__APP_VERSION__';
+window.__erros = []; window.__csp = []; window.__arrancou = false;
+(function () {
+  function falhaDeArranque(msg) {
+    var s = document.getElementById('semjs'), a = document.getElementById('app');
+    if (s) {
+      s.style.display = '';
+      var t = document.getElementById('semjs-titulo');
+      if (t) t.textContent = 'O Nostermentor não conseguiu arrancar: ' + msg + '. Se o arquivo foi copiado pela metade, copie-o de novo.';
+    }
+    if (a) a.style.display = 'none';
+  }
+  window.__falhaDeArranque = falhaDeArranque;
+  window.onerror = function (m, src, l, c) {
+    var msg = String(m) + (l ? ' (linha ' + l + (c ? ':' + c : '') + ')' : '');
+    window.__erros.push(msg);
+    if (!window.__arrancou) falhaDeArranque(msg);
+    else if (window.Shell && window.Shell.erro) { try { window.Shell.erro(msg); } catch (e) {} }
+    return false;
+  };
+  window.onunhandledrejection = function (ev) {
+    var r = ev && ev.reason;
+    var msg = 'promessa rejeitada: ' + (r && r.message ? r.message : String(r));
+    window.__erros.push(msg);
+    if (!window.__arrancou) falhaDeArranque(msg);
+    else if (window.Shell && window.Shell.erro) { try { window.Shell.erro(msg); } catch (e) {} }
+  };
+  document.addEventListener('securitypolicyviolation', function (ev) {
+    window.__csp.push(ev.violatedDirective + ' ← ' + String(ev.blockedURI || '').slice(0, 80));
+  });
+})();
+</script>

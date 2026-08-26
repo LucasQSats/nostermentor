@@ -20,3 +20,7 @@ playwright-report/
 # sistema
 .DS_Store
 Thumbs.db
+
+# testes: configuração local (caminhos da máquina) e saídas
+test/local.env
+resultados/

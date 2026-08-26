@@ -10,9 +10,21 @@ Gerenciador de publicação de sites e blogs no protocolo **nsite**
 
 ## Estado
 
-**Início do desenvolvimento (2026-08-25).** Ainda não há código do
-produto: o próximo passo é o marco **M0** (evidências prévias) do plano
-de implementação. Nada aqui está pronto para uso.
+**Marco M1 em curso (2026-08-26)** — esqueleto e entrada: `dist/nostermentor.html`
+abre de `file://` sob a CSP do produto, mostra o canário (T0) e a tela
+Entrar (T1: colar a chave, escolher o arquivo com a chave, ou gerar uma
+chave nova), e a moldura do painel com as demais telas marcadas "ainda não
+implementado". Nada é lido da rede nem publicado ainda (M2–M4).
+
+```
+./gera_bundle.sh      # (só se mudar a versão do nostr-tools) regenera src/libs/nostr-tools.inline.js
+./monta_app.sh        # → dist/nostermentor.html + dist/LEIA-ME.txt (bytes + sha256)
+test/roda.sh          # suíte Playwright em Firefox + Chrome, de file://
+test/tails/entrega.sh # ISO para a bancada Tails
+```
+
+Dependências de desenvolvimento (`package.json`) instalam-se no scratchpad,
+nunca aqui; nada delas entra no produto.
 
 ## Base de conhecimento
 

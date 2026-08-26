@@ -1,0 +1,11 @@
+{
+  "name": "nostermentor-dev",
+  "private": true,
+  "description": "Dependências de DESENVOLVIMENTO do Nostermentor: esbuild (gera src/libs/nostr-tools.inline.js) e playwright-core (testes). Nada disto entra no produto, que é um único HTML sem instalação.",
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "nostr-tools": "2.25.0",
+    "playwright-core": "1.62.0"
+  }
+}
