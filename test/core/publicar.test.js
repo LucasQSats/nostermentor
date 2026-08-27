@@ -84,6 +84,64 @@ module.exports = async function (ctx, u) {
     assert(r.upload === 0, 'herdado não sobe de novo: ' + r.upload);
   });
 
+  await it('colisão com herdado (aceite 2 do M4): o app gera um caminho que já é de um arquivo de outra ferramenta → plano.colisoes nomeia-o e a mídia herdada NÃO é sobreposta em silêncio', async () => {
+    const r = await naPagina(`
+      const shaH = 'c1'.repeat(32);
+      const herdada = { id: Modelo.novoId(), path: '/index.html', mime: 'text/html', sha256: shaH, size: 18830, alt: '', caption: '',
+        bytes: null, status: 'published', servers: [SERVIDORES[0]], removal: null, metadata: {}, origin: 'network', created_at: Modelo.agora(), updated_at: Modelo.agora() };
+      const dados1 = Object.assign({}, dados, { media: [herdada] });
+      const published = { paths: { '/index.html': shaH }, servers: {} };
+      const plano = Publicar.planear({ dados: dados1, gerado, published });
+      return { colisoes: plano.colisoes.map(c => [c.path, c.sha256_herdado, c.sha256_app]),
+        preservados: plano.preservados.map(x => x.path), some: plano.some.map(x => x.path) };`, infra);
+    assert(r.colisoes.length === 1 && r.colisoes[0][0] === '/index.html', 'colisões: ' + JSON.stringify(r.colisoes));
+    assert(r.colisoes[0][1] !== r.colisoes[0][2], 'a colisão só existe quando o conteúdo difere: ' + JSON.stringify(r.colisoes[0]));
+    assert(r.preservados.length === 0, 'o caminho em colisão não é "preservado": ' + JSON.stringify(r.preservados));
+    return `colisão em ${r.colisoes[0][0]}`;
+  });
+
+  await it('colisão: mesmo caminho com o MESMO conteúdo não é colisão (nada a decidir) e conta como preservado', async () => {
+    const r = await naPagina(`
+      const shaIgual = gerado.hashes['/index.html'];
+      const herdada = { id: Modelo.novoId(), path: '/index.html', mime: 'text/html', sha256: shaIgual, size: 1, alt: '', caption: '',
+        bytes: null, status: 'published', servers: [SERVIDORES[0]], removal: null, metadata: {}, origin: 'network', created_at: Modelo.agora(), updated_at: Modelo.agora() };
+      const dados1 = Object.assign({}, dados, { media: [herdada] });
+      const published = { paths: { '/index.html': shaIgual }, servers: {} };
+      const plano = Publicar.planear({ dados: dados1, gerado, published });
+      return { colisoes: plano.colisoes.length, preservados: plano.preservados.map(x => x.path) };`, infra);
+    assert(r.colisoes === 0, 'não devia haver colisão: ' + JSON.stringify(r));
+    assert(r.preservados.includes('/index.html'), 'preservados: ' + JSON.stringify(r.preservados));
+  });
+
+  await it('preservados: mídia herdada que o app não gera continua no mapa e aparece ao dono (o bloco de T8 "Fica como está" deixa de ser sempre vazio)', async () => {
+    const r = await naPagina(`
+      const shaH = 'd1'.repeat(32);
+      const herdada = { id: Modelo.novoId(), path: '/1f95a.png', mime: 'image/png', sha256: shaH, size: 100, alt: '', caption: '',
+        bytes: null, status: 'published', servers: [SERVIDORES[0]], removal: null, metadata: {}, origin: 'network', created_at: Modelo.agora(), updated_at: Modelo.agora() };
+      const dados1 = Object.assign({}, dados, { media: [herdada] });
+      const published = { paths: Object.assign({ '/1f95a.png': shaH }, gerado.hashes), servers: {} };
+      const plano = Publicar.planear({ dados: dados1, gerado, published });
+      return { preservados: plano.preservados.map(x => x.path), colisoes: plano.colisoes.length,
+        some: plano.some.map(x => x.path), mapaTem: plano.mapa['/1f95a.png'] === shaH };`, infra);
+    assert(r.preservados.length === 1 && r.preservados[0] === '/1f95a.png', JSON.stringify(r));
+    assert(r.colisoes === 0 && r.some.length === 0 && r.mapaTem === true, JSON.stringify(r));
+  });
+
+  await it('mídia herdada removida pelo dono: deixa de colidir (a publicação desbloqueia) e o caminho passa a ser do app', async () => {
+    const r = await naPagina(`
+      const shaH = 'c1'.repeat(32);
+      const herdada = { id: Modelo.novoId(), path: '/index.html', mime: 'text/html', sha256: shaH, size: 18830, alt: '', caption: '',
+        bytes: null, status: 'removed', previous_status: 'published', servers: [SERVIDORES[0]], removal: null, metadata: {}, origin: 'network', created_at: Modelo.agora(), updated_at: Modelo.agora() };
+      const dados1 = Object.assign({}, dados, { media: [herdada] });
+      const published = { paths: { '/index.html': shaH }, servers: {} };
+      const plano = Publicar.planear({ dados: dados1, gerado, published });
+      return { colisoes: plano.colisoes.length, atualiza: plano.atualiza.map(x => x.path),
+        some: plano.some.map(x => x.path), remover: plano.remover.map(x => x.path) };`, infra);
+    assert(r.colisoes === 0, 'depois de removida não há colisão: ' + JSON.stringify(r));
+    assert(r.atualiza.includes('/index.html'), 'a capa do app ocupa o caminho: ' + JSON.stringify(r));
+    assert(r.remover.includes('/index.html'), 'o blob antigo entra na fila de DELETE (o dono mandou removê-lo): ' + JSON.stringify(r));
+  });
+
   await it('página removida: o caminho sai do mapa (não é "herdado"); mídia removida sai e entra na fila de DELETE', async () => {
     const r = await naPagina(`
       const midia = { id: Modelo.novoId(), path: '/img/foto.webp', mime: 'image/webp', sha256: 'b2'.repeat(32), size: 10, alt: '', caption: '',

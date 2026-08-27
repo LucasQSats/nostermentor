@@ -111,7 +111,14 @@
       lista(T.blocos.sobe, plano.sobe),
       lista(T.blocos.atualiza, plano.atualiza),
       lista(T.blocos.some, plano.some, function (i) { return i.apagar_blob ? Textos.t8.porques.apagar : Textos.t8.porques.sai; }),
-      plano.herdados.length ? lista(T.blocos.herdados, plano.herdados, function () { return ''; }) : null));
+      (function () {
+        // "Fica como está": o que veio de outra ferramenta e continua no ar
+        // — tanto o que o app nem tem registado (herdados) como a mídia
+        // herdada que se manteve intacta (preservados). Sem os segundos, o
+        // bloco nunca aparecia no caso real (ver 11, 2026-08-27).
+        const fica = plano.herdados.concat(plano.preservados || []);
+        return fica.length ? lista(T.blocos.herdados, fica, function () { return ''; }) : null;
+      })()));
 
     const eventosLista = [T.eventos.manifest]
       .concat(plano.eventos.kind0 ? [T.eventos.kind0] : [])
@@ -132,6 +139,18 @@
     corpo.appendChild(acoes); corpo.appendChild(medidor); corpo.appendChild(pProgresso); corpo.appendChild(pErro); corpo.appendChild(divPlacar);
 
     if (plano.servidores.length === 0) { btn.disabled = true; pErro.hidden = false; pErro.textContent = T.semServidor; }
+
+    // Colisão com arquivo herdado (T-7): publicar apagaria do ar um arquivo
+    // que o app prometeu preservar em T2c. Bloqueia e manda resolver em T6,
+    // onde o herdado já aparece na lista com o botão Remover.
+    if (plano.colisoes.length) {
+      btn.disabled = true;
+      pErro.hidden = false;
+      const caminhos = plano.colisoes.map(function (c) { return c.path; }).join(', ');
+      pErro.textContent = texto(plano.colisoes.length === 1 ? T.colisao : T.colisoes, { p: caminhos });
+      corpo.insertBefore(h('p', { class: 'apoio', id: 't8-colisao-apoio' }, T.colisaoApoio), acoes);
+      acoes.insertBefore(h('button', { type: 'button', id: 't8-colisao-ir', onclick: function () { Shell.ir('t6'); } }, T.colisaoBotao), btn);
+    }
 
     // --- 3 e 4. publicar e relatar ---------------------------------------
     function progresso(p) {

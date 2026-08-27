@@ -309,6 +309,10 @@ const Textos = Object.freeze({
     total: '{n} arquivo(s), {x} para subir, {m} relays.',
     tor: 'Pelo Tor cada conexão demora de 2 a 8 vezes mais — não feche o navegador.',
     bloqueado: 'Um arquivo não pode subir em nenhum servidor. Remova-o ou mude de servidor para poder publicar.',
+    colisao: 'Este endereço já tem um arquivo publicado por outra ferramenta: {p}. Publicar agora substituiria o arquivo antigo, e o Nostermentor prometeu preservá-lo.',
+    colisoes: 'Estes endereços já têm arquivos publicados por outra ferramenta: {p}. Publicar agora substituiria os arquivos antigos, e o Nostermentor prometeu preservá-los.',
+    colisaoApoio: 'Para publicar a sua versão, remova antes o arquivo antigo em Mídia. Enquanto ele estiver lá, continua no ar como está.',
+    colisaoBotao: 'Ir a Mídia',
     assinar: 'Assinar e publicar',
     publicando: 'Publicando…',
     passos: {

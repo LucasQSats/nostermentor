@@ -30,6 +30,7 @@ const SUITES = [
   ['telas/t9_backup', require('./telas/t9_backup.test.js')],
   ['telas/t6_t8', require('./telas/t6_t8.test.js')],
   ['rede/bostil', require('./rede/bostil.test.js')],
+  ['rede/bostil_publicar', require('./rede/bostil_publicar.test.js')],
   ['rede/publicar_real', require('./rede/publicar_real.test.js')],
 ];
 const SO = process.env.NOSTERMENTOR_SUITES ? process.env.NOSTERMENTOR_SUITES.split(',') : null;

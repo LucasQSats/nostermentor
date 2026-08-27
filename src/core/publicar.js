@@ -77,6 +77,32 @@ const Publicar = (function () {
       herdados.push({ path: path, sha256: antes[path] });
     }
 
+    // 2b. herdados que continuam no ar exatamente como estavam. O dono
+    //     precisa de os ver: T2c prometeu-lhe, na entrada, que seriam
+    //     preservados (14 T2c / T-7), e sem isto o bloco correspondente de
+    //     T8 nunca aparecia — todo herdado vira `media` e entra pelo passo 1,
+    //     nunca chegando ao laço acima.
+    const preservados = [];
+    for (const m of midias) {
+      if (m.origin !== 'network') continue;
+      if (mapa[m.path] !== m.sha256 || antes[m.path] !== m.sha256) continue;
+      preservados.push({ path: m.path, sha256: m.sha256 });
+    }
+
+    // 2c. colisão: o app gera um caminho que já pertence a um arquivo
+    //     herdado de outra ferramenta (o caso do Bostil: `/index.html`).
+    //     Publicar substituiria o arquivo antigo — exatamente o que T2c
+    //     prometeu que não aconteceria. A publicação fica **bloqueada** até
+    //     o dono remover o herdado em T6, um a um, como o contrato diz.
+    //     Decisão do usuário em 2026-08-27 (aceite 2 do M4; ver 11).
+    const colisoes = [];
+    for (const m of midias) {
+      if (m.origin !== 'network') continue;
+      const shaApp = gerado.hashes[m.path];
+      if (!shaApp || shaApp === m.sha256) continue;           // mesmo conteúdo: não há conflito
+      colisoes.push({ path: m.path, midia_id: m.id, sha256_herdado: m.sha256, sha256_app: shaApp });
+    }
+
     // 3. diff
     const sobe = [], atualiza = [], inalterados = [], some = [];
     for (const path of Object.keys(mapa).sort()) {
@@ -127,6 +153,7 @@ const Publicar = (function () {
     const mudou = sobe.length + atualiza.length + some.length + upload.length + remover.length;
     return {
       mapa: mapa, sobe: sobe, atualiza: atualiza, inalterados: inalterados, some: some, herdados: herdados,
+      preservados: preservados, colisoes: colisoes,
       upload: upload, remover: remover, eventos: eventos, bytes: bytes,
       relays: Modelo.uniao(site.network && site.network.relays), servidores: Modelo.uniao(site.network && site.network.servers),
       nada: mudou === 0 && !eventos.kind0 && !eventos.kind10002 && !eventos.kind10063,
