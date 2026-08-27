@@ -20,7 +20,9 @@ const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
 // A fotografia do "antes", guardada na KB antes de a sessão tocar em nada:
 // o evento 15128 completo e os 4 blobs com hash conferido. É o que permite
 // devolver a cobaia ao lugar.
-const KB = process.env.NOSTERMENTOR_KB || ;
+// O caminho da KB e' LOCAL do dono: vem de NOSTERMENTOR_KB, nunca fixo no
+// codigo (o repositorio e' publico; a KB nao vai nele).
+const KB = process.env.NOSTERMENTOR_KB || '';
 const SALVAGUARDA = path.join(KB, 'CONTEXTO ADICIONAL', 'aceite2-bostil-2026-08-27');
 
 function juiz(pubkey, relays) {
@@ -59,6 +61,7 @@ module.exports = async function (ctx, u) {
   const nsec = nsecDeTeste();
 
   if (!fase) { pulado('rede/bostil_publicar (aceite 2)', 'publica por cima da cobaia — ligue com NOSTERMENTOR_BOSTIL_REAL=diff (só mede) ou =1 (publica e restaura)'); return R; }
+  if (!KB) { pulado('rede/bostil_publicar (aceite 2)', 'NOSTERMENTOR_KB não definido — é o caminho local da KB, onde mora a salvaguarda da cobaia'); return R; }
   if (!nsec) { pulado('rede/bostil_publicar (aceite 2)', 'NOSTERMENTOR_NSEC_TESTE_ARQUIVO não definido ou sem nsec (09 §2)'); return R; }
   // Um site por execução, não um por motor: a cobaia é pública.
   if (u.motor !== 'firefox') { pulado('rede/bostil_publicar (' + u.motor + ')', 'a cobaia é uma só — corre no primeiro motor'); return R; }
