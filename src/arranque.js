@@ -9,6 +9,7 @@
     Textos: function () { return Textos; }, Chave: function () { return Chave; }, Modelo: function () { return Modelo; },
     Relay: function () { return Relay; }, Blossom: function () { return Blossom; }, Db: function () { return Db; },
     SiteJson: function () { return SiteJson; }, Saude: function () { return Saude; }, Rede: function () { return Rede; },
+    Despublicar: function () { return Despublicar; },
     TemaPadrao: function () { return TemaPadrao; }, Gerador: function () { return Gerador; }, Backup: function () { return Backup; },
     Limpeza: function () { return Limpeza; }, Shell: function () { return Shell; }, Listas: function () { return Listas; }, Editor: function () { return Editor; }
   };

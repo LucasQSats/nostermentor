@@ -143,7 +143,9 @@ const Publicar = (function () {
     // 6. eventos
     const eventos = { manifest: true, kind0: false, kind10002: false, kind10063: false };
     const anteriores = (publicado && publicado.metadata_events) || {};
-    eventos.kind0 = mudouPerfil(site, anteriores.kind0);
+    const avatar = avatarDe(site, dados.media);
+    const pictureUrl = urlDoAvatar(site, dados.media);
+    eventos.kind0 = mudouPerfil(site, anteriores.kind0, pictureUrl);
     eventos.kind10002 = mudouLista(site.network && site.network.relays, anteriores.kind10002, 'r');
     eventos.kind10063 = mudouLista(site.network && site.network.servers, anteriores.kind10063, 'server');
 
@@ -154,7 +156,8 @@ const Publicar = (function () {
     return {
       mapa: mapa, sobe: sobe, atualiza: atualiza, inalterados: inalterados, some: some, herdados: herdados,
       preservados: preservados, colisoes: colisoes,
-      upload: upload, remover: remover, eventos: eventos, bytes: bytes,
+      upload: upload, remover: remover, eventos: eventos,
+      picture_url: pictureUrl, picture_sha: avatar ? avatar.sha256 : null, bytes: bytes,
       relays: Modelo.uniao(site.network && site.network.relays), servidores: Modelo.uniao(site.network && site.network.servers),
       nada: mudou === 0 && !eventos.kind0 && !eventos.kind10002 && !eventos.kind10063,
       caminhos: Object.keys(mapa).length
@@ -181,14 +184,36 @@ const Publicar = (function () {
 
   // 05 §3 kind 0 — só os campos que o site usa; `picture` é a URL do blob
   // da imagem de perfil num servidor configurado (quando houver).
-  function conteudoPerfil(site) {
+  // O schema (13 §3) guarda `profile.picture_media_id`; a URL do Nostr é
+  // `<servidor>/<sha256>`. Só se anuncia um endereço que vai existir: ou o
+  // blob já está confirmado nalgum servidor, ou temos os bytes aqui e ele
+  // sobe nesta mesma publicação (a trava de `executar` garante que o
+  // manifest — e portanto o kind 0 — só é assinado depois de cada caminho
+  // ter casa). Mídia herdada sem arquivo neste navegador não vira `picture`:
+  // seria anunciar um endereço que ninguém garantiu.
+  function avatarDe(site, media) {
+    const id = site && site.profile && site.profile.picture_media_id;
+    if (!id) return null;
+    const m = (media || []).find(x => x && x.id === id && x.status !== 'removed' && eSha(x.sha256));
+    if (!m) return null;
+    if (!(Array.isArray(m.servers) && m.servers.length) && !temBytes(m)) return null;
+    return m;
+  }
+  function urlDoAvatar(site, media) {
+    const m = avatarDe(site, media);
+    if (!m) return (site && site.profile && site.profile.picture_url) || null;
+    const servidor = Modelo.uniao(m.servers, site.network && site.network.servers)[0];
+    return servidor ? Blossom.urlDoBlob(servidor, m.sha256) : null;
+  }
+  function conteudoPerfil(site, pictureUrl) {
     const p = (site && site.profile) || {};
     const o = { name: String(p.name || site.title || '').slice(0, 200), about: String(p.about || site.description || '').slice(0, 2000) };
-    if (p.picture_url) o.picture = String(p.picture_url).slice(0, 500);
+    const url = pictureUrl === undefined ? p.picture_url : pictureUrl;
+    if (url) o.picture = String(url).slice(0, 500);
     return JSON.stringify(o);
   }
-  function modeloPerfil(site, agoraS) {
-    return { kind: KIND_PERFIL, created_at: Number.isInteger(agoraS) ? agoraS : agoraUnix(), tags: [], content: conteudoPerfil(site) };
+  function modeloPerfil(site, agoraS, pictureUrl) {
+    return { kind: KIND_PERFIL, created_at: Number.isInteger(agoraS) ? agoraS : agoraUnix(), tags: [], content: conteudoPerfil(site, pictureUrl) };
   }
   function modeloRelays(site, agoraS) {          // NIP-65: tags ["r", url]
     return { kind: KIND_RELAYS, created_at: Number.isInteger(agoraS) ? agoraS : agoraUnix(),
@@ -207,8 +232,8 @@ const Publicar = (function () {
     const antes = valoresDeTag(eventoAnterior, nomeTag) || [];
     return Modelo.uniao(atual).join('\n') !== Modelo.uniao(antes).join('\n');
   }
-  function mudouPerfil(site, eventoAnterior) {
-    const agora = conteudoPerfil(site);
+  function mudouPerfil(site, eventoAnterior, pictureUrl) {
+    const agora = conteudoPerfil(site, pictureUrl);
     if (!eventoAnterior) return agora !== '{"name":"","about":""}';
     return String(eventoAnterior.content || '') !== agora;
   }
@@ -276,12 +301,20 @@ const Publicar = (function () {
 
     // 3. assinar — o mapa inteiro, sempre (o 15128 é substituível: o evento
     //    novo apaga o anterior, então tem de conter TUDO que fica no ar)
+    // Assinar é síncrono e instantâneo: sem ceder a linha, o passo é anunciado
+    // e nunca chega a ser pintado — o dono saltaria dos uploads direto para
+    // "Enviando aos relays". Medido pelo teste que observa o meio (15 §5).
     prog({ passo: 'assinar' });
+    await cedeALinha();
     const agoraS = agoraUnix();
     let manifest;
     try {
       manifest = o.assinar(modeloManifest(plano, site, agoraS));
-      if (plano.eventos.kind0) resultado.metadados.push({ kind: KIND_PERFIL, evento: o.assinar(modeloPerfil(site, agoraS)) });
+      // A URL do avatar é fixada aqui, com o que os servidores REALMENTE
+      // aceitaram nesta execução — não com o palpite que o plano usou para o diff.
+      const aceitosDoAvatar = plano.picture_sha ? resultado.servidoresPorHash[plano.picture_sha] : null;
+      const pictureUrl = (aceitosDoAvatar && aceitosDoAvatar.length) ? Blossom.urlDoBlob(aceitosDoAvatar[0], plano.picture_sha) : plano.picture_url;
+      if (plano.eventos.kind0) resultado.metadados.push({ kind: KIND_PERFIL, evento: o.assinar(modeloPerfil(site, agoraS, pictureUrl)) });
       if (plano.eventos.kind10002) resultado.metadados.push({ kind: KIND_RELAYS, evento: o.assinar(modeloRelays(site, agoraS)) });
       if (plano.eventos.kind10063) resultado.metadados.push({ kind: KIND_SERVIDORES, evento: o.assinar(modeloServidores(site, agoraS)) });
     } catch (e) {
@@ -400,7 +433,7 @@ const Publicar = (function () {
 
   return Object.freeze({
     KIND_MANIFEST, KIND_PERFIL, KIND_RELAYS, KIND_SERVIDORES, CLIENTE, PARALELAS_PADRAO,
-    planear, modeloManifest, modeloPerfil, modeloRelays, modeloServidores, conteudoPerfil,
+    planear, modeloManifest, modeloPerfil, modeloRelays, modeloServidores, conteudoPerfil, avatarDe, urlDoAvatar,
     mudouPerfil, mudouLista, valoresDeTag, emLotes, executar, fotografia, aplicar, republicar
   });
 })();

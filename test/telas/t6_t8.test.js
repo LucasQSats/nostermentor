@@ -109,8 +109,20 @@ module.exports = async function (ctx, u) {
     assert(diff.eventos.length === 4 && diff.eventos[0] === 'Mapa do site (manifest)', JSON.stringify(diff.eventos));
     assert(diff.tor, 'o aviso do Tor é dito sempre (P21)');
 
+    // 15 §5: observar o MEIO, não só o desfecho — cada passo anunciado tem de
+    // chegar a ser pintado (o de assinar é síncrono e escapava; ver 11, 2026-08-27)
+    await p.pg.evaluate(() => {
+      window.__passos = [];
+      new MutationObserver(() => {
+        const t = document.getElementById('t8-progresso');
+        if (t && t.textContent) window.__passos.push(t.textContent);
+      }).observe(document.getElementById('t8-corpo'), { subtree: true, childList: true, characterData: true, attributes: true });
+    });
     await p.pg.click('#t8-assinar');
     await p.pg.waitForSelector('#t8-publicado', { timeout: 60000 });
+    const passos = await p.pg.evaluate(() => window.__passos);
+    for (const esperado of [/Enviando arquivos: \d+ de \d+/, /Assinando o mapa do site/, /Enviando aos relays/])
+      assert(passos.some(x => esperado.test(x)), 'passo nunca pintado (' + esperado + '): ' + JSON.stringify(passos));
     const placar = await p.pg.evaluate(() => ({
       arquivos: [...document.querySelectorAll('#t8-placar-arquivos li')].map(x => x.textContent),
       relays: document.getElementById('t8-placar-relays').textContent,

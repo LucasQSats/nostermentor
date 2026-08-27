@@ -41,11 +41,38 @@ const Gerador = (function () {
     pronto = true;
   }
 
+  // 06 §4 / 00 §6.2 item 21 (decidido pelo usuário em 2026-08-27): clicar na
+  // imagem abre o arquivo em tamanho real, em nova aba. É a resposta ao pedido
+  // "imagem em tela cheia" SEM abrir a única exceção que a casa não abre — o
+  // site publicado continua sem uma única tag de script (02 G.0; o Tor Browser
+  // Safest desliga JS, P22 de 08). Regras:
+  //  - a imagem que o dono já linkou à mão ("Inserir com link…",
+  //    `[![alt](img)](url)`) fica como está: o link dele ganha. Daí o contador
+  //    de profundidade de <a> — <a> dentro de <a> é HTML inválido;
+  //  - só vira link o que tem um arquivo a abrir: caminho do próprio site
+  //    (/img/…, /media/…) ou http(s). `data:` e qualquer outro esquema passam
+  //    intactos;
+  //  - string → string, sem DOM: o determinismo entre motores (13 §5.2) vem de
+  //    não passar por serializador de navegador nenhum.
+  const TAGS_LINK_IMG = /<a\b[^>]*>|<\/a\s*>|<img\b[^>]*>/gi;
+  function imagensClicaveis(html) {
+    let profundidade = 0;
+    return String(html).replace(TAGS_LINK_IMG, function (tag) {
+      if (/^<a/i.test(tag)) { profundidade++; return tag; }
+      if (/^<\//.test(tag)) { if (profundidade > 0) profundidade--; return tag; }
+      if (profundidade > 0) return tag;
+      const m = /\bsrc="([^"]*)"/i.exec(tag);
+      const src = m ? m[1] : '';
+      if (!/^\/[^\/]/.test(src) && !/^https?:\/\//i.test(src)) return tag;
+      return '<a class="ampliar" href="' + src + '" target="_blank" rel="noopener">' + tag + '</a>';
+    });
+  }
+
   // Markdown → HTML sanitizado (string). Determinístico.
   function renderizarCorpo(markdown) {
     preparar();
     const html = marked.parse(String(markdown == null ? '' : markdown));
-    return DOMPurify.sanitize(html, PURIFY);
+    return imagensClicaveis(DOMPurify.sanitize(html, PURIFY));
   }
 
   // Primeiro parágrafo em texto simples (para excerpt/description derivados)
@@ -200,5 +227,5 @@ const Gerador = (function () {
     return previa(html, dataUris);
   }
 
-  return Object.freeze({ caminhoCss, PURIFY, escapar, renderizarCorpo, primeiroParagrafo, sha256Hex, contexto, htmlDe, gerarSite, previa, previaCorpo });
+  return Object.freeze({ caminhoCss, PURIFY, escapar, imagensClicaveis, renderizarCorpo, primeiroParagrafo, sha256Hex, contexto, htmlDe, gerarSite, previa, previaCorpo });
 })();

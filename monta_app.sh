@@ -26,6 +26,17 @@ LOGICA="src/textos.js $CORE $TEMA $UI src/arranque.js"
 
 script() { printf '<script>\n'; cat "$1"; printf '\n</script>\n'; }
 
+# 1b. sintaxe de cada arquivo de lógica ANTES de montar. Sem isto o script
+# monta feliz um HTML com erro de sintaxe (as guardas abaixo só contam tags e
+# procuram padrões) e a quebra só aparece no navegador, como página muda.
+# Achado em 2026-08-27, ao partir o t7_config.js com uma edição automática.
+# `node` só existe na máquina de dev — onde não houver, o passo é pulado.
+if command -v node >/dev/null 2>&1; then
+  for f in src/textos.js src/core/*.js src/tema/*/*.js src/ui/*.js src/arranque.js; do
+    node --check "$f" || { echo "✗ erro de sintaxe em $f" >&2; exit 1; }
+  done
+fi
+
 mkdir -p "$SAIDA"
 {
   sed "s/__APP_VERSION__/$APP_VERSION/g" src/base.html

@@ -49,6 +49,37 @@ module.exports = async function (ctx, u) {
     return `${r.caminhos} caminhos, ${r.bytes} B`;
   });
 
+  await it('avatar do perfil (13 §3): o kind 0 sai com `picture` = <servidor>/<sha256>, nomeando o servidor que REALMENTE aceitou o blob; herdada sem arquivo aqui não vira picture', async () => {
+    const r = await naPagina(`
+      const brutos = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 7, 7]);
+      const sha = await Blossom.sha256Hex(brutos);
+      const avatar = { id: Modelo.novoId(), path: '/img/eu.png', mime: 'image/png', size: brutos.length, sha256: sha,
+        width: null, height: null, alt: '', caption: '', bytes: new Blob([brutos]), status: 'draft', servers: [],
+        removal: null, metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload',
+        created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null };
+      site.profile = { name: 'Dono', about: 'sobre mim', picture_media_id: avatar.id };
+      // (a) herdada, sem arquivo neste navegador e sem servidor conhecido: nada a anunciar
+      const semArquivo = Object.assign({}, avatar, { bytes: null, servers: [], origin: 'network' });
+      const urlHerdada = Publicar.urlDoAvatar(site, [semArquivo]);
+      const conteudoHerdada = Publicar.conteudoPerfil(site, urlHerdada);
+      // (b) com os bytes aqui: a publicação sobe o blob, então o kind 0 pode anunciá-lo
+      const dados2 = { site, pages: [home], posts: [artigo], media: [avatar] };
+      const g2 = await Gerador.gerarSite(dados2);
+      const plano2 = Publicar.planear({ dados: dados2, gerado: g2, published: null });
+      const res2 = await Publicar.executar({ plano: plano2, site, assinar, servidores: plano2.servidores, relays: plano2.relays });
+      const k0 = (res2.metadados.find(m => m.kind === 0) || {}).evento;
+      const aceitos = res2.servidoresPorHash[sha] || [];
+      return { urlHerdada, conteudoHerdada, sha, picture_sha: plano2.picture_sha, picture_url: plano2.picture_url,
+        kind0: plano2.eventos.kind0, desfecho: res2.desfecho, aceitos,
+        conteudo: k0 ? JSON.parse(k0.content) : null, esperado: aceitos[0] + '/' + sha };`, infra);
+    assert(r.urlHerdada === null && !/picture/.test(r.conteudoHerdada), 'imagem herdada sem arquivo aqui não pode virar picture: ' + r.conteudoHerdada);
+    assert(r.desfecho === 'publicado' && r.picture_sha === r.sha && r.kind0 === true, JSON.stringify([r.desfecho, r.kind0]));
+    assert(r.aceitos.length === 2, 'o blob do avatar devia ter subido nos dois servidores: ' + JSON.stringify(r.aceitos));
+    assert(r.conteudo && r.conteudo.picture === r.esperado, JSON.stringify([r.conteudo, r.esperado]));
+    assert(r.conteudo.name === 'Dono' && r.conteudo.about === 'sobre mim', JSON.stringify(r.conteudo));
+    return r.conteudo.picture;
+  });
+
   await it('plano com o site igual ao publicado: "Nada a publicar" (nem eventos)', async () => {
     const r = await naPagina(`
       const published = { paths: Object.assign({}, gerado.hashes), servers: {}, metadata_events: {

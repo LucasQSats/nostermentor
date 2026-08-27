@@ -68,7 +68,7 @@ const TemaPadrao = (function () {
     '<article class="artigo">',
     '<h1>{{titulo}}</h1>',
     '<p class="meta"><time datetime="{{data_iso}}">{{data}}</time>{{#tem_tags}} · {{#tags}}<span class="etiqueta">{{nome}}</span> {{/tags}}{{/tem_tags}}</p>',
-    '{{#capa}}<figure class="capa"><img src="{{src}}" alt="{{alt}}"{{#largura}} width="{{largura}}" height="{{altura}}"{{/largura}}>{{#legenda}}<figcaption>{{legenda}}</figcaption>{{/legenda}}</figure>',
+    '{{#capa}}<figure class="capa"><a class="ampliar" href="{{src}}" target="_blank" rel="noopener"><img src="{{src}}" alt="{{alt}}"{{#largura}} width="{{largura}}" height="{{altura}}"{{/largura}}></a>{{#legenda}}<figcaption>{{legenda}}</figcaption>{{/legenda}}</figure>',
     '{{/capa}}{{{corpo}}}',
     '</article>',
     ''
@@ -128,6 +128,8 @@ const TemaPadrao = (function () {
     '.etiqueta{display:inline-block;padding:1px 8px;border:1px solid var(--linha);border-radius:12px;font-size:13px}',
     '.capa{margin:0 0 1.5em}',
     '.capa figcaption{color:var(--suave);font-size:14px}',
+    /* imagem clicável (06 §4): abre o arquivo em tamanho real, sem script */
+    '.ampliar{display:inline-block;line-height:0;text-decoration:none;cursor:zoom-in}',
     '.lista-artigos{list-style:none;margin:0;padding:0}',
     '.lista-artigos li{margin:0 0 1.2em}',
     '.lista-artigos h2{margin:0 0 .2em}',

@@ -160,6 +160,38 @@ a.botao-link:hover{background:var(--acento-escuro)}
 .progresso progress{width:100%;max-width:420px;height:14px;display:block}
 .progresso .passo{display:block;margin-top:4px;color:var(--suave);font-size:14px}
 input[type=search]{font:inherit}
+/* M5 — configurações (T7): abas, listas de infraestrutura e o único bloco
+   destrutivo do painel */
+#t7{max-width:1100px}
+.abas{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--linha);margin:0 0 14px}
+.abas .aba{background:none;border:0;border-bottom:3px solid transparent;color:var(--acento);padding:8px 14px;border-radius:0}
+.abas .aba:hover{background:#f0f6fc}
+.abas .aba.atual{border-bottom-color:var(--acento);color:var(--tinta);font-weight:600}
+#t7-painel h3{margin:20px 0 6px;font-size:15px}
+#t7-painel > *:first-child{margin-top:0}
+#t7-painel > div + div{margin-top:4px}
+#t7-painel label{margin:10px 0 4px;font-weight:600}
+#t7-painel label.inline{font-weight:400;margin:8px 0}
+#t7-painel .apoio{margin:2px 0 0}
+#t7-painel textarea,#t7-painel select{width:100%;padding:7px 9px;border:1px solid #8c8f94;border-radius:3px;background:#fff}
+#t7-painel textarea{font:inherit}
+#t7-painel input[type=number]{width:90px}
+#t7-painel input[type=color]{width:60px;padding:2px;height:32px}
+.lista-config{list-style:none;margin:6px 0;padding:0}
+.lista-config li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--linha)}
+.lista-config li .cresce{flex:1;min-width:180px;word-break:break-all}
+.lista-config li button.secundario{padding:2px 9px}
+.adicionar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.adicionar input{flex:1;min-width:200px;width:auto}
+.adicionar select{width:auto;min-width:180px}
+.barra-salvar{position:sticky;bottom:0;background:var(--fundo);border-top:1px solid var(--linha);padding:10px 0;margin-top:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.perigo{border:2px solid var(--erro);background:var(--erro-fundo);border-radius:4px;padding:14px 16px;margin-top:26px}
+.perigo h3{margin:0 0 8px;color:var(--erro)}
+.perigo p{margin:0 0 8px}
+.perigo .confirmacao{background:#fff;border-color:var(--erro)}
+.perigo progress{width:100%;max-width:420px;height:14px;display:block;margin:8px 0}
+button.perigoso{background:var(--erro);border-color:var(--erro)}
+button.perigoso:hover{background:#8a2224;border-color:#8a2224}
 </style>
 <body>
 <div id="semjs">

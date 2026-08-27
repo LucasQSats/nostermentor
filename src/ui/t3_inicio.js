@@ -40,6 +40,15 @@
         cartaoSaude.appendChild(h('div', { class: 'acoes' }, h('button', { type: 'button', onclick: function () { Shell.ir('t8'); } }, T.saude.publicar)));
         return;
       }
+      // Site tirado do ar (T7 → Avançado): o mapa publicado está VAZIO. Dizer
+      // "está em N relays" seria verdade sobre o evento e mentira sobre o site.
+      const foraDoAr = !!published.takedown_at && Object.keys(published.paths || {}).length === 0;
+      if (foraDoAr) {
+        cartaoSaude.appendChild(h('p', { id: 'saude-fora-do-ar', class: 'alerta' }, texto(T.saude.foraDoAr, { d: Modelo.formatarData(published.takedown_at) })));
+        cartaoSaude.appendChild(h('p', { class: 'apoio' }, T.saude.foraDoArApoio));
+        cartaoSaude.appendChild(h('div', { class: 'acoes' }, h('button', { type: 'button', id: 'saude-publicar', onclick: function () { Shell.ir('t8'); } }, T.saude.publicar)));
+        return;
+      }
       const hs = published.health || {}, n = Saude.contagemDe(hs);
       cartaoSaude.appendChild(h('p', { id: 'saude-resumo', class: 'destaque' }, texto(T.saude.emRelays, { n: n.atual, m: n.total })));
       const ul = h('ul', { id: 'lista-relays', class: 'lista-relays' });

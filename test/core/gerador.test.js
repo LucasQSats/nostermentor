@@ -59,6 +59,9 @@ module.exports = async function (ctx, u) {
     out.corpo = Gerador.renderizarCorpo('# H1\n\nTexto *it* **neg**\n\n<b onmouseover="x">b</b> <span style="color:red">s</span>');
     out.previa = Gerador.previaCorpo('Tít', 'oi ![a](/img/capa.png)', { '/img/capa.png': 'data:image/png;base64,AAAA' });
     out.paragrafo = Gerador.primeiroParagrafo(Gerador.renderizarCorpo('# Título\n\nEste é o **primeiro** parágrafo.\n\nSegundo.'));
+    // 06 §4: imagem clicável, sem script. Quatro casos numa tacada: local,
+    // já linkada pelo dono, data: URI e externa.
+    out.clicavel = Gerador.renderizarCorpo('![a](/img/capa.png)\n\n[![b](/img/capa.png)](https://destino.test/)\n\n![c](data:image/png;base64,AAAA)\n\n![d](https://fora.test/x.png)');
     out.shaTotal = await Gerador.sha256Hex(new TextEncoder().encode(g1.arquivos.map(a => a.path + ':' + a.sha256).join('\n')));
     return out;
   });
@@ -109,6 +112,17 @@ module.exports = async function (ctx, u) {
     assert(j.pages.length === 3 && j.posts.length === 3 && j.media.length === 1 && j.media[0].id === 'm-1', JSON.stringify([j.pages.length, j.posts.length, j.media.map(m => m.id)]));
     assert(!/created_at|updated_at|"status"|published_hash|bytes/.test(r.siteJsonTexto), 'campos locais vazaram');
     assert(r.siteJsonLido.ok && r.siteJsonLido.dados.pages.length === 3 && r.siteJsonLido.dados.posts[0].slug === 'terceiro' && r.siteJsonLido.ignorados === 0, JSON.stringify(r.siteJsonLido).slice(0, 200));
+  });
+  await it('06 §4: imagem do corpo vira link para o arquivo (nova aba, sem script); a que o dono já linkou fica com o link dele; data: e a capa', () => {
+    const c = r.clicavel;
+    assert(/<a class="ampliar" href="\/img\/capa\.png" target="_blank" rel="noopener"><img src="\/img\/capa\.png" alt="a"><\/a>/.test(c), 'local: ' + c);
+    assert(/<a href="https:\/\/destino\.test\/"><img src="\/img\/capa\.png" alt="b"><\/a>/.test(c) && !/ampliar[^>]*><a href="https:\/\/destino/.test(c), 'link do dono perdido ou duplicado: ' + c);
+    assert(/<img src="data:image\/png;base64,AAAA" alt="c">/.test(c) && !/href="data:/.test(c), 'data: virou link: ' + c);
+    assert(/<a class="ampliar" href="https:\/\/fora\.test\/x\.png" target="_blank" rel="noopener"><img src="https:\/\/fora\.test\/x\.png"/.test(c), 'externa: ' + c);
+    assert((c.match(/class="ampliar"/g) || []).length === 2, 'devia envolver exatamente 2 das 4: ' + c);
+    // a capa do artigo também abre, e nada disto traz <script> ao site publicado
+    assert(/<figure class="capa"><a class="ampliar" href="\/img\/capa\.png" target="_blank" rel="noopener"><img src="\/img\/capa\.png" alt="A capa" width="10" height="5"><\/a>/.test(r.a1), 'capa: ' + r.a1.slice(r.a1.indexOf('<figure'), r.a1.indexOf('<figure') + 260));
+    assert(!/<script/i.test(r.a1) && !/<script/i.test(r.home) && !/<script/i.test(r.blog), 'script no site publicado');
   });
   await it('previaCorpo: CSS embutido (sem <link>), imagem local trocada por data: URI (E4)', () => assert(/<style>/.test(r.previa) && !/<link rel="stylesheet"/.test(r.previa) && /src="data:image\/png;base64,AAAA"/.test(r.previa), r.previa.slice(-300)));
   await it('primeiroParagrafo: texto simples do primeiro <p>', () => assert(r.paragrafo === 'Este é o primeiro parágrafo.', r.paragrafo));
