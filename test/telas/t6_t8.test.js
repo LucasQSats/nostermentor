@@ -232,6 +232,28 @@ module.exports = async function (ctx, u) {
     return est.orfaos[0];
   });
 
+  await it('publicação interrompida: a imagem que SUBIU passa a dizer "em 1 servidor(es)" em T6 — a linha de apoio de T8 promete isso e, até 2026-08-28, mentia (achado da bancada Tails)', async () => {
+    const { p, ch } = await sessao({ relays: [f.ws('m-ok')], servidores: [f.url('finge-aceita')] });
+    await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6a');
+    await escolherArquivo(p.pg, 'subiu.jpg', EXIF, 'image/jpeg');
+    await p.pg.click('#t6a-adicionar'); await p.pg.waitForSelector('#t6-tabela');
+    await p.pg.click('#btn-publicar'); await p.pg.waitForSelector('#t8-total', { timeout: 20000 });
+    await p.pg.click('#t8-assinar');
+    await p.pg.waitForSelector('#t8-erro:not([hidden])', { timeout: 60000 });
+    const apoio = await p.pg.textContent('#t8-placar');
+    assert(/ficam registrados/.test(apoio), 'a promessa continua na tela: ' + apoio);
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    const img = banco.media.find(m => /subiu/.test(m.path));
+    assert(img && (img.servers || []).length === 1, 'o servidor que aceitou a imagem tinha de ficar gravado: ' + JSON.stringify(img && img.servers));
+    assert(img.status !== 'published', 'e sem publicar nada: o arquivo continua por publicar (' + img.status + ')');
+    await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6-tabela');
+    const onde = await p.pg.evaluate(() => [...document.querySelectorAll('#t6-tabela .onde')].map(x => x.textContent));
+    assert(onde.some(x => /em 1 servidor/.test(x)), 'T6 devia dizer onde o arquivo está: ' + JSON.stringify(onde));
+    assert(!onde.some(x => /só neste navegador/.test(x)), 'e já não pode dizer que está só aqui: ' + JSON.stringify(onde));
+    await p.pg.close();
+    return onde.join(' · ');
+  });
+
   await it('nenhum relay aceita → "os arquivos subiram, mas nenhum relay aceitou": o publicado continua o de antes e o estado local fica por publicar', async () => {
     const { p, ch } = await sessao({ relays: [f.ws('m-recusa'), f.ws('m-mudo')] });
     await p.pg.click('#btn-publicar'); await p.pg.waitForSelector('#t8-total', { timeout: 20000 });

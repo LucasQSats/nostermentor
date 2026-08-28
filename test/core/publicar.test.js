@@ -312,6 +312,21 @@ module.exports = async function (ctx, u) {
     return `${r.orfaos.length} caminhos órfãos → publicação interrompida`;
   });
 
+  await it('publicação interrompida: o que JÁ subiu fica em servidoresPorHash (a promessa da tela) — antes de 2026-08-28 o registro morria com o `return`', async () => {
+    const r = await naPagina(`
+      const plano = Publicar.planear({ dados, gerado, published: null });
+      const res = await Publicar.executar({ plano, site, assinar, servidores: [SO_MIDIA], relays: RELAYS, timeoutMs: 8000 });
+      const subiram = Object.keys(res.servidoresPorHash);
+      return { desfecho: res.desfecho, subiram: subiram.length, orfaos: (res.orfaos || []).length,
+               total: res.uploads.length, cssNoMapa: subiram.indexOf(gerado.hashes['/tema/estilo.css']) >= 0 };`,
+      Object.assign({ SO_MIDIA: f.url('so-midia') }, infra));
+    assert(r.desfecho === 'falta_servidor' && r.orfaos > 0, JSON.stringify(r));
+    assert(r.subiram > 0, 'o que o servidor aceitou tinha de ficar registrado: ' + JSON.stringify(r));
+    assert(r.cssNoMapa, 'o CSS (text/css) passa neste servidor e devia estar no registro: ' + JSON.stringify(r));
+    assert(r.subiram < r.total, 'e só o que subiu, não a lista toda: ' + JSON.stringify(r));
+    return `${r.subiram} de ${r.total} arquivos registrados, ${r.orfaos} órfãos`;
+  });
+
   await it('blobs sobem mas nenhum relay aceita → "sem_relay": os arquivos ficam na rede (não se perde o trabalho) e o manifest não conta como publicado', async () => {
     const r = await naPagina(`
       const plano = Publicar.planear({ dados, gerado, published: null });

@@ -533,7 +533,7 @@ const Textos = Object.freeze({
       avisoServidorCancelar: 'Cancelar',
       versao: 'Verificar se há nova versão do Nostermentor ao abrir',
       versaoApoio: 'A verificação em si chega com a tela "Nova versão"; aqui você já decide se quer que ela aconteça. Nunca há atualização automática: quem troca o arquivo é você.',
-      fixos: 'Tempos de espera e paralelismo não são ajustáveis: 45 s por relay e 120 s por operação de arquivo, valores medidos para funcionar pelo Tor. O Tor é transparente para o app — não há proxy a configurar.'
+      fixos: 'Tempos de espera e paralelismo não são ajustáveis: 45 s por relay e, para arquivos, 2 minutos mais 6 segundos por MB — um vídeo de 100 MB tem cerca de 12 minutos. São valores medidos para funcionar pelo Tor, onde um arquivo grande demora. O Tor é transparente para o app — não há proxy a configurar.'
     },
     tirarDoAr: {
       titulo: 'Tirar o site do ar',

@@ -36,11 +36,34 @@ const Blossom = (function () {
   'use strict';
 
   const TIMEOUT_PADRAO_MS = 120000;
+  // Um arquivo grande pelo Tor não cabe num tempo fixo. Medido na bancada
+  // Tails (2026-08-28): o upload rende ~0,46 MB/s por conexão, e um vídeo de
+  // 98 MB — que os dois servidores tinham aceitado no pré-flight — era
+  // abortado pelo PRÓPRIO app aos 120 s, com o dono a ver "demorou demais".
+  // O tempo passa a crescer com o tamanho: piso (o de sempre, que serve a
+  // tudo o que é pequeno), acréscimo por MB e teto — nunca ficar pendurado
+  // para sempre num servidor morto.
+  const TIMEOUT_POR_MB_MS = 6000;        // ~170 kB/s garantidos: um terço da taxa medida pelo Tor
+  const TIMEOUT_TETO_MS = 1800000;       // 30 min
   const RE_SHA = /^[0-9a-f]{64}$/;
   const KIND_AUTH = 24242;
   const VALIDADE_AUTH_S = 300;                 // token novo a cada requisição: 5 min sobram
   const VERBOS = Object.freeze(['get', 'upload', 'list', 'delete', 'media']);
   const CONTEUDO_AUTH = Object.freeze({ upload: 'Upload Blob', delete: 'Delete Blob', get: 'Get Blob', list: 'List Blobs', media: 'Upload Media' });
+
+  function tamanhoDe(bytes) {
+    if (!bytes) return 0;
+    if (typeof bytes.byteLength === 'number') return bytes.byteLength;   // ArrayBuffer / TypedArray
+    if (typeof bytes.size === 'number') return bytes.size;               // Blob / File
+    return 0;
+  }
+
+  // Quanto tempo dar a uma requisição que carrega `tamanho` bytes.
+  function timeoutPara(tamanho) {
+    const n = Number(tamanho);
+    if (!isFinite(n) || n <= 0) return TIMEOUT_PADRAO_MS;
+    return Math.min(TIMEOUT_TETO_MS, TIMEOUT_PADRAO_MS + Math.ceil(n / 1000000) * TIMEOUT_POR_MB_MS);
+  }
 
   function urlValida(u) {
     let p;
@@ -260,6 +283,8 @@ const Blossom = (function () {
   async function enviar(servidor, o) {
     o = o || {};
     if (typeof o.sha !== 'string' || !RE_SHA.test(o.sha)) return { servidor: base(servidor), estado: 'invalido', status: 0, ms: 0, codigo: 'hash_invalido', detalhe: '', descritor: null };
+    // sem tempo imposto por quem chama, o tamanho manda (⚠ acima)
+    if (!o.timeoutMs) o = Object.assign({}, o, { timeoutMs: timeoutPara(tamanhoDe(o.bytes)) });
     const r = await requisitar(servidor, 'upload', o.sha, o, function (cab) {
       return {
         url: base(servidor) + '/upload', lerCorpo: true,
@@ -407,8 +432,8 @@ const Blossom = (function () {
   function urlDoBlob(servidor, sha) { return base(servidor) + '/' + sha; }
 
   return Object.freeze({
-    TIMEOUT_PADRAO_MS, KIND_AUTH, VALIDADE_AUTH_S, VERBOS, MOTIVOS,
-    urlValida, dominioDe, sha256Hex, base64De, modeloAuth, cabecalhoDe, autorizacao, motivoDe, urlDoBlob,
+    TIMEOUT_PADRAO_MS, TIMEOUT_POR_MB_MS, TIMEOUT_TETO_MS, KIND_AUTH, VALIDADE_AUTH_S, VERBOS, MOTIVOS,
+    urlValida, dominioDe, sha256Hex, base64De, modeloAuth, cabecalhoDe, autorizacao, motivoDe, urlDoBlob, timeoutPara,
     baixarDe, baixar, preflight, preflightEmTodos, enviar, espelhar, enviarEmTodos, apagar, apagarEmTodos, conferir, conferirEmTodos
   });
 })();

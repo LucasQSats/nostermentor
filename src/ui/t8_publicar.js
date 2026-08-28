@@ -269,6 +269,9 @@
       if (meu.signal.aborted) return;
 
       if (res.desfecho === 'falta_servidor') {
+        // o que chegou aos servidores fica gravado antes de qualquer aviso:
+        // é o que a linha de apoio promete ao dono, e pelo Tor reenviar custa
+        await Publicar.registrarSubidos(db, res);
         const primeiro = (res.orfaos && res.orfaos[0]) || null;
         pErro.hidden = false;
         pErro.textContent = primeiro ? texto(T.interrompida, { p: primeiro.path }) : T.semServidor;

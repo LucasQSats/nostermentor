@@ -319,10 +319,17 @@ const Publicar = (function () {
     });
     if (o.sinal && o.sinal.aborted) { resultado.desfecho = 'cancelado'; return resultado; }
 
+    // O que subiu fica registrado ANTES da trava: um arquivo órfão interrompe a
+    // publicação, mas os blobs que já chegaram aos servidores continuam lá, e
+    // reenviá-los na tentativa seguinte custa caro pelo Tor. A tela promete
+    // isto ao dono ("os arquivos que subiram ficam registrados"); até
+    // 2026-08-28 esta linha vinha DEPOIS do `return` e a promessa era falsa —
+    // achado da bancada Tails, medido com um vídeo de 98 MB.
+    for (const u of resultado.uploads) if (u.aceitos.length) resultado.servidoresPorHash[u.sha256] = u.aceitos.slice();
+
     // 2. a trava: nenhum manifest é assinado se algum caminho ficou sem casa
     const orfaos = resultado.uploads.filter(u => u.aceitos.length === 0);
     if (orfaos.length > 0) { resultado.desfecho = 'falta_servidor'; resultado.orfaos = orfaos; return resultado; }
-    for (const u of resultado.uploads) resultado.servidoresPorHash[u.sha256] = u.aceitos.slice();
 
     // 3. assinar — o mapa inteiro, sempre (o 15128 é substituível: o evento
     //    novo apaga o anterior, então tem de conter TUDO que fica no ar)
@@ -434,6 +441,27 @@ const Publicar = (function () {
     return ops.length;
   }
 
+  // Publicação INTERROMPIDA (desfecho 'falta_servidor'): grava na store
+  // `media` os servidores que aceitaram cada blob (13 §4.3). Não muda estado
+  // nem `published` — o arquivo continua por publicar; o que se preserva é o
+  // trabalho de rede já feito, para a tentativa seguinte não reenviar pelo Tor
+  // o que já está nos servidores. É o que a tela promete em T8.
+  async function registrarSubidos(db, resultado) {
+    const porHash = (resultado && resultado.servidoresPorHash) || {};
+    if (!Object.keys(porHash).length) return 0;
+    const media = await db.getAll('media');
+    const ops = [];
+    for (const m of media) {
+      const aceitos = porHash[m.sha256];
+      if (!aceitos || !aceitos.length) continue;
+      const servers = Modelo.uniao(m.servers, aceitos);
+      if ((m.servers || []).join() === servers.join()) continue;
+      ops.push({ op: 'put', store: 'media', valor: Object.assign({}, m, { servers: servers, updated_at: Modelo.agora() }) });
+    }
+    if (ops.length) await db.escrever(ops);
+    return ops.length;
+  }
+
   // --- republicar (14 T3, 13 §5.5) ----------------------------------------
 
   // Reenvia o evento JÁ ASSINADO aos relays que não o têm. Não pede a nsec —
@@ -468,6 +496,6 @@ const Publicar = (function () {
   return Object.freeze({
     KIND_MANIFEST, KIND_PERFIL, KIND_RELAYS, KIND_SERVIDORES, CLIENTE, PARALELAS_PADRAO,
     planear, caminhosDoApp, modeloManifest, modeloPerfil, modeloRelays, modeloServidores, conteudoPerfil, avatarDe, urlDoAvatar,
-    mudouPerfil, mudouLista, valoresDeTag, emLotes, executar, fotografia, aplicar, republicar
+    mudouPerfil, mudouLista, valoresDeTag, emLotes, executar, fotografia, aplicar, registrarSubidos, republicar
   });
 })();

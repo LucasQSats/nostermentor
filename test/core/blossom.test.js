@@ -21,6 +21,7 @@ module.exports = async function (ctx, u) {
   f.blossom('sem-remocao', { remocao: 'recusa' });
   f.blossom('mentiroso', { descritorErrado: true });
   f.blossom('aberto', { exigeAuth: false });
+  f.blossom('lento', { atrasoMs: 1500 });                                 // demora de propósito: torna o tempo-limite determinístico
 
   const U = (n) => f.url(n);
   // corre no navegador com uma chave de sessão gerada lá dentro
@@ -256,6 +257,40 @@ module.exports = async function (ctx, u) {
       return Blossom.enviar(url, { sha, bytes, mime: 'application/octet-stream', assinar, sinal: c.signal });
     }, U('bom'));
     assert(r.estado === 'cancelado' || r.estado === 'ok', JSON.stringify(r));   // corrida legítima: pode ter acabado antes
+  });
+
+  await it('o tempo-limite do upload CRESCE com o tamanho: 2 min de piso para o que é pequeno, +6 s por MB, teto de 30 min (achado da bancada Tails, 2026-08-28)', async () => {
+    const r = await naPagina(() => ({
+      piso: Blossom.timeoutPara(0),
+      nulo: Blossom.timeoutPara(null),
+      pequeno: Blossom.timeoutPara(900),                 // 900 B → arredonda para 1 MB
+      umMB: Blossom.timeoutPara(1000000),
+      vinteDois: Blossom.timeoutPara(22777340),          // o vídeo curto da bancada
+      noventaOito: Blossom.timeoutPara(102687174),       // o vídeo que o app abortava aos 120 s
+      gigante: Blossom.timeoutPara(5000000000),
+      padrao: Blossom.TIMEOUT_PADRAO_MS, teto: Blossom.TIMEOUT_TETO_MS,
+    }));
+    assert(r.piso === 120000 && r.nulo === 120000, 'arquivo sem tamanho fica no piso: ' + JSON.stringify(r));
+    assert(r.pequeno === 126000 && r.umMB === 126000, '1 MB = piso + 6 s: ' + JSON.stringify(r));
+    assert(r.vinteDois === 120000 + 23 * 6000, '22,8 MB → 23 MB de acréscimo: ' + r.vinteDois);
+    assert(r.noventaOito === 120000 + 103 * 6000, '98 MB → ' + (120000 + 103 * 6000) + ' ms, teve ' + r.noventaOito);
+    assert(r.noventaOito > 3.5 * 60 * 1000, 'tem de cobrir os ~3,5 min medidos pelo Tor: ' + r.noventaOito);
+    assert(r.gigante === r.teto && r.teto === 1800000, 'nunca acima do teto: ' + JSON.stringify(r));
+    return Math.round(r.noventaOito / 1000) + ' s para o vídeo de 98 MB (eram 120)';
+  });
+
+  await it('quem chama continua a mandar: um timeoutMs explícito vence o cálculo por tamanho (servidor que demora 1,5 s, tempo dado 200 ms)', async () => {
+    const r = await naPagina(async (url) => {
+      const ch = Chave.gerar(), assinar = (m) => Chave.assinar(m, ch.sk);
+      const bytes = new Uint8Array(300000); const sha = await Blossom.sha256Hex(bytes);
+      const t0 = Date.now();
+      const res = await Blossom.enviar(url, { sha, bytes, mime: 'application/octet-stream', assinar, timeoutMs: 200 });
+      return { estado: res.estado, codigo: res.codigo, ms: Date.now() - t0, calculado: Blossom.timeoutPara(300000) };
+    }, U('lento'));
+    assert(r.estado === 'timeout' && r.codigo === 'timeout', JSON.stringify(r));
+    assert(r.calculado === 126000, 'pelo tamanho seriam 126 s: ' + r.calculado);
+    assert(r.ms < 1400, 'devia render-se nos 200 ms pedidos, não esperar o cálculo nem o servidor: ' + r.ms);
+    return r.ms + ' ms (o cálculo por tamanho daria ' + r.calculado + ' ms)';
   });
 
   await it('sem erros de página/console (recusa de servidor nunca vira exceção)', () => assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros })));
