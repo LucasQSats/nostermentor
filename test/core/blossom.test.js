@@ -210,6 +210,44 @@ module.exports = async function (ctx, u) {
     return `apagado em 1, recusado em 1 — a promessa de 03 §6`;
   });
 
+  // 14 T6 "Reconferir" — BUD-01 HEAD /<sha256>, spec relida em 2026-08-27.
+  await it('reconferir (BUD-01 HEAD): blob que está lá → presente; apagado → ausente; servidor que responde erro sem CORS → indeterminado (nunca "sumiu")', async () => {
+    const r = await naPagina(async (urls) => {
+      const ch = Chave.gerar(), assinar = (m) => Chave.assinar(m, ch.sk);
+      const bytes = new TextEncoder().encode('para reconferir ' + Math.random());
+      const sha = await Blossom.sha256Hex(bytes);
+      await Blossom.enviar(urls.bom, { sha, bytes, mime: 'text/plain', assinar });
+      const antes = await Blossom.conferir(urls.bom, sha);
+      await Blossom.apagar(urls.bom, { sha, assinar });
+      const depois = await Blossom.conferir(urls.bom, sha);
+      const cego = await Blossom.conferir(urls.cego, sha);          // 404 sem CORS (P26/P31)
+      const invalido = await Blossom.conferir(urls.bom, 'zz');
+      return { antes, depois, cego, invalido, sha };
+    }, { bom: U('bom'), cego: U('cego') });
+    assert(r.antes.estado === 'presente' && r.antes.status === 200, JSON.stringify(r.antes));
+    assert(r.depois.estado === 'ausente' && r.depois.status === 404, JSON.stringify(r.depois));
+    assert(r.cego.estado === 'indeterminado', 'erro sem CORS não pode virar "ausente": ' + JSON.stringify(r.cego));
+    assert(r.invalido.estado === 'indeterminado' && r.invalido.codigo === 'hash_invalido', JSON.stringify(r.invalido));
+    return 'presente → ausente, e o servidor cego fica por conferir';
+  });
+
+  await it('reconferir em todos: devolve um `removal` novo (13 §4.3) — o que já não está lá vai para deleted_from, o que continua público para refused_by', async () => {
+    const r = await naPagina(async (urls) => {
+      const ch = Chave.gerar(), assinar = (m) => Chave.assinar(m, ch.sk);
+      const bytes = new TextEncoder().encode('em dois servidores ' + Math.random());
+      const sha = await Blossom.sha256Hex(bytes);
+      await Blossom.enviar(urls.bom, { sha, bytes, mime: 'text/plain', assinar });
+      await Blossom.enviar(urls.semRemocao, { sha, bytes, mime: 'text/plain', assinar });
+      await Blossom.apagarEmTodos([urls.bom, urls.semRemocao], { sha, assinar });
+      const rc = await Blossom.conferirEmTodos([urls.bom, urls.semRemocao], sha);
+      return { rc, sha };
+    }, { bom: U('bom'), semRemocao: U('sem-remocao') });
+    assert(r.rc.deleted_from.length === 1 && /\/bom$/.test(r.rc.deleted_from[0]), JSON.stringify(r.rc));
+    assert(r.rc.refused_by.length === 1 && /sem-remocao$/.test(r.rc.refused_by[0]), JSON.stringify(r.rc));
+    assert(typeof r.rc.checked_at === 'string' && r.rc.checked_at.length > 10, JSON.stringify(r.rc.checked_at));
+    return 'o placar de hoje, não o do dia da remoção';
+  });
+
   await it('cancelar (AbortController) no meio de um upload → "cancelado", sem exceção', async () => {
     const r = await naPagina(async (url) => {
       const ch = Chave.gerar(), assinar = (m) => Chave.assinar(m, ch.sk);

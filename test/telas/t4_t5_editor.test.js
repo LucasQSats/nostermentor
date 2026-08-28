@@ -221,6 +221,55 @@ module.exports = async function (ctx, u) {
     await p.pg.close();
   });
 
+  await it('M5: UI de aliases — "Endereços antigos" no editor; Remover apaga o alias da página E grava uma lápide de mídia (removed, origin upload) pelo sha256 que estava publicado', async () => {
+    const sha = 'a'.repeat(64);
+    const pub = Object.assign(Modelo_pagina('Com alias', 'com-alias-nova', 'published'), { aliases: ['com-alias-velha'] });
+    const publicado = { manifest_event: null, manifest_event_id: null, created_at: 1, paths: { '/com-alias-velha.html': sha }, relays: {}, servers: { [sha]: ['https://cdn.exemplo.test'] }, metadata_events: {}, health: {} };
+    const p = await sessao([{ op: 'put', store: 'pages', valor: pub }, { op: 'put', store: 'published', chave: 'current', valor: publicado }]);
+    await p.pg.click('#menu .item[data-tela="t4"]'); await p.pg.waitForSelector('#t4');
+    await p.pg.click('#lista-pages tr[data-id="' + pub.id + '"] .acao-editar'); await p.pg.waitForSelector('#editor');
+    const lista = await p.pg.evaluate(() => [...document.querySelectorAll('#ed-aliases-lista li code')].map(x => x.textContent));
+    assert(lista.join() === '/com-alias-velha.html', 'a lista de aliases devia mostrar o endereço antigo: ' + JSON.stringify(lista));
+    await p.pg.click('#ed-aliases-lista button');
+    await p.pg.waitForSelector('#ed-alias-remover');
+    const modal = await p.pg.textContent('#modal-corpo, .modal-corpo');
+    assert(/com-alias-velha\.html/.test(modal) && /sempre funciona/.test(modal) && /continua acessível para quem tiver o link/.test(modal), modal.slice(0, 300));
+    await p.pg.click('#ed-alias-remover');
+    await p.pg.waitForFunction(() => document.getElementById('ed-aliases').hidden, null, { timeout: 10000 });
+    const b = await lerBanco(p.pg, ch.pubkey);
+    const reg = b.pages.find(x => x.id === pub.id);
+    assert((reg.aliases || []).length === 0, 'o alias devia ter saído da página: ' + JSON.stringify(reg.aliases));
+    const lapide = b.media.find(m => m.path === '/com-alias-velha.html');
+    assert(lapide && lapide.status === 'removed' && lapide.sha256 === sha && lapide.origin === 'upload' && lapide.previous_status === 'published' && JSON.stringify(lapide.servers) === '["https://cdn.exemplo.test"]', JSON.stringify(lapide));
+    // a lápide é uma mídia como outra qualquer para T6: aparece na Biblioteca
+    // (não em "Herdados", que é só `origin: 'network'`) como uma linha
+    // "removida" comum, com "Desfazer" — sem quebrar miniatura/onde-está para
+    // um caminho .html sem bytes locais.
+    await p.pg.click('#ed-voltar'); await p.pg.waitForSelector('#lista-pages');
+    await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6-tabela');
+    const linhaT6 = await p.pg.evaluate(() => {
+      const tr = document.querySelector('#t6-tabela tr[data-path="/com-alias-velha.html"]');
+      return tr && { classe: tr.className, estado: tr.querySelector('.estado').textContent, acoes: tr.cells[tr.cells.length - 1].textContent };
+    });
+    assert(linhaT6 && linhaT6.classe === 'removida' && /a remover/i.test(linhaT6.estado), 'a lápide devia aparecer em T6 como removida: ' + JSON.stringify(linhaT6));
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, 'a lápide (.html sem bytes) não pode quebrar a tabela de T6: ' + JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.close();
+    return 'lápide: ' + JSON.stringify([lapide.path, lapide.status, lapide.origin]) + '; em T6: ' + JSON.stringify(linhaT6);
+  });
+
+  await it('M5: UI de aliases — remover um alias que NUNCA foi publicado só tira da lista, sem criar lápide (nada a apagar da rede)', async () => {
+    const pub = Object.assign(Modelo_pagina('Alias nunca publicado', 'nunca-pub-nova', 'published'), { aliases: ['nunca-pub-velha'] });
+    const p = await sessao([{ op: 'put', store: 'pages', valor: pub }]);        // sem registro `published`
+    await p.pg.click('#menu .item[data-tela="t4"]'); await p.pg.waitForSelector('#t4');
+    await p.pg.click('#lista-pages tr[data-id="' + pub.id + '"] .acao-editar'); await p.pg.waitForSelector('#ed-aliases-lista');
+    await p.pg.click('#ed-aliases-lista button'); await p.pg.waitForSelector('#ed-alias-remover'); await p.pg.click('#ed-alias-remover');
+    await p.pg.waitForFunction(() => document.getElementById('ed-aliases').hidden, null, { timeout: 10000 });
+    const b = await lerBanco(p.pg, ch.pubkey);
+    assert((b.pages.find(x => x.id === pub.id).aliases || []).length === 0, 'o alias devia ter saído mesmo sem lápide');
+    assert(!b.media.some(m => m.path === '/nunca-pub-velha.html'), 'não havia nada publicado nesse caminho — não devia nascer lápide');
+    await p.pg.close();
+  });
+
   await it('19(d): "Ver online" aparece na lista e no editor para quem já foi publicado (não para rascunho), com o endereço público certo', async () => {
     const pub = Modelo_pagina('Já publicada', 'ja-publicada', 'published');
     const rasc = Modelo_pagina('Rascunho', 'rascunho-nunca-publicado', 'draft');

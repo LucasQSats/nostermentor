@@ -8,18 +8,30 @@ Gerenciador de publicação de sites e blogs no protocolo **nsite**
 - A chave (nsec) nunca sai do navegador e nunca é gravada.
 - A rede é o banco de dados: o site publicado é reconstruído a partir da npub.
 
+## O que o app faz
+
+Entrar com a chave (colar, arquivo ou gerar uma nova, mostrada uma vez) →
+reconstruir o site pela rede → escrever páginas e artigos em Markdown com
+pré-visualização isolada → enviar imagens, com os metadados removidos antes
+de subir → **publicar** nos servidores Blossom e nos relays, com diff e
+placar honesto ("N de M") → conferir a saúde da publicação e reenviar o mapa
+aos relays que o perderam, sem pedir a chave → exportar e importar o backup.
+O site gerado é HTML estático **sem uma única tag de script**.
+
+Arquivos publicados por outra ferramenta são preservados; quando um deles
+ocupa um caminho que o app precisa gerar, a publicação **para** e o dono
+escolhe — nunca se troca em silêncio.
+
 ## Estado
 
-**Marco M3 concluído (2026-08-26)** — editar e guardar: listas de Páginas
-(T4) e Artigos (T5) com os quatro estados e ações (remover / desfazer /
-excluir / definir como Início), o editor (T4a/T5a: Markdown com botões +
-pré-visualização isolada em iframe de origem opaca, gravação automática,
-slug travado após a publicação com aliases), o gerador determinístico do
-site (tema padrão em Mustache, `site.json`) e o Backup (T9: exportar com
-tripwire de nsec, importar com resumo, juntar ou substituir). M1
-(esqueleto, T0/T1, moldura) e M2 (ler da rede: T2/T3) estão concluídos.
-Nada é publicado ainda — o botão "Publicar" acende, mas leva a um aviso
-honesto: publicar é o M4.
+**Marco M4 concluído (2026-08-27) — o protótipo publica de verdade**, e o
+ciclo inteiro foi validado no Tails real: entrar, editar, publicar na rede,
+guardar o backup, **reiniciar a máquina** e recuperar tudo. **M5 em curso**
+(completar a v1): T3 Início, T6 Mídia, T7 Configurações e T11 Ajuda estão
+feitas, com "tirar o site do ar" e a imagem clicável; faltam a edição de
+endereços antigos (aliases) e o bloco de bloqueio em T8. M1 (esqueleto,
+T0/T1, moldura), M2 (ler da rede) e M3 (editar, gerar e backup) estão
+concluídos. O aviso de nova versão dentro do painel é o M6.
 
 ```
 ./gera_bundle.sh      # (só se mudar a versão do nostr-tools) regenera src/libs/nostr-tools.inline.js
@@ -29,7 +41,9 @@ test/tails/entrega.sh # ISO para a bancada Tails
 ```
 
 Dependências de desenvolvimento (`package.json`) instalam-se no scratchpad,
-nunca aqui; nada delas entra no produto.
+nunca aqui; nada delas entra no produto. As quatro bibliotecas embutidas
+(nostr-tools, DOMPurify, marked, Mustache) entram como estão, com versão e
+sha256 em `VERSOES.md` — a montagem recusa gerar o app se alguma divergir.
 
 ## Base de conhecimento
 

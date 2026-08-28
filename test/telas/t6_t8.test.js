@@ -13,6 +13,11 @@ module.exports = async function (ctx, u) {
   if (!u.falso) { pulado('telas/t6_t8 (todos os casos)', 'servidor falso indisponível'); return R; }
   const f = u.falso;
   f.blossom('m1', {}); f.blossom('m2', {}); f.blossom('img-so', { tiposRecusados: ['text/html', 'application/json'] });
+  // M5: servidor que MENTE no pré-flight (sempre 200 no HEAD) mas aplica a
+  // política de verdade no PUT — é o único jeito de exercitar a ordem de
+  // segurança de `core/publicar.js` agora que T8 prevê e bloqueia de antemão
+  // toda recusa que o HEAD já anuncia (14 T8, "não pode subir").
+  f.blossom('finge-aceita', { tiposRecusados: ['text/html', 'application/json'], preflight: 'sempre200' });
   const SERVIDORES = [f.url('m1'), f.url('m2')];
   const EXIF = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'limpeza', 'exif.jpg'));
 
@@ -190,8 +195,26 @@ module.exports = async function (ctx, u) {
     return `corpo → ${soCorpo.length} caminhos; título → ${comTitulo.length}`;
   });
 
-  await it('ORDEM DE SEGURANÇA pela tela: servidor que recusa HTML → "Publicação interrompida", motivo por servidor, nada muda no banco e nenhum relay recebe evento', async () => {
+  await it('M5: pré-flight prevê a recusa ANTES do clique → bloco vermelho "não pode subir", botão desligado, nada sobe', async () => {
     const { p, ch } = await sessao({ relays: [f.ws('m-ok')], servidores: [f.url('img-so')] });
+    await p.pg.click('#btn-publicar'); await p.pg.waitForSelector('#t8-total', { timeout: 20000 });
+    const est = await p.pg.evaluate(() => ({
+      erro: document.getElementById('t8-erro').textContent,
+      bloqueados: [...document.querySelectorAll('#t8-avisos li.erro')].map(x => x.textContent),
+      podeClicar: !document.getElementById('t8-assinar').disabled
+    }));
+    assert(/não pode subir/.test(est.erro), est.erro);
+    assert(est.bloqueados.some(x => /index\.html/.test(x) && /não pode subir/.test(x)), JSON.stringify(est.bloqueados));
+    assert(!est.podeClicar, 'o botão devia estar desligado sem precisar de clicar');
+    assert(f.blobsDe('img-so').length === 0, 'o pré-flight é um HEAD — nada deveria ter sido enviado');
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    assert(banco.pages.every(x => x.status !== 'published') && !banco.published, 'o estado local não pode mudar: ' + JSON.stringify(banco.pages.map(x => x.status)));
+    await p.pg.close();
+    return est.bloqueados[0];
+  });
+
+  await it('ORDEM DE SEGURANÇA pela tela: servidor que MENTE no pré-flight mas recusa HTML de verdade no upload → "Publicação interrompida", motivo por servidor, nada muda no banco e nenhum relay recebe evento', async () => {
+    const { p, ch } = await sessao({ relays: [f.ws('m-ok')], servidores: [f.url('finge-aceita')] });
     const antes = f.publicadosEm('m-ok').length;
     await p.pg.click('#btn-publicar'); await p.pg.waitForSelector('#t8-total', { timeout: 20000 });
     await p.pg.click('#t8-assinar');
@@ -283,7 +306,7 @@ module.exports = async function (ctx, u) {
     const sha = banco1.media[0].sha256;
     assert(f.temBlob('m1', sha) && f.temBlob('m2', sha), 'o blob devia estar nos dois servidores');
     await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6-tabela');
-    await p.pg.click('#t6-tabela .ligacao');
+    await p.pg.click('#t6-tabela .t6-remover');            // M5: "Remover" só existe para o que já foi publicado
     await p.pg.waitForSelector('#t6b-remover');
     const modal = await p.pg.textContent('#modal-corpo, .modal-corpo');
     assert(/sempre funciona/.test(modal) && /continua acessível para quem tiver o endereço/.test(modal), modal.slice(0, 200));
@@ -315,8 +338,10 @@ module.exports = async function (ctx, u) {
       await db.put('posts', Object.assign({}, artigo, { cover_media_id: mediaId }));
       db.fechar();
     }, [ch.pubkey, media.id]);
-    await p.pg.click('#t6-tabela .ligacao');
-    await p.pg.waitForSelector('#t6b-remover');
+    // M5: a mídia é rascunho, então o gesto é "Excluir" (14 T6) — a contagem
+    // de uso é dita nos dois modais, porque em ambos o dono precisa dela.
+    await p.pg.click('#t6-tabela .t6-excluir');
+    await p.pg.waitForSelector('#t6-excluir-ok');
     const modal = await p.pg.textContent('#modal-corpo, .modal-corpo');
     assert(/ainda usam este arquivo: 1/.test(modal), 'devia contar o artigo pela capa, não só pelo corpo: ' + modal.slice(0, 200));
     await p.pg.close();

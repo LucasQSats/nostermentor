@@ -77,6 +77,59 @@ const Editor = (function () {
     const btnRenomear = h('button', { type: 'button', id: 'ed-renomear', class: 'ligacao', hidden: !travado || removido, onclick: function () { e.renomeando = true; inSlug.disabled = false; btnRenomear.hidden = true; explicaRenomear.hidden = false; inSlug.focus(); } }, C.renomear);
     const explicaRenomear = h('p', { id: 'ed-renomear-explica', class: 'apoio', hidden: true }, C.renomearExplica);
     const prefixo = tipo === 'page' ? '/' : Modelo.PREFIXO_BLOG + '/';
+
+    // M5: "Endereços antigos" — a lista dos aliases que "Renomear caminho…"
+    // já gera (13 §4.0), com um jeito de matar o redirect quando o dono
+    // quiser (13 §4.3: sem isto o endereço morto ficaria "herdado" para
+    // sempre, sem botão de apagar — ver 11, 2026-08-27).
+    const divAliases = h('div', { id: 'ed-aliases' });
+    function renderAliases() {
+      const CA = T.aliases;
+      Shell.limpar(divAliases);
+      const lista = (e.reg.aliases || []).slice().sort();
+      if (!lista.length) { divAliases.hidden = true; return; }
+      divAliases.hidden = false;
+      divAliases.appendChild(h('p', {}, CA.titulo + ':'));
+      divAliases.appendChild(h('ul', { id: 'ed-aliases-lista' }, lista.map(function (a) {
+        return h('li', {}, h('code', {}, prefixo + a + '.html'), ' ',
+          h('button', { type: 'button', class: 'ligacao', 'data-alias': a, onclick: function () { removerAlias(a); } }, CA.remover));
+      })));
+      divAliases.appendChild(h('p', { class: 'apoio' }, CA.apoio));
+    }
+    // O redirect morto é tratado como mídia "removida" pelo mesmo caminho
+    // (13 §4.3) — reaproveita 100% da ordem de segurança que já apaga
+    // arquivos: sai do mapa e o app tenta o DELETE nos servidores (§14 T8).
+    // `origin: 'upload'` (não 'network') é o que faz T2 deixar a lápide em
+    // paz — herdado de verdade seria ressuscitado pela reconciliação.
+    async function removerAlias(aliasSlug) {
+      const CA = T.aliases, path = Modelo.caminhoDe(tipo, aliasSlug);
+      Shell.modal({ titulo: texto(CA.modalTitulo, { p: path }), conteudo: [
+        h('p', {}, CA.modalTirar), h('p', {}, CA.modalApagar),
+        h('p', { class: 'alerta' }, texto(CA.modalAviso, { p: path })),
+        h('div', { class: 'acoes' },
+          h('button', { type: 'button', id: 'ed-alias-remover', onclick: async function () {
+            const publicado = await db.get('published', 'current');
+            const sha = publicado && publicado.paths && publicado.paths[path];
+            const ops = [];
+            const novoReg = Object.assign({}, e.reg, { aliases: (e.reg.aliases || []).filter(function (a) { return a !== aliasSlug; }), updated_at: Modelo.agora() });
+            ops.push({ op: 'put', store: store, valor: novoReg });
+            if (sha) {
+              const servers = (publicado.servers && publicado.servers[sha]) || [];
+              const lapide = { id: Modelo.novoId(), path: path, mime: Modelo.mimePorCaminho(path), size: null, sha256: sha, width: null, height: null,
+                alt: '', caption: '', bytes: null, status: 'published', servers: servers.slice(),
+                removal: null, metadata: { stripped: null, removed_segments: [], warning: null }, origin: 'upload',
+                created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null };
+              ops.push({ op: 'put', store: 'media', valor: Modelo.transicao(lapide, 'remover').registro });
+            }
+            await db.escrever(ops);
+            e.reg = novoReg;
+            Shell.fecharModal();
+            await Shell.registrarAlteracao(1);
+            renderAliases();
+          } }, CA.confirmar),
+          h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.fecharModal(); } }, CA.cancelar))
+      ] });
+    }
     const inDescricao = h('input', { type: 'text', id: 'ed-descricao', value: reg.description || '', disabled: removido });
     const taCorpo = h('textarea', { id: 'ed-corpo', rows: 14, spellcheck: 'true', disabled: removido });
     taCorpo.value = reg.body || '';
@@ -227,6 +280,7 @@ const Editor = (function () {
       h('label', { for: 'ed-titulo' }, C.titulo), inTitulo,
       h('div', { class: 'linha-caminho' }, h('label', { for: 'ed-slug' }, C.caminho), h('span', { class: 'caminho' }, h('code', {}, prefixo), inSlug, h('code', {}, '.html')), btnRenomear),
       explicaRenomear,
+      divAliases,
       ehInicio ? h('p', { class: 'apoio', id: 'ed-eh-inicio' }, C.ehInicio) : null,
       h('label', { for: 'ed-descricao' }, C.descricao), inDescricao, h('p', { class: 'apoio' }, C.descricaoApoio),
       tipo === 'post' ? [
@@ -254,6 +308,7 @@ const Editor = (function () {
       removido ? h('p', { class: 'alerta', id: 'ed-removido' }, T.erros.removido) : null,
       h('div', { class: 'editor-grade' }, campos, h('div', { class: 'editor-previa' }, h('h2', { class: 'apoio' }, T.previa.titulo), iframe), lateral)));
     renderAcoesEstado();
+    renderAliases();
     renderPrevia();
 
     // --- eventos -------------------------------------------------------------------

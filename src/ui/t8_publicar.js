@@ -23,6 +23,36 @@
   function servidorCurto(u) { try { return new URL(u).hostname; } catch (e) { return String(u); } }
   function relayCurto(u) { return String(u).replace(/^wss:\/\//, ''); }
 
+  // Cache do pré-flight (13 §3 `network.capabilities`), mesmo formato e mesma
+  // janela de 24h que `ui/t6_midia.js` usa — sem isso cada publicação
+  // reconferiria com os servidores todo arquivo já testado no dia (07 §3.2:
+  // menos conexões pelo Tor). Puras (recebem o mapa, devolvem resultado/mapa
+  // novo); quem chama decide quando gravar no `site`.
+  const DIA_MS = 24 * 60 * 60 * 1000;
+  function tipoBase(mime) { return String(mime || '').split(';')[0].trim().toLowerCase(); }
+  function doCachePreflight(cap, servidor, mime, tamanho) {
+    const c = cap[servidor];
+    if (!c || !c.checked_at) return null;
+    const idade = Date.now() - Date.parse(c.checked_at);
+    if (!(idade >= 0 && idade < DIA_MS)) return null;
+    const base = { servidor: servidor, estado: 'recusa', status: 0, ms: 0, checked_at: c.checked_at, cache: true };
+    if (Array.isArray(c.refuses) && c.refuses.indexOf(tipoBase(mime)) !== -1) return Object.assign({}, base, { codigo: 'tipo_nao_aceito' });
+    if (typeof c.max_bytes === 'number' && c.max_bytes > 0 && tamanho > c.max_bytes) return Object.assign({}, base, { codigo: 'grande_demais' });
+    return null;
+  }
+  function comCapacidades(cap, resultados, mime) {
+    const novo = Object.assign({}, cap);
+    const tipo = tipoBase(mime);
+    for (const r of resultados) {                     // só resultados AO VIVO chegam aqui (quem chama filtra os do cache)
+      const antes = novo[r.servidor] || { checked_at: null, max_bytes: null, refuses: [] };
+      const refuses = Array.isArray(antes.refuses) ? antes.refuses.slice() : [];
+      if (r.estado === 'recusa' && r.codigo === 'tipo_nao_aceito' && tipo && refuses.indexOf(tipo) === -1) refuses.push(tipo);
+      if (r.estado === 'aceita') { const i = refuses.indexOf(tipo); if (i !== -1) refuses.splice(i, 1); }
+      novo[r.servidor] = { checked_at: r.checked_at, max_bytes: antes.max_bytes, refuses: refuses };
+    }
+    return novo;
+  }
+
   // O porquê de cada caminho (14 T8 passo 2)
   function porque(item) {
     const P = Textos.t8.porques, p = item.path;
@@ -97,6 +127,50 @@
       return;
     }
 
+    // --- 2b. pré-flight por arquivo (14 T8; ficou para o M5) --------------
+    // "Repete o pré-flight só para uploads sem verificação recente": cada
+    // item de `plano.upload` é conferido nos servidores configurados, com o
+    // cache acima poupando quem já foi testado no dia. "Não consegui
+    // verificar" nunca conta como recusa (mesma regra de T6) — só quando
+    // TODOS os servidores recusam de fato é que o arquivo "não pode subir".
+    const preflightPorPath = {};
+    if (plano.upload.length && plano.servidores.length) {
+      const statusPre = h('p', { id: 't8-conferindo-servidores', class: 'apoio' }, T.conferindoServidores);
+      corpo.appendChild(statusPre);
+      const capsAntes = (site.network && site.network.capabilities) || {};
+      let capsNovas = capsAntes;
+      ctrl = ctrl || new AbortController();
+      const meu = ctrl;
+      const porItem = await Publicar.emLotes(plano.upload, Publicar.PARALELAS_PADRAO, async function (item) {
+        const sabidos = [], perguntar = [];
+        for (const sv of plano.servidores) {
+          const c = doCachePreflight(capsNovas, sv, item.mime, item.tamanho);
+          if (c) sabidos.push(c); else perguntar.push(sv);
+        }
+        if (!perguntar.length || (meu.signal && meu.signal.aborted)) return { path: item.path, resultados: sabidos };
+        const vivos = await Blossom.preflightEmTodos(perguntar, { sha: item.sha256, tamanho: item.tamanho, mime: item.mime, assinar: Shell.assinar, sinal: meu.signal });
+        capsNovas = comCapacidades(capsNovas, vivos, item.mime);
+        return { path: item.path, resultados: sabidos.concat(vivos) };
+      });
+      if (meu.signal.aborted) return;
+      if (ctrl === meu) ctrl = null;
+      for (const r of porItem) preflightPorPath[r.path] = r.resultados;
+      if (capsNovas !== capsAntes) {
+        site.network = Object.assign({}, site.network, { capabilities: capsNovas });
+        try { await db.put('site', site, 'site'); } catch (e) {}
+      }
+      corpo.removeChild(statusPre);
+    }
+    const avisosPreflight = plano.upload.map(function (item) {
+      const pf = preflightPorPath[item.path];
+      if (!pf || !pf.length) return null;
+      const recusam = pf.filter(function (r) { return r.estado === 'recusa'; });
+      if (!recusam.length) return null;
+      const resto = pf.filter(function (r) { return r.estado !== 'recusa'; });
+      return { path: item.path, recusam: recusam, resto: resto, bloqueado: resto.length === 0 };
+    }).filter(Boolean);
+    const naoPodeSubir = avisosPreflight.filter(function (a) { return a.bloqueado; });
+
     function lista(rotulo, itens, extra) {
       if (!itens.length) return null;
       return h('div', { class: 'bloco-diff', 'data-bloco': rotulo },
@@ -118,7 +192,13 @@
         // bloco nunca aparecia no caso real (ver 11, 2026-08-27).
         const fica = plano.herdados.concat(plano.preservados || []);
         return fica.length ? lista(T.blocos.herdados, fica, function () { return ''; }) : null;
-      })()));
+      })(),
+      avisosPreflight.length ? h('div', { class: 'bloco-diff', id: 't8-avisos' }, h('h2', {}, T.avisosTitulo),
+        h('ul', {}, avisosPreflight.map(function (a) {
+          const recusa = a.recusam.map(function (r) { return servidorCurto(r.servidor) + ' ' + T.avisoVaiRecusar + ' (' + motivo(r.codigo) + ')'; }).join('; ');
+          const texto2 = a.bloqueado ? (recusa + ' — ' + T.naoPodeSubirItem) : texto(T.avisoParcial, { recusa: recusa, aceita: a.resto.map(function (r) { return servidorCurto(r.servidor); }).join(', ') });
+          return h('li', { class: a.bloqueado ? 'erro' : 'apoio' }, h('code', {}, a.path), h('span', {}, ' — ' + texto2));
+        }))) : null));
 
     const eventosLista = [T.eventos.manifest]
       .concat(plano.eventos.kind0 ? [T.eventos.kind0] : [])
@@ -149,8 +229,14 @@
       const caminhos = plano.colisoes.map(function (c) { return c.path; }).join(', ');
       pErro.textContent = texto(plano.colisoes.length === 1 ? T.colisao : T.colisoes, { p: caminhos });
       corpo.insertBefore(h('p', { class: 'apoio', id: 't8-colisao-apoio' }, T.colisaoApoio), acoes);
-      acoes.insertBefore(h('button', { type: 'button', id: 't8-colisao-ir', onclick: function () { Shell.ir('t6'); } }, T.colisaoBotao), btn);
+      acoes.insertBefore(h('button', { type: 'button', id: 't8-colisao-ir', onclick: function () { Shell.ir('t6', { aba: 'herdados' }); } }, T.colisaoBotao), btn);
     }
+
+    // "Não pode subir" (14 T8; M5): pelo menos um arquivo não tem nenhum
+    // servidor que aceite — o bloco vermelho acima já nomeia qual e porquê;
+    // aqui só desliga o botão até o dono remover o arquivo ou trocar de
+    // servidor (Avançado).
+    if (naoPodeSubir.length) { btn.disabled = true; pErro.hidden = false; pErro.textContent = T.bloqueado; }
 
     // --- 3 e 4. publicar e relatar ---------------------------------------
     function progresso(p) {

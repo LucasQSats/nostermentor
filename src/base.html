@@ -191,6 +191,35 @@ input[type=search]{font:inherit}
 .perigo .confirmacao{background:#fff;border-color:var(--erro)}
 .perigo progress{width:100%;max-width:420px;height:14px;display:block;margin:8px 0}
 button.perigoso{background:var(--erro);border-color:var(--erro)}
+/* M5 — ajuda (T11): texto para ler, não formulário — linha mais larga que o
+   habitual e listas com respiro */
+#t11{max-width:820px}
+#t11-painel h2{margin:0 0 10px}
+#t11-painel h3{margin:20px 0 6px;font-size:15px}
+#t11-painel p{margin:0 0 10px;line-height:1.6}
+#t11-painel .destaque{font-weight:600}
+#t11-painel ol.passos-ajuda{margin:0 0 10px;padding-left:22px}
+#t11-painel ol.passos-ajuda li{margin:0 0 8px;line-height:1.6}
+#t11-painel ul.lista-copias,#t11-painel ul#t11-bibliotecas{margin:0 0 10px;padding-left:20px}
+#t11-painel ul.lista-copias li,#t11-painel ul#t11-bibliotecas li{margin:0 0 8px;line-height:1.6}
+#t11-painel code{word-break:break-all}
+/* M5 — biblioteca de mídia (T6): miniatura, "onde está" e o relato de
+   remoção por servidor */
+#t6{max-width:1200px}
+#t6-lista .col-mini{width:60px}
+#t6-lista img.mini{width:48px;height:48px;object-fit:cover;border-radius:2px;border:1px solid var(--linha);background:#fff;display:block}
+#t6-lista .sem-mini{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border:1px dashed var(--linha);border-radius:2px;color:var(--suave);font-size:11px;text-transform:uppercase}
+#t6-lista td p{margin:2px 0 0}
+#t6-lista .onde{display:inline-block}
+.alerta-inline{color:#8a6d00}
+#t6-lista tr.colide td{background:var(--erro-fundo)}
+#t6-relato .t6-relato-item{border-top:1px solid var(--linha);padding:8px 0}
+#t6-relato .t6-relato-item:first-of-type{border-top:0}
+#t6-relato .t6-relato-item p{margin:0 0 4px}
+#t6-relato ul.relato{list-style:none;margin:0;padding:0;font-size:14px}
+#t6-relato ul.relato li{padding:1px 0}
+#t6-relato ul.reconferido{border-left:3px solid var(--acento);padding-left:8px;margin-top:4px}
+#t6a .pre.cache{color:var(--suave)}
 button.perigoso:hover{background:#8a2224;border-color:#8a2224}
 </style>
 <body>

@@ -38,8 +38,32 @@ const Publicar = (function () {
   // Os caminhos que o app gera sozinho (HTML, aliases, css do tema,
   // site.json) — usado para saber se um caminho que saiu do mapa saiu por
   // decisão do dono ou é herança de outra ferramenta (T-7).
-  function ehDoApp(path, gerado) {
-    return !!gerado.hashes[path] || path.indexOf('/tema/') === 0 || path === Modelo.CAMINHO_SITE_JSON || /\.html$/.test(path);
+  // ⚠️ Até 2026-08-27 QUALQUER caminho `.html` contava como sendo do app.
+  // No fluxo normal era inofensivo (todo herdado vira `media` e entra pelo
+  // passo 1), mas um `.html` que estivesse em `published.paths` SEM `media`
+  // correspondente saía do manifest sozinho, sem o dono mandar — contra T-7
+  // (pendência 20 de `00`, medida com a cobaia Bostil). Agora a extensão não
+  // decide sozinha: um `.html` que o app não gera agora só é dele quando há
+  // uma página ou artigo no banco que o reivindica, pelo slug ou por um
+  // alias. Renomear não escapa a esta regra — o slug é imutável depois da
+  // primeira publicação e o antigo vira alias (13 §4.0), que o gerador
+  // continua a publicar como stub de redirect.
+  function caminhosDoApp(dados) {
+    const s = new Set([Modelo.caminhoDe('home'), Modelo.caminhoDe('blog'), Modelo.CAMINHO_SITE_JSON]);
+    for (const p of (dados.pages || [])) {
+      if (!p || !p.slug) continue;
+      s.add(Modelo.caminhoDe('page', p.slug));
+      for (const a of (p.aliases || [])) if (a) s.add(Modelo.caminhoDe('page', a));
+    }
+    for (const p of (dados.posts || [])) {
+      if (!p || !p.slug) continue;
+      s.add(Modelo.caminhoDe('post', p.slug));
+      for (const a of (p.aliases || [])) if (a) s.add(Modelo.caminhoDe('post', a));
+    }
+    return s;
+  }
+  function ehDoApp(path, gerado, doApp) {
+    return !!gerado.hashes[path] || path.indexOf('/tema/') === 0 || path === Modelo.CAMINHO_SITE_JSON || doApp.has(path);
   }
 
   // Mídia que entra no mapa: tudo que não foi removido e tem hash.
@@ -68,9 +92,10 @@ const Publicar = (function () {
     // 2. herdados: caminho que estava publicado, não é do app e ninguém
     //    mandou remover → continua no mapa, com o hash que tinha (T-7).
     const herdados = [];
+    const doApp = caminhosDoApp(dados);
     for (const path of Object.keys(antes)) {
       if (mapa[path]) continue;
-      if (ehDoApp(path, gerado)) continue;             // saiu porque a página/artigo saiu
+      if (ehDoApp(path, gerado, doApp)) continue;      // saiu porque a página/artigo saiu
       const removida = (dados.media || []).some(m => m && m.path === path && m.status === 'removed');
       if (removida) continue;                          // o dono mandou remover
       mapa[path] = antes[path];
@@ -417,6 +442,15 @@ const Publicar = (function () {
   async function republicar(o) {
     const publicado = o.published;
     if (!publicado || !publicado.manifest_event) return { desfecho: 'sem_manifest', resultados: [] };
+    // A guarda de 13 §5.5 e §6.3 item 5, agora no código (M5): se a última
+    // verificação viu um relay com um manifest MAIS NOVO, outra máquina
+    // publicou depois desta. Reenviar o local seria pedir à rede que
+    // retrocedesse — e o 15128 é substituível, quem chega com `created_at`
+    // maior fica. Não existe "forçar": o caminho é recarregar da rede (T2) e
+    // publicar por cima do que veio de lá. Quem chama mostra o aviso de
+    // publicação concorrente.
+    const maisNovos = ((publicado.health || {}).relays_newer) || [];
+    if (maisNovos.length) return { desfecho: 'concorrente', relays_newer: maisNovos.slice(), resultados: [] };
     const alvos = Modelo.uniao(o.relays);
     if (alvos.length === 0) return { desfecho: 'sem_relays', resultados: [] };
     const eventos = [publicado.manifest_event];
@@ -433,7 +467,7 @@ const Publicar = (function () {
 
   return Object.freeze({
     KIND_MANIFEST, KIND_PERFIL, KIND_RELAYS, KIND_SERVIDORES, CLIENTE, PARALELAS_PADRAO,
-    planear, modeloManifest, modeloPerfil, modeloRelays, modeloServidores, conteudoPerfil, avatarDe, urlDoAvatar,
+    planear, caminhosDoApp, modeloManifest, modeloPerfil, modeloRelays, modeloServidores, conteudoPerfil, avatarDe, urlDoAvatar,
     mudouPerfil, mudouLista, valoresDeTag, emLotes, executar, fotografia, aplicar, republicar
   });
 })();

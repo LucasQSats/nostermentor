@@ -192,6 +192,82 @@ module.exports = async function (ctx, u) {
     assert(r.remover.join() === '/img/foto.webp', JSON.stringify(r.remover));
   });
 
+  // Pendência 20 de `00`, aberta no aceite 2 do M4 e fechada no M5.
+  await it('aresta da pendência 20: `.html` herdado que está em published.paths SEM `media` no banco NÃO sai do mapa sozinho — a extensão deixou de decidir', async () => {
+    const r = await naPagina(`
+      const shaH = 'e5'.repeat(32);
+      const published = { paths: Object.assign({ '/sobre.html': shaH }, gerado.hashes), servers: {} };
+      const plano = Publicar.planear({ dados, gerado, published });      // dados.media = [] de propósito
+      return { mapaTem: plano.mapa['/sobre.html'] === shaH, herdados: plano.herdados.map(x => x.path),
+        some: plano.some.map(x => x.path), upload: plano.upload.length };`, infra);
+    assert(r.mapaTem === true, 'o herdado devia continuar no mapa: ' + JSON.stringify(r));
+    assert(r.herdados.join() === '/sobre.html' && r.some.length === 0, JSON.stringify(r));
+    assert(r.upload === 0, 'e nada sobe por causa dele: ' + r.upload);
+    return 'preservado sem `media` no banco';
+  });
+
+  await it('a contraprova da pendência 20: um caminho que ainda é de uma página do app (pelo slug ou por um alias) continua a ser dele; sem registro nenhum, na dúvida PRESERVA', async () => {
+    const r = await naPagina(`
+      const sobre = Object.assign(Modelo.novaPagina('Sobre'), { body: 'x' });
+      const d1 = { site, pages: [home, sobre], posts: [artigo], media: [] };
+      const g1 = await Gerador.gerarSite(d1);
+      const published = { paths: g1.hashes, servers: {} };
+      // (a) renomear: o slug antigo vira alias (13 §4.0) e o gerador publica o stub
+      const outra = Object.assign(Modelo.novaPagina('Quem somos'), { body: 'y', aliases: ['sobre'] });
+      const d2 = { site, pages: [home, outra], posts: [artigo], media: [] };
+      const g2 = await Gerador.gerarSite(d2);
+      const plano2 = Publicar.planear({ dados: d2, gerado: g2, published });
+      // (b) o dono manda remover: a lápide reivindica o caminho e ele SAI
+      const d3 = { site, pages: [home, Object.assign({}, sobre, { status: 'removed', previous_status: 'published' })], posts: [artigo], media: [] };
+      const g3 = await Gerador.gerarSite(d3);
+      const plano3 = Publicar.planear({ dados: d3, gerado: g3, published });
+      // (c) nem página, nem lápide, nem alias: o app não sabe de quem é
+      const d4 = { site, pages: [home], posts: [artigo], media: [] };
+      const g4 = await Gerador.gerarSite(d4);
+      const plano4 = Publicar.planear({ dados: d4, gerado: g4, published });
+      return { a: { gera: !!g2.hashes['/sobre.html'], herdados: plano2.herdados.map(x => x.path), some: plano2.some.map(x => x.path) },
+               b: { herdados: plano3.herdados.map(x => x.path), some: plano3.some.map(x => x.path) },
+               c: { herdados: plano4.herdados.map(x => x.path), some: plano4.some.map(x => x.path) } };`, infra);
+    assert(r.a.gera === true, 'o alias devia ser publicado como stub de redirect: ' + JSON.stringify(r.a));
+    assert(r.a.herdados.length === 0 && r.a.some.length === 0, 'renomear não apaga nem "herda": ' + JSON.stringify(r.a));
+    assert(r.b.some.includes('/sobre.html') && r.b.herdados.length === 0, 'a lápide manda o caminho sair: ' + JSON.stringify(r.b));
+    assert(r.c.some.length === 0 && r.c.herdados.includes('/sobre.html'), 'sem registro, preserva: ' + JSON.stringify(r.c));
+    return 'alias fica, lápide sai, órfão preserva';
+  });
+
+  await it('M5: UI de aliases — remover só o ALIAS (a página continua publicada com outro slug) precisa da lápide de mídia; sem ela, preservaria para sempre', async () => {
+    const r = await naPagina(`
+      const sobre = Object.assign(Modelo.novaPagina('Sobre'), { body: 'x' });
+      const d1 = { site, pages: [home, sobre], posts: [artigo], media: [] };
+      const g1 = await Gerador.gerarSite(d1);
+      // renomeia: 'sobre' vira alias de 'quem-somos' e é publicado como stub
+      const outra = Object.assign(Modelo.novaPagina('Quem somos'), { body: 'y', aliases: ['sobre'] });
+      const d2 = { site, pages: [home, outra], posts: [artigo], media: [] };
+      const g2 = await Gerador.gerarSite(d2);
+      const publicado = { paths: Object.assign({}, g1.hashes, g2.hashes), servers: {} };   // estado ao vivo após as duas publicações
+      // M5: o dono clica "Remover" no alias — a página CONTINUA ativa, só o
+      // alias sai; sem lápide o caminho cairia em "herdado" (T-7) e ficaria
+      // preservado para sempre, sem jeito de apagar depois.
+      const semAlias = Object.assign({}, outra, { aliases: [] });
+      const d3 = { site, pages: [home, semAlias], posts: [artigo], media: [] };
+      const g3 = await Gerador.gerarSite(d3);
+      const plano3 = Publicar.planear({ dados: d3, gerado: g3, published: publicado });
+      // com a lápide, exatamente como Editor.removerAlias grava (13 §4.3)
+      const lapide = { id: 'm-lapide', path: '/sobre.html', mime: 'text/html', size: null, sha256: publicado.paths['/sobre.html'],
+        width: null, height: null, alt: '', caption: '', bytes: null, status: 'removed', servers: [], removal: null,
+        metadata: { stripped: null, removed_segments: [], warning: null }, origin: 'upload', previous_status: 'published' };
+      const d4 = { site, pages: [home, semAlias], posts: [artigo], media: [lapide] };
+      const g4 = await Gerador.gerarSite(d4);
+      const plano4 = Publicar.planear({ dados: d4, gerado: g4, published: publicado });
+      return {
+        semLapide: { herdados: plano3.herdados.map(x => x.path), some: plano3.some.map(x => x.path) },
+        comLapide: { herdados: plano4.herdados.map(x => x.path), some: plano4.some.map(x => [x.path, x.apagar_blob]) }
+      };`, infra);
+    assert(r.semLapide.herdados.includes('/sobre.html') && r.semLapide.some.length === 0, 'sem a lápide, o alias morto ficaria preservado para sempre: ' + JSON.stringify(r.semLapide));
+    assert(r.comLapide.herdados.length === 0 && JSON.stringify(r.comLapide.some) === '[["/sobre.html",true]]', 'com a lápide, o caminho sai e o app tenta apagar o blob: ' + JSON.stringify(r.comLapide));
+    return 'sem lápide preserva para sempre; com lápide sai do mapa e apaga';
+  });
+
   await it('manifest 15128: uma tag path por caminho (com o sha256), server, relay, client=nostermentor e title/description obrigatórios (05 §3.1)', async () => {
     const r = await naPagina(`
       const plano = Publicar.planear({ dados, gerado, published: null });
@@ -294,6 +370,22 @@ module.exports = async function (ctx, u) {
     const guardados = f.publicadosEm('p-novo');
     assert(guardados.some(e => e.id === r.id), 'o relay novo devia ter o manifest reenviado');
     return 'manifest + 3 metadados, sem nsec';
+  });
+
+  await it('republicar TRAVA quando a rede está à frente (13 §5.5): health com relays_newer → "concorrente" e nenhum evento chega ao relay', async () => {
+    f.relay('p-frente', { escrita: 'aceita', eventos: [] });
+    const r = await naPagina(`
+      const plano = Publicar.planear({ dados, gerado, published: null });
+      const res = await Publicar.executar({ plano, site, assinar, servidores: SERVIDORES, relays: RELAYS, timeoutMs: 3000 });
+      const foto = Publicar.fotografia(res, plano, null);
+      foto.health = { checked_at: Modelo.agora(), relays_with_manifest: [], relays_outdated: [],
+        relays_newer: [arg.FRENTE], relays_missing: [arg.FRENTE], relays_unreachable: [] };
+      const rep = await Publicar.republicar({ published: foto, relays: [arg.FRENTE], timeoutMs: 3000 });
+      return { desfecho: rep.desfecho, novos: rep.relays_newer, resultados: rep.resultados.length, id: foto.manifest_event_id };`,
+      Object.assign({ FRENTE: f.ws('p-frente') }, infra));
+    assert(r.desfecho === 'concorrente' && r.resultados === 0 && r.novos.length === 1, JSON.stringify(r));
+    assert(f.publicadosEm('p-frente').length === 0, 'o relay à frente NÃO devia ter recebido nada: ' + f.publicadosEm('p-frente').length);
+    return 'nada reenviado — o 15128 é substituível e o mais novo ganha';
   });
 
   await it('republicar sem manifest guardado → "sem_manifest" (nada acontece)', async () => {

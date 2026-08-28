@@ -1,9 +1,10 @@
-NOSTERMENTOR — versão __APP_VERSION__ (versão de DESENVOLVIMENTO: ainda não publica nada)
+NOSTERMENTOR — versão __APP_VERSION__ (versão de desenvolvimento)
 
 O que é
   Um painel para editar e publicar o seu site no protocolo nsite (Nostr +
   Blossom). É um único arquivo, nostermentor.html. Não instala nada: o
-  navegador é o programa.
+  navegador é o programa. Tudo o que está neste arquivo também está dentro
+  do painel, em Ajuda.
 
 Como abrir
   Tails (o caso mais restrito — vale para todos):
@@ -17,6 +18,9 @@ Como abrir
     4. Se o painel abrir e ficar parado no aviso inicial, recarregue (F5).
     5. Os seus dados (chave, backup, imagens) ficam no Persistent Storage:
        o painel os alcança pelo seletor de arquivos.
+    6. Se depois de escolher arquivos aparecer "Could not read the contents
+       of amnesia", clique OK: é um aviso do Tails, sem consequência — os
+       arquivos chegaram inteiros.
   Windows e Linux:
     Guarde a pasta numa pasta pessoal (Documentos) e abra o
     nostermentor.html no Firefox ou no Chrome (duplo clique).
@@ -26,12 +30,32 @@ A chave
   some ao fechar. Guarde-a no KeePassXC ou no Persistent Storage. Quem tem
   a chave é o dono do site; não existe recuperação.
 
-Estado desta versão
-  Marcos M1–M3: entrada com a chave (colar, arquivo ou gerar uma nova),
-  leitura do site pela rede (o painel reconstrói o site a partir da sua
-  chave pública), páginas e artigos com editor e pré-visualização, e o
-  backup (exportar/importar). A PUBLICAÇÃO ainda não existe: o botão
-  "Publicar" avisa que ela chega no marco seguinte. O que você escrever
-  fica só neste navegador até exportar o backup.
+Onde ficam as suas coisas
+  O site publicado vive na rede: o mapa nos relays, os arquivos nos
+  servidores Blossom. É de lá que o painel reconstrói tudo com a sua chave,
+  em qualquer computador.
+  Os rascunhos vivem no backup — o arquivo que você exporta na tela Backup.
+  É a única cópia do que ainda não foi publicado.
+  O navegador é só a mesa de trabalho, e no Tor Browser ela é limpa ao
+  fechar. Publicou, está na rede; não publicou, só existe no backup.
 
-Licença: MIT. Código: repositório do projeto (a anotar quando for público).
+Remover não é apagar
+  Tirar uma página, um artigo ou uma imagem do site sempre funciona. Apagar
+  o arquivo dos servidores nem sempre: um servidor pode recusar, ou demorar
+  a parar de servir. O painel relata, servidor por servidor, onde apagou e
+  onde não.
+
+Estado desta versão
+  Marcos M1–M4 concluídos, M5 em curso. O ciclo completo funciona: entrar
+  com a chave (colar, arquivo ou gerar uma nova), ler o site pela rede,
+  escrever páginas e artigos com pré-visualização, enviar imagens (com os
+  metadados removidos antes de subir), PUBLICAR de verdade nos relays e nos
+  servidores Blossom, conferir a saúde da publicação e reenviar o mapa a
+  quem o perdeu, e exportar/importar o backup. Validado em Tails, Windows e
+  Linux (Firefox e Chrome).
+  O que ainda não existe: aviso de nova versão do app dentro do painel
+  (troca-se o arquivo à mão) e temas além do padrão.
+
+Faça backup antes de trocar este arquivo por uma versão nova.
+
+Licença: MIT. Código: https://github.com/LucasQSats/nostermentor

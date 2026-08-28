@@ -198,6 +198,9 @@ function iniciar(certDir) {
             if (!a.ok) return responder(res, 401, { 'X-Reason': 'Authorization required: ' + a.motivo, 'Content-Type': 'text/plain' }, 'unauthorized', cfg);
           }
           if (cfg.remocao === 'recusa') return responder(res, 403, { 'X-Reason': 'Deletion not allowed for this account', 'Content-Type': 'text/plain' }, 'forbidden', cfg);
+          // P13/P14: o servidor não confirma o apagamento e continua a servir
+          // o blob. O app tem de o pôr em `unverified` e reconferir depois.
+          if (cfg.remocao === 'incerta') return responder(res, 500, { 'X-Reason': 'Deletion queued', 'Content-Type': 'text/plain' }, 'server error', cfg);
           if (!alvo.blobs.has(sha) || cfg.remocao === 'ausente') return responder(res, 404, { 'X-Reason': 'Blob not found', 'Content-Type': 'text/plain' }, 'not found', cfg);
           alvo.blobs.delete(sha);
           return responder(res, 204, {}, undefined, cfg);
@@ -284,6 +287,8 @@ function iniciar(certDir) {
         blobFalso(shaDeclarado, bytes, mime) { estado.blobs.set(shaDeclarado, { bytes, mime }); },
         temBlob(nome, sha) { const s = nome ? estado.servidores.get(nome) : { blobs: estado.blobs }; return !!(s && s.blobs.has(sha)); },
         blobsDe(nome) { const s = nome ? estado.servidores.get(nome) : { blobs: estado.blobs }; return s ? Array.from(s.blobs.keys()) : []; },
+        // simula a propagação tardia de P13: o blob some sozinho, depois
+        apagarBlob(nome, sha) { const s = nome ? estado.servidores.get(nome) : { blobs: estado.blobs }; return !!(s && s.blobs.delete(sha)); },
         limparBlobs() { estado.blobs.clear(); for (const s of estado.servidores.values()) s.blobs.clear(); },
         publicadosEm(nome) { const p = estado.relays.get(nome); return (p && p.publicados) || []; },
         fechar() { for (const s of estado.sockets) { try { s.destroy(); } catch (e) {} } return new Promise(r => srv.close(() => r())); }

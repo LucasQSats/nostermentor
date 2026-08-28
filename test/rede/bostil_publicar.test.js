@@ -138,7 +138,9 @@ module.exports = async function (ctx, u) {
     assert(d.desfecho === 't2c', JSON.stringify(d));
     await p.pg.click('#ir-inicio'); await p.pg.waitForSelector('#t3');
     await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6-tabela');
-    await p.pg.click('#t6-tabela tr[data-path="/index.html"] button.ligacao');
+    await p.pg.click('#t6-abas .aba[data-aba="herdados"]');   // M5: os herdados têm aba própria (14 T6)
+    await p.pg.waitForSelector('#t6-tabela tr[data-path="/index.html"]');
+    await p.pg.click('#t6-tabela tr[data-path="/index.html"] .t6-remover');
     await p.pg.waitForSelector('#t6b-remover');
     await p.pg.click('#t6b-remover');
     await p.pg.waitForFunction(() => { const tr = document.querySelector('#t6-tabela tr[data-path="/index.html"]'); return tr && tr.classList.contains('removida'); }, null, { timeout: 10000 });
@@ -191,7 +193,9 @@ module.exports = async function (ctx, u) {
 
     // 2. o dono remove a capa antiga (o bloqueio obriga-o a decidir)
     await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6-tabela');
-    await p.pg.click('#t6-tabela tr[data-path="/index.html"] button.ligacao');
+    await p.pg.click('#t6-abas .aba[data-aba="herdados"]');   // M5: os herdados têm aba própria (14 T6)
+    await p.pg.waitForSelector('#t6-tabela tr[data-path="/index.html"]');
+    await p.pg.click('#t6-tabela tr[data-path="/index.html"] .t6-remover');
     await p.pg.waitForSelector('#t6b-remover'); await p.pg.click('#t6b-remover');
     await p.pg.waitForFunction(() => { const tr = document.querySelector('#t6-tabela tr[data-path="/index.html"]'); return tr && tr.classList.contains('removida'); }, null, { timeout: 10000 });
 

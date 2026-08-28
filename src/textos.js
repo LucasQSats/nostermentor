@@ -120,6 +120,8 @@ const Textos = Object.freeze({
       republicadoFalhou: 'Nenhum relay aceitou o reenvio. Tente de novo em instantes.',
       republicarApoio: 'Reenvia o mapa já assinado — não precisa da sua chave.',
       maisNovoAviso: 'Um relay tem uma versão mais nova do seu site do que a deste navegador. Recarregue da rede antes de publicar por cima.',
+      republicarTravado: 'Não dá para reenviar agora: um relay tem uma versão mais nova do que a deste navegador. Reenviar a daqui mandaria o seu site para trás. Recarregue da rede primeiro.',
+      reenvioTitulo: 'Resultado do reenvio, relay por relay:',
       recarregar: 'Recarregar da rede',
       foraDoAr: 'Site fora do ar desde {d}: o mapa publicado está vazio e os endereços do site não mostram nada.',
       foraDoArApoio: 'O seu conteúdo continua aqui. Publicar põe tudo de volta no ar.',
@@ -150,7 +152,9 @@ const Textos = Object.freeze({
       enviarMidia: 'Enviar mídia',
       verSite: 'Ver o site',
       outros: 'outros endereços:',
-      lento: 'pode levar dias para atualizar'
+      lento: 'pode levar dias para atualizar',
+      naoPublicado: 'ainda não publicado — o endereço só mostra o site depois da primeira publicação',
+      foraDoAr: 'fora do ar — o endereço não mostra nada até você publicar de novo'
     },
     ultimos: { titulo: 'Últimos artigos', nenhum: 'Nenhum artigo ainda.', editar: 'editar' },
     herdados: '{n} arquivos herdados de outra ferramenta (em Mídia → Arquivos herdados).',
@@ -206,6 +210,19 @@ const Textos = Object.freeze({
       capa: 'Imagem de capa', capaNenhuma: '(nenhuma)', capaApoio: 'Escolha da biblioteca de Mídia.', capaEscolher: 'Escolher…',
       menu: 'Mostrar no menu'
     },
+    // M5: UI de aliases — onde o dono vê e, se quiser, apaga um redirecionamento
+    // antigo (13 §4.0). Ficam ao lado de "Renomear caminho…", que é quem os cria.
+    aliases: {
+      titulo: 'Endereços antigos',
+      apoio: 'Continuam no ar como redirecionamento para o caminho atual.',
+      remover: 'Remover',
+      modalTitulo: 'Remover o redirecionamento de {p}?',
+      modalTirar: 'Tirar do site: sempre funciona — na próxima publicação o redirecionamento some do mapa do site.',
+      modalApagar: 'Apagar dos servidores: o Nostermentor tenta em cada um e depois mostra, servidor por servidor, onde conseguiu. Onde não conseguir, o endereço continua acessível para quem tiver o link.',
+      modalAviso: 'Quem guardou o endereço antigo {p} deixa de ser redirecionado — o link para de funcionar.',
+      confirmar: 'Remover',
+      cancelar: 'Cancelar'
+    },
     ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', lista: 'Lista', citacao: 'Citação', codigo: 'Código' },
     modelos: { negrito: 'texto em negrito', italico: 'texto em itálico', titulo: 'Título', link: 'texto do link', lista: 'item', citacao: 'citação', codigo: 'código' },
     imagem: {
@@ -244,15 +261,48 @@ const Textos = Object.freeze({
     titulo: 'Mídia',
     vazio: 'Nenhum arquivo ainda. Envie imagens para usar nas páginas e nos artigos.',
     enviar: 'Enviar arquivos',
-    coluna: { arquivo: 'Arquivo', caminho: 'Caminho no site', tamanho: 'Tamanho', estado: 'Estado', acoes: '' },
+    coluna: { arquivo: 'Arquivo', caminho: 'Caminho no site', tamanho: 'Tamanho', estado: 'Estado', ondeEsta: 'Onde está', acoes: '' },
+    abas: [['biblioteca', 'Biblioteca'], ['herdados', 'Arquivos herdados']],
     herdado: 'herdado (veio da rede)',
     soLocal: 'só neste navegador',
     remover: 'Remover',
+    excluir: 'Excluir',
+    excluirTitulo: 'Excluir {p}?',
+    excluirTexto: 'Excluir apaga o arquivo daqui agora, e não há o que desfazer. Se ele só existe neste navegador, não haverá outra cópia.',
+    excluirJaEsteve: 'Atenção: este arquivo já esteve num servidor. Excluí-lo aqui não o apaga de lá — só perde o registro que o app tinha dele.',
     desfazer: 'Desfazer',
+    editar: 'Editar descrição',
+    editarTitulo: 'Descrição de {p}',
+    salvar: 'Salvar',
+    cancelar: 'Cancelar',
+    copiarCaminho: 'Copiar endereço',
     copiarMarcacao: 'Copiar marcação',
     copiado: 'Copiado.',
     naoPublicadas: '{n} arquivo(s) ainda não publicado(s).',
-    remocaoRelato: 'Apagado de: {ok}. Não consegui apagar de: {nao}.'
+    semMiniatura: 'sem pré-visualização aqui',
+    dimensoes: '{l} × {a}',
+    // "Onde está" (13 §7.2): o caso que o Tails torna crítico é o de baixo.
+    emServidores: 'em {n} servidor(es)',
+    soAqui: 'só neste navegador — entra no backup obrigatoriamente',
+    metadados: { limpos: 'metadados limpos', mantidos: 'metadados mantidos por sua opção', desconhecido: 'metadados: não se sabe (veio da rede)' },
+    // Relato de remoção (13 §4.3 `removal`) e a reconferência de 05 §2.2:
+    // um servidor pode aceitar o DELETE e continuar a servir o arquivo.
+    relatoTitulo: 'O que foi apagado dos servidores',
+    relatoApoio: 'Tirar do site sempre funciona. Apagar dos servidores depende de cada um — e pode levar minutos, ou horas, até parar de servir. Reconferir pergunta de novo.',
+    relatoApagado: 'apagado de {s}',
+    relatoRecusou: '{s} não deixou apagar — continua acessível para quem tiver o endereço',
+    relatoPorConferir: '{s}: aceitou, ainda a confirmar',
+    reconferir: 'Reconferir',
+    reconferindo: 'Reconferindo…',
+    relatoSumiu: 'já não está em {s}',
+    relatoAindaLa: 'ainda está em {s}',
+    relatoIndeterminado: 'não consegui verificar em {s}',
+    relatoQuando: 'conferido em {d}',
+    relatoNada: 'Nenhum arquivo removido ainda.',
+    // Aba de herdados (14 T2c/T6): o que o app preserva porque não é dele.
+    herdadosApoio: 'Estes arquivos já estavam publicados nesta chave por outra ferramenta. O Nostermentor não os toca: eles continuam no ar em toda publicação, do jeito que estão, até você removê-los aqui, um a um.',
+    herdadosVazio: 'Nenhum arquivo herdado — tudo o que está no ar foi publicado por este app.',
+    herdadosColisao: 'Este endereço é também um dos que o app gera. Enquanto o arquivo antigo estiver aqui, a publicação fica bloqueada — remova-o para publicar a sua versão.'
   },
   t6a: {
     titulo: 'Enviar mídia',
@@ -271,6 +321,11 @@ const Textos = Object.freeze({
     paraOnde: 'Para onde vai',
     preflight: { aceita: 'vai aceitar', recusa: 'vai recusar', indeterminado: 'não consegui verificar', verificando: 'verificando…' },
     nenhumServidor: 'Nenhum dos seus servidores aceita este tipo ou tamanho. O arquivo não entra.',
+    // Faixas de 05 §2.2 — ditas antes de subir, não depois da recusa.
+    grande20: 'Acima de 20 MB este arquivo não cabe nos servidores mais restritivos: ele vai ficar em menos cópias.',
+    grande100: 'Acima de 100 MB só os dois servidores principais aceitam. Pelo Tor, um arquivo deste tamanho demora — não feche o navegador durante a publicação.',
+    jaVerificado: 'já verificado antes',
+    dimensoes: '{l} × {a} pixels',
     adicionar: 'Adicionar à biblioteca',
     adicionadas: '{n} arquivo(s) na biblioteca. Nada subiu ainda — subir é o que "Publicar" faz.',
     erroLeitura: 'Não consegui ler este arquivo.',
@@ -292,6 +347,7 @@ const Textos = Object.freeze({
     titulo: 'Publicar',
     conferindo: 'Conferindo o que mudou…',
     conferindoRede: 'Conferindo se alguém publicou este site em outra máquina…',
+    conferindoServidores: 'Conferindo se os servidores aceitam os arquivos…',
     naoConferi: 'Não consegui conferir se houve publicação em outra máquina.',
     concorrente: 'Outra máquina publicou este site em {d}. Recarregue da rede antes de publicar por cima — o último a publicar apaga o anterior.',
     recarregar: 'Recarregar da rede',
@@ -311,6 +367,10 @@ const Textos = Object.freeze({
     total: '{n} arquivo(s), {x} para subir, {m} relays.',
     tor: 'Pelo Tor cada conexão demora de 2 a 8 vezes mais — não feche o navegador.',
     bloqueado: 'Um arquivo não pode subir em nenhum servidor. Remova-o ou mude de servidor para poder publicar.',
+    avisosTitulo: 'Avisos do pré-flight',
+    naoPodeSubirItem: 'não pode subir em nenhum servidor',
+    avisoVaiRecusar: 'vai recusar',
+    avisoParcial: '{recusa} — sobe só para {aceita}.',
     colisao: 'Este endereço já tem um arquivo publicado por outra ferramenta: {p}. Publicar agora substituiria o arquivo antigo, e o Nostermentor prometeu preservá-lo.',
     colisoes: 'Estes endereços já têm arquivos publicados por outra ferramenta: {p}. Publicar agora substituiria os arquivos antigos, e o Nostermentor prometeu preservá-los.',
     colisaoApoio: 'Para publicar a sua versão, remova antes o arquivo antigo em Mídia. Enquanto ele estiver lá, continua no ar como está.',
@@ -571,6 +631,103 @@ const Textos = Object.freeze({
     menu: [['t3', 'Início'], ['t4', 'Páginas'], ['t5', 'Artigos'], ['t6', 'Mídia'], ['t7', 'Configurações'], ['t11', 'Ajuda']],
     nomes: { t2: 'Carregando da rede', t3: 'Início', t4: 'Páginas', t5: 'Artigos', t6: 'Mídia', t7: 'Configurações', t8: 'Publicar', t9: 'Backup', t10: 'Nova versão', t11: 'Ajuda e Sobre' },
     rodapeApoio: 'Apoie o Nostermentor'
+  },
+
+  // T11 — Ajuda e Sobre (14 T11). O LEIA-ME.txt vive também aqui, para quem
+  // nunca abriu o arquivo de texto. Cada linha do bloco "abrir" é uma medição
+  // da bancada Tails, não conselho genérico: P19 (só as cinco pastas
+  // pessoais), P22 (Safest não corre), P28 (F5 no arranque mudo) e P27 (o
+  // aviso "Could not read the contents of amnesia", inofensivo).
+  t11: {
+    titulo: 'Ajuda e Sobre',
+    abas: [['abrir', 'Como abrir'], ['chave', 'A sua chave'], ['copias', 'Onde ficam as suas coisas'],
+      ['remover', 'Remover não é apagar'], ['apoio', 'Apoiar'], ['sobre', 'Sobre']],
+    abrir: {
+      titulo: 'Como abrir o Nostermentor',
+      intro: 'O Nostermentor é um arquivo só — nostermentor.html. Não instala nada: o navegador é o programa. Guarde-o numa pasta sua e abra-o com dois cliques.',
+      tails: 'No Tails (o caso mais restrito — se funciona aqui, funciona em todo lado)',
+      tailsPassos: [
+        'Copie a pasta do Nostermentor para a pasta Documentos, e faça isso a cada sessão: o Tor Browser do Tails não abre o app a partir do pendrive nem do Persistent Storage.',
+        'Abra o arquivo nostermentor.html no Tor Browser (Ctrl+O, ou arraste o arquivo para a janela).',
+        'Nível de segurança Standard ou Safer. Em Safest o navegador desliga o JavaScript e o painel não arranca — se isso acontecer, a própria tela explica.',
+        'Se a página abrir e ficar parada no aviso inicial, recarregue (F5). Acontece de vez em quando quando o navegador é aberto já com o arquivo.',
+        'Os seus dados — chave, backup, imagens — ficam no Persistent Storage. O painel os alcança pelo seletor de arquivos, sempre que você mandar.',
+        'Se depois de escolher arquivos aparecer "Could not read the contents of amnesia", clique OK: é um aviso do próprio Tails, sem consequência. Os arquivos chegaram inteiros.'
+      ],
+      outros: 'No Windows e no Linux',
+      outrosPassos: [
+        'Guarde a pasta onde quiser (Documentos serve) e abra o nostermentor.html no Firefox ou no Chrome, com dois cliques.',
+        'Não é preciso servidor, nem instalação, nem internet para abrir o painel — só para publicar.'
+      ],
+      fecho: 'O painel não fala com nenhum servidor do projeto. As únicas conexões que ele faz são para os relays e os servidores de arquivos que você escolher em Configurações → Avançado.'
+    },
+    chave: {
+      titulo: 'A sua chave',
+      paragrafos: [
+        'A chave secreta (nsec) é a única prova de que o site é seu. Quem tem a chave publica no seu lugar — trate-a como a senha de um cofre.',
+        'O painel nunca guarda a sua chave. Ela fica na memória desta aba e desaparece quando você tranca ou fecha o navegador. Não está no backup, não está no arquivo do app, não sai daqui.',
+        'Não existe recuperação. Não há "esqueci minha senha": perdida a chave, perde-se o endereço do site.',
+        'Guarde-a num gerenciador de senhas (o KeePassXC já vem no Tails) ou num arquivo no Persistent Storage — o painel sabe ler os dois.',
+        'A npub que aparece no alto da tela é a parte pública: é o endereço do seu site e pode ser mostrada a qualquer um.'
+      ]
+    },
+    copias: {
+      titulo: 'Onde ficam as suas coisas',
+      intro: 'O Nostermentor guarda o seu trabalho em três lugares, e vale saber qual é qual:',
+      itens: [
+        ['O site publicado vive na rede', 'o mapa do site fica nos relays e os arquivos nos servidores Blossom. É de lá que o painel reconstrói tudo quando você entra noutro computador — basta a chave.'],
+        ['Os rascunhos vivem no backup', 'o arquivo que você exporta na tela Backup é a única cópia do que ainda não foi publicado. Se ele não existir, o que você escreveu hoje pode sumir hoje.'],
+        ['O navegador é só a mesa de trabalho', 'no Tor Browser essa mesa é limpa quando o navegador fecha. É por isso que o painel insiste no backup, e não por gosto de insistir.']
+      ],
+      regra: 'Regra prática: publicou, está na rede; não publicou, só existe no backup.'
+    },
+    remover: {
+      titulo: 'Remover não é apagar',
+      paragrafos: [
+        'Tirar uma página, um artigo ou uma imagem do site sempre funciona: na próxima publicação aquele endereço deixa de existir e o gateway passa a devolver "não encontrado".',
+        'Apagar o arquivo dos servidores é outra coisa, e nem sempre é possível. Um servidor pode recusar apagar, ou continuar a servir o arquivo por algum tempo depois de dizer que apagou. Quem tiver o endereço direto do arquivo ainda pode alcançá-lo.',
+        'Por isso o painel relata, servidor por servidor, onde conseguiu apagar e onde não — no fim da tela Mídia, com um botão para reconferir mais tarde.',
+        'A consequência prática: limpe o que não quer publicar antes de publicar. As imagens já saem limpas — o painel remove os metadados (onde a foto foi tirada, com que câmera) antes de enviar.',
+        'Tirar o site inteiro do ar também existe, em Configurações → Avançado. Também não apaga a história: o mapa antigo continua nos relays que já o receberam.'
+      ]
+    },
+    apoio: {
+      titulo: 'Apoiar o Nostermentor',
+      paragrafos: [
+        'O Nostermentor é grátis e aberto, com licença MIT. Não há versão paga, recurso trancado nem cadastro — e não é para haver.',
+        'A melhor forma de apoiar é usar o app e contar o que quebrou: relato de erro vale mais do que elogio.',
+        'No rodapé do seu site, a linha "Publicado com Nostermentor" ajuda outras pessoas a chegarem aqui. Ela vem ligada e você pode desligá-la em Configurações → Doações — sem culpa.'
+      ],
+      lightningRotulo: 'Doação em Lightning:',
+      semLightning: 'O endereço para doações ainda não está publicado. Quando estiver, aparece aqui.',
+      siteRotulo: 'Site oficial do projeto:',
+      semSite: 'O site oficial ainda não está publicado.'
+    },
+    sobre: {
+      titulo: 'Sobre',
+      versaoRotulo: 'Versão:',
+      licencaRotulo: 'Licença:',
+      codigoRotulo: 'Código-fonte:',
+      bibliotecasTitulo: 'Bibliotecas embutidas',
+      bibliotecasApoio: 'Cada uma entra no arquivo como está, e a montagem recusa gerar o app se o conteúdo de qualquer uma divergir do hash anotado.',
+      bibliotecas: [
+        ['nostr-tools', '2.25.0', 'Unlicense', 'chaves, assinatura e verificação de eventos'],
+        ['DOMPurify', '3.4.14', 'Apache-2.0', 'limpeza do HTML que a pré-visualização mostra'],
+        ['marked', '18.0.11', 'MIT', 'Markdown → HTML'],
+        ['Mustache', '4.2.0', 'MIT', 'o tema, que vira as páginas do site']
+      ],
+      privacidade: 'O painel não tem telemetria, não carrega fontes nem imagens de fora e não fala com nenhum servidor do projeto. As únicas conexões são as que você mandar fazer.'
+    }
+  },
+
+  // Endereços do projeto. Ficam num lugar só: quando existirem de verdade,
+  // é aqui que se preenche (T11 mostra o que estiver preenchido e diz a
+  // verdade sobre o que não estiver).
+  projeto: {
+    licenca: 'MIT',
+    repositorio: 'https://github.com/LucasQSats/nostermentor',
+    lightning: '',
+    site: ''
   },
 
   stub: {

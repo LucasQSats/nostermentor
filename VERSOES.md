@@ -17,6 +17,11 @@
 Globais que cada uma define ao carregar como `<script>` clássico (medido
 pelos testes de `test/telas/`): `NT`, `DOMPurify`, `marked`, `Mustache`.
 
+⚠️ **Esta tabela é mostrada ao usuário** desde 2026-08-27, em T11 → Sobre
+(`src/textos.js`, `t11.sobre.bibliotecas`: nome, versão, licença e para que
+serve). Mudar uma versão aqui obriga a mudar lá — `test/telas/t11_ajuda.test.js`
+compara as quatro linhas e falha se divergirem.
+
 Para regenerar o bundle do nostr-tools: `./gera_bundle.sh` (instala as
 dependências de desenvolvimento no scratchpad, nunca nesta pasta — `02`
 §F) e conferir que o sha256 impresso é o da tabela. Se não for, **não**

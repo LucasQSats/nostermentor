@@ -2,7 +2,10 @@
    publicação (13 §5.5), alterações não publicadas, backup, atalhos, últimos
    artigos e o cartão "Apoie". Desde o M4 o cartão de saúde verifica E
    republica: reenvia o manifest já assinado aos relays que não o têm, sem
-   pedir a chave. Datas em AAAA-MM-DD UTC. */
+   pedir a chave. Desde o M5 o reenvio mostra placar RELAY POR RELAY e fica
+   travado quando a rede está à frente deste navegador (guarda de 13 §5.5), e
+   "Ver o site" diz quando o endereço ainda não mostra nada.
+   Datas em AAAA-MM-DD UTC. */
 (function () {
   'use strict';
   let apoioFechado = false;      // T-16: por sessão, não persiste
@@ -32,6 +35,7 @@
 
     // 1. saúde
     const cartaoSaude = h('div', { class: 'cartao', id: 'cartao-saude' });
+    let ultimoReenvio = null;      // resultados por relay do último "Republicar" (14 T3: "resultado em placar na hora")
     function renderSaude() {
       Shell.limpar(cartaoSaude);
       cartaoSaude.appendChild(h('h2', {}, T.saude.titulo));
@@ -57,14 +61,31 @@
       cartaoSaude.appendChild(ul);
       cartaoSaude.appendChild(h('p', { class: 'apoio', id: 'saude-quando' }, texto(T.saude.verificadoEm, { d: Modelo.formatarDataHora(hs.checked_at) })));
       const acoes = h('div', { class: 'acoes' });
-      const btnVerificar = h('button', { type: 'button', id: 'verificar-saude', class: 'secundario', onclick: verificar }, T.saude.verificar);
-      acoes.appendChild(btnVerificar);
-      if (n.antigo + n.sem > 0) {
-        acoes.appendChild(h('button', { type: 'button', id: 'republicar', onclick: republicar }, T.saude.republicar));
-        acoes.appendChild(h('span', { class: 'apoio' }, T.saude.republicarApoio));
+      acoes.appendChild(h('button', { type: 'button', id: 'verificar-saude', class: 'secundario', onclick: verificar }, T.saude.verificar));
+      // Guarda de 13 §5.5: com um relay à FRENTE do que este navegador tem,
+      // reenviar o manifest daqui mandaria o site para trás. O botão fica à
+      // vista e desligado — escondê-lo seria esconder o problema — com o
+      // caminho de saída ao lado.
+      const travado = n.mais_novo > 0;
+      if (travado || n.antigo + n.sem > 0) {
+        acoes.appendChild(h('button', { type: 'button', id: 'republicar', disabled: travado, onclick: travado ? null : republicar }, T.saude.republicar));
+        if (travado) acoes.appendChild(h('button', { type: 'button', id: 'recarregar-rede', class: 'secundario', onclick: function () { Shell.ir('t2'); } }, T.saude.recarregar));
+        else acoes.appendChild(h('span', { class: 'apoio' }, T.saude.republicarApoio));
       }
       cartaoSaude.appendChild(acoes);
-      if (n.mais_novo > 0) Shell.faixa(T.saude.maisNovoAviso, null, { rotulo: T.saude.recarregar, fn: function () { Shell.ir('t2'); } });
+      if (travado) cartaoSaude.appendChild(h('p', { class: 'alerta', id: 'republicar-travado' }, T.saude.republicarTravado));
+      // O placar do reenvio, relay por relay — a mesma honestidade que T6 dá
+      // aos servidores: quem aceitou, quem recusou (e por quê), quem calou.
+      if (ultimoReenvio && ultimoReenvio.length) {
+        cartaoSaude.appendChild(h('p', { class: 'apoio', id: 'reenvio-titulo' }, T.saude.reenvioTitulo));
+        cartaoSaude.appendChild(h('ul', { id: 'reenvio-placar', class: 'lista-relays' }, ultimoReenvio.map(function (r) {
+          const classe = r.estado === 'aceito' ? 'atual' : (r.estado === 'recusado' ? 'sem' : 'nao_respondeu');
+          const nome = (Textos.t8.relayEstados && Textos.t8.relayEstados[r.estado]) || r.estado;
+          return h('li', { class: 'relay ' + classe, 'data-reenvio': r.estado }, h('code', {}, r.url), ' ',
+            h('span', { class: 'apoio' }, nome + (r.mensagem ? ': ' + r.mensagem : '')));
+        })));
+      }
+      if (travado) Shell.faixa(T.saude.maisNovoAviso, null, { rotulo: T.saude.recarregar, fn: function () { Shell.ir('t2'); } });
     }
     // 13 §5.5: reenvia o evento JÁ ASSINADO aos relays que não o têm — um
     // clique, sem pedir a chave (é para isto que published.manifest_event
@@ -79,6 +100,15 @@
       try {
         const r = await Publicar.republicar({ published: published, relays: alvos, sinal: meu.signal });
         if (meu.signal.aborted) return;
+        // A guarda do motor tem a última palavra: se a rede está à frente,
+        // nada foi reenviado — a tela diz por quê e mostra a saída.
+        if (r.desfecho === 'concorrente') {
+          ultimoReenvio = null;
+          renderSaude();
+          Shell.faixa(T.saude.maisNovoAviso, 'erro', { rotulo: T.saude.recarregar, fn: function () { Shell.ir('t2'); } });
+          return;
+        }
+        ultimoReenvio = (r.resultados[0] && r.resultados[0].resultados) || [];
         if (r.desfecho === 'republicado') Shell.faixa(texto(T.saude.republicadoOk, { n: r.placar.com, m: r.placar.total }));
         else Shell.faixa(T.saude.republicadoFalhou, 'erro');
         await verificar();
@@ -129,12 +159,17 @@
       return h('span', {}, ' ', h('a', { href: Modelo.urlDoSite(s.npub, g.host), target: '_blank', rel: 'noopener noreferrer' }, g.host), g.lento ? h('span', { class: 'apoio' }, ' (' + T.atalhos.lento + ')') : null);
     });
     const principal = Modelo.GATEWAYS.find(g => g.principal);
+    // Honestidade de status: o endereço existe sempre, o site nem sempre.
+    const semPublicacao = !published || !published.manifest_event;
+    const foraDoAr = !semPublicacao && !!published.takedown_at && Object.keys(published.paths || {}).length === 0;
+    const avisoSite = semPublicacao ? T.atalhos.naoPublicado : (foraDoAr ? T.atalhos.foraDoAr : null);
     const cartaoAtalhos = h('div', { class: 'cartao', id: 'cartao-atalhos' }, h('h2', {}, T.atalhos.titulo),
       h('div', { class: 'acoes' },
         h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.ir('t5', { novo: true }); } }, T.atalhos.novoArtigo),
         h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.ir('t4', { novo: true }); } }, T.atalhos.novaPagina),
         h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.ir('t6', { enviar: true }); } }, T.atalhos.enviarMidia)),
       h('p', {}, h('a', { id: 'ver-site', href: Modelo.urlDoSite(s.npub, principal.host), target: '_blank', rel: 'noopener noreferrer' }, T.atalhos.verSite),
+        avisoSite ? h('span', { class: 'apoio', id: 'ver-site-aviso' }, ' — ' + avisoSite) : null,
         h('span', { class: 'apoio' }, ' — ' + T.atalhos.outros), outros));
 
     // 5. últimos artigos

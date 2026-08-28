@@ -2,6 +2,8 @@
    (repositório hzrd149/blossom, texto cru):
      BUD-01  GET /<sha256> — CORS `*`, 3xx permitido (P15); o endereço É o
              hash, e o que chega é conferido com crypto.subtle (05 §2.3).
+             HEAD /<sha256> (relido em 2026-08-27) — idêntico ao GET sem
+             corpo; 404/410 = já não está lá. É o "Reconferir" de 14 T6.
      BUD-02  PUT /upload — corpo binário, headers Content-Type e X-SHA-256;
              resposta 201 (criado) ou 200 (já existia) com Blob Descriptor
              { url, sha256, size, type, uploaded }; 409 = X-SHA-256 não bate.
@@ -338,12 +340,75 @@ const Blossom = (function () {
     };
   }
 
+  // --- reconferência de presença (BUD-01 `HEAD /<sha256>`) ----------------
+
+  // Spec consultada 2026-08-27: o HEAD é idêntico ao GET sem corpo; 404 = não
+  // existe, 410 = removido, 401/403 = o servidor exige/nega auth para ler,
+  // 3xx é permitido (P15) e o `fetch` segue. Sem auth: ler blob público não a
+  // exige, e um token de leitura seria mais um evento assinado por conferência.
+  // É o "Reconferir" de 14 T6 — a resposta a P13/P14: um servidor pode
+  // responder 200 ao DELETE e continuar a servir o blob por minutos ou horas,
+  // então a única prova de que sumiu é perguntar OUTRA VEZ, mais tarde.
+  // estado: 'presente' (2xx) | 'ausente' (404/410) | 'indeterminado' (tudo o
+  //         resto, incluindo o TypeError sem CORS do primal — P26/P31).
+  async function conferir(servidor, sha, opts) {
+    opts = opts || {};
+    const r = { servidor: base(servidor), estado: 'indeterminado', status: 0, ms: 0, codigo: '', detalhe: '' };
+    const inicio = Date.now();
+    if (!urlValida(servidor)) { r.codigo = 'servidor_invalido'; return r; }
+    if (typeof sha !== 'string' || !RE_SHA.test(sha)) { r.codigo = 'hash_invalido'; return r; }
+    if (opts.sinal && opts.sinal.aborted) { r.codigo = 'cancelado'; return r; }
+    const ctrl = new AbortController();
+    let motivoAborto = null;
+    const timer = setTimeout(function () { motivoAborto = 'timeout'; ctrl.abort(); }, opts.timeoutMs || TIMEOUT_PADRAO_MS);
+    const aoCancelar = function () { motivoAborto = 'cancelado'; ctrl.abort(); };
+    if (opts.sinal) opts.sinal.addEventListener('abort', aoCancelar);
+    try {
+      const res = await fetch(base(servidor) + '/' + sha, { method: 'HEAD', signal: ctrl.signal, redirect: 'follow', cache: 'no-store', credentials: 'omit' });
+      r.status = res.status;
+      r.detalhe = cabecalhoReason(res);
+      if (res.status >= 200 && res.status < 300) { r.estado = 'presente'; return r; }
+      if (res.status === 404 || res.status === 410) { r.estado = 'ausente'; return r; }
+      r.codigo = motivoDe(res.status);
+      return r;
+    } catch (e) {
+      r.codigo = motivoAborto === 'timeout' ? 'timeout' : (motivoAborto === 'cancelado' ? 'cancelado' : 'rede');
+      r.detalhe = e && e.message ? String(e.message).slice(0, 200) : '';
+      return r;                                     // P26: erro sem CORS é indistinguível de queda de rede
+    } finally {
+      clearTimeout(timer);
+      if (opts.sinal) opts.sinal.removeEventListener('abort', aoCancelar);
+      r.ms = Date.now() - inicio;
+    }
+  }
+
+  // Reconfere um blob em vários servidores e devolve um `removal` novo
+  // (13 §4.3), no mesmo formato do de `apagarEmTodos`: o que já não está lá
+  // é `deleted_from`; o que ainda está fica `refused_by` (continua público, é
+  // o que o dono precisa de saber); o que não deu para saber, `unverified`.
+  async function conferirEmTodos(servidores, sha, opts) {
+    opts = opts || {};
+    const resultados = await Promise.all(Modelo.uniao(servidores).map(function (s) {
+      return conferir(s, sha, opts).then(function (r) {
+        if (typeof opts.aoServidor === 'function') { try { opts.aoServidor(r); } catch (e) {} }
+        return r;
+      });
+    }));
+    return {
+      checked_at: Modelo.agora(),
+      deleted_from: resultados.filter(r => r.estado === 'ausente').map(r => r.servidor),
+      refused_by: resultados.filter(r => r.estado === 'presente').map(r => r.servidor),
+      unverified: resultados.filter(r => r.estado === 'indeterminado').map(r => r.servidor),
+      porServidor: resultados
+    };
+  }
+
   // URL pública de um blob num servidor (o que o BUD-04 pede no corpo).
   function urlDoBlob(servidor, sha) { return base(servidor) + '/' + sha; }
 
   return Object.freeze({
     TIMEOUT_PADRAO_MS, KIND_AUTH, VALIDADE_AUTH_S, VERBOS, MOTIVOS,
     urlValida, dominioDe, sha256Hex, base64De, modeloAuth, cabecalhoDe, autorizacao, motivoDe, urlDoBlob,
-    baixarDe, baixar, preflight, preflightEmTodos, enviar, espelhar, enviarEmTodos, apagar, apagarEmTodos
+    baixarDe, baixar, preflight, preflightEmTodos, enviar, espelhar, enviarEmTodos, apagar, apagarEmTodos, conferir, conferirEmTodos
   });
 })();
