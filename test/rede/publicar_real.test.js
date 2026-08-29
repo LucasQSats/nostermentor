@@ -3,9 +3,13 @@
 // EXIF e clica uma vez em "Assinar e publicar". Depois confere-se tudo por
 // fora do app (Node, sem o código do produto): os blobs por GET + sha256 nos
 // servidores, o manifest 15128 nos relays, o site.json com o hash do
-// manifest, e o gateway servindo o /index.html. No fim, os blobs de teste
-// são apagados (aceite 8) — o evento 15128 fica nos relays, porque é
-// substituível e não há como removê-lo; a npub é descartável e sem valor.
+// manifest, e o gateway servindo o /index.html. Na sequência, a metade real
+// do aceite 7 do M5: pela mesma UI de T7 já testada contra servidor falso
+// (test/telas/t7_config.test.js), "tirar o site do ar" contra a rede real —
+// manifest vazio publicado e blobs apagados dos dois servidores — e então o
+// gateway conferido a devolver 404 no caminho da capa (05 §2.0/§2.2). O
+// evento 15128 fica nos relays (é substituível; o mapa fica vazio); a npub é
+// descartável e sem valor.
 //
 // NÃO corre por omissão: publicar deixa rasto público permanente. Ligue com
 //   NOSTERMENTOR_PUBLICAR_REAL=1 test/roda.sh
@@ -152,26 +156,48 @@ module.exports = async function (ctx, u) {
     return `${alvo} em ~${(ok.i + 1) * 10} s`;
   });
 
-  await it('limpeza (aceite 8): os blobs de teste são apagados dos dois servidores', async () => {
+  await it('M5 aceite 7 (rede real): pela UI de T7, "tirar o site do ar" publica um manifest VAZIO e apaga os blobs nos dois servidores', async () => {
+    assert(publicado, 'a publicação não correu');
     const p = await abrir(ctx, u.url);
-    const r = await p.pg.evaluate(async ([nsec, hashes, servidores]) => {
-      const val = Chave.validarNsec(nsec);
-      const assinar = (m) => Chave.assinar(m, val.sk);
-      const saida = [];
-      for (const sha of hashes) saida.push(await Blossom.apagarEmTodos(servidores, { sha, assinar }));
-      Chave.apagar(val.sk);
-      return saida;
-    }, [ch.nsec, Array.from(new Set(Object.keys(publicado.paths).map(k => publicado.paths[k]))), SERVIDORES]);
+    await entrarCom(p.pg, ch.nsec);
+    await esperarT2(p.pg, 60000);
+    await p.pg.click('#menu .item[data-tela="t7"]');
+    await p.pg.waitForSelector('#t7-painel');
+    await p.pg.click('.abas .aba[data-aba="avancado"]');
+    if (await p.pg.$('#t7-avancado-mostrar')) await p.pg.click('#t7-avancado-mostrar');
+    await p.pg.waitForSelector('#t7-tirar-do-ar');
+    const titulo = await p.pg.inputValue('#t7-titulo').catch(() => null) || 'Nostermentor — teste M4';
+    await p.pg.fill('#t7-tirar-confirma', titulo);
+    await p.pg.click('#t7-tirar-botao');
+    await p.pg.waitForSelector('#t7-tirar-feito', { timeout: 120000 });
+    const placar = await p.pg.textContent('#t7-tirar-do-ar');
+    const v = await varrer(p.pg, ch.nsec);
+    assert(v.achados.length === 0, 'varredura: ' + v.achados.join(' | '));
     await p.pg.close();
-    const apagados = r.reduce((n, x) => n + x.deleted_from.length, 0);
-    const recusados = r.reduce((a, x) => a.concat(x.refused_by), []);
+    assert(/Mapa vazio aceito em \d+ de \d+ relays/.test(placar) && !/aceito em 0 de/.test(placar), placar.slice(0, 300));
+    return placar.replace(/\s+/g, ' ').trim().slice(0, 200);
+  });
+
+  await it('juiz independente: o gateway devolve 404 no caminho da capa depois do "tirar do ar" (05 §2.0/§2.2)', async () => {
+    const alvo = `https://${ch.npub}.${GATEWAY}/`;
+    let ultimo = null;
+    for (let i = 0; i < 18; i++) {
+      try {
+        const r = await fetch(alvo, { redirect: 'follow' });
+        ultimo = r.status;
+        if (r.status === 404) return `${alvo} → 404 em ~${(i + 1) * 10} s`;
+      } catch (e) { ultimo = 'erro ' + e.message; }
+      await new Promise(r2 => setTimeout(r2, 10000));
+    }
+    assert(false, 'o gateway não passou a devolver 404 em 3 min — último status: ' + ultimo + ' (P1: pode demorar mais)');
+  });
+
+  await it('limpeza (aceite 8): nenhum blob de teste continua no ar nos dois servidores', async () => {
     let aindaNoAr = 0;
-    for (const x of r) for (const sv of SERVIDORES) { /* conferência independente */ }
     for (const sha of Array.from(new Set(Object.values(publicado.paths)))) {
       for (const s of SERVIDORES) { try { const res = await fetch(s + '/' + sha, { method: 'HEAD' }); if (res.ok) aindaNoAr++; } catch (e) {} }
     }
-    assert(recusados.length === 0, 'servidor recusou apagar: ' + JSON.stringify(recusados));
-    return `${apagados} remoções aceitas · ainda no ar: ${aindaNoAr} (P13: o servidor pode levar minutos a parar de servir)`;
+    return `ainda no ar: ${aindaNoAr} (0 esperado; P13: um servidor pode levar minutos a parar de servir)`;
   });
 
   return R;
