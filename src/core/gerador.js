@@ -142,18 +142,24 @@ const Gerador = (function () {
   }
   function tituloPagina(ctx, titulo) { return ctx.site.title ? titulo + ' – ' + ctx.site.title : titulo; }
 
+  // 35 — a capa chega ao molde de página TAMBÉM. O tema padrão não tem
+  // `{{#capa}}` na página (é o que o dono decidiu), mas um tema que queira
+  // usá-la não precisa de tocar no gerador — `06` §5.3.1: o layout vive no tema.
+  function capaDe(ctx, reg) {
+    const m = reg.cover_media_id ? ctx.porIdMedia.get(reg.cover_media_id) : null;
+    return m ? { src: m.path, alt: m.alt || '', largura: m.width || null, altura: m.height || null, legenda: m.caption || '' } : null;
+  }
   function htmlPagina(ctx, page) {
     const corpo = renderizarCorpo(page.body);
     const ehHome = ctx.homePage && page.id === ctx.homePage.id;
     const n = ehHome ? (Number.isInteger(ctx.site.home.latest_posts) ? ctx.site.home.latest_posts : 0) : 0;
     const ultimos = n > 0 ? { blog_titulo: (ctx.site.blog && ctx.site.blog.title) || 'Blog', blog_href: ctx.hrefBlog, artigos: ctx.posts.slice(0, n).map(ctx.itemLista) } : null;
-    const conteudo = Mustache.render(TemaPadrao.templates.pagina, { titulo: page.title, corpo: corpo, ultimos: ultimos });
+    const conteudo = Mustache.render(TemaPadrao.templates.pagina, { titulo: page.title, corpo: corpo, ultimos: ultimos, capa: capaDe(ctx, page) });
     return layout(ctx, { tituloPagina: ehHome ? (ctx.site.title || page.title) : tituloPagina(ctx, page.title), descricao: page.description || (ehHome ? ctx.site.description : '') || primeiroParagrafo(corpo), conteudo: conteudo, atualId: page.id });
   }
   function htmlArtigo(ctx, post) {
     const corpo = renderizarCorpo(post.body);
-    const m = post.cover_media_id ? ctx.porIdMedia.get(post.cover_media_id) : null;
-    const capa = m ? { src: m.path, alt: m.alt || '', largura: m.width || null, altura: m.height || null, legenda: m.caption || '' } : null;
+    const capa = capaDe(ctx, post);
     const tags = Array.isArray(post.tags) ? post.tags.filter(t => typeof t === 'string' && t).map(t => ({ nome: t })) : [];
     const conteudo = Mustache.render(TemaPadrao.templates.artigo, Object.assign({ titulo: post.title, corpo: corpo, tem_tags: tags.length > 0, tags: tags, capa: capa }, datas(post.date, ctx.mostrarHora)));
     return layout(ctx, { tituloPagina: tituloPagina(ctx, post.title), descricao: post.description || ctx.resumoDe(post), conteudo: conteudo, atualId: 'blog' });

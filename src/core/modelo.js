@@ -105,7 +105,9 @@ const Modelo = (function () {
     return { id: novoId(), slug: slug(titulo), aliases: [], title: String(titulo == null ? '' : titulo), description: '',
       body: '', body_format: 'markdown', status: 'draft', created_at: t, updated_at: t, published_hash: null, previous_status: null };
   }
-  function novaPagina(titulo) { return Object.assign(registroBase(titulo), { in_menu: true }); }
+  // 35 — a capa é DADO da página: o tema padrão não a desenha (decisão do
+  // usuário em 2026-08-31), mas ela viaja no site.json para os temas a usarem.
+  function novaPagina(titulo) { return Object.assign(registroBase(titulo), { in_menu: true, cover_media_id: null }); }
   function novoArtigo(titulo) { return Object.assign(registroBase(titulo), { date: agora(), excerpt: '', tags: [], cover_media_id: null }); }
 
   // 13 §4.3 — arquivo herdado: caminho do manifest que o site.json não descreve

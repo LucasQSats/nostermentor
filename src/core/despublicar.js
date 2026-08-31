@@ -125,8 +125,13 @@ const Despublicar = (function () {
     try { r.manifest = o.assinar(modeloVazio(site, plano)); }
     catch (e) { r.desfecho = 'sem_assinatura'; r.erro = e && e.message ? String(e.message) : ''; return r; }
 
-    prog({ passo: 'relays', total: relays.length });
-    r.relaysManifest = await Relay.publicar(relays, r.manifest, { sinal: o.sinal, timeoutMs: o.timeoutMs, aoRelay: function (x) { prog({ passo: 'relays', relay: x }); } });
+    // 34 — a mesma barra do "Publicar": aqui também os relays são a espera longa.
+    let feitosRelay = 0, aceitosRelay = 0;
+    prog({ passo: 'relays', total: relays.length, feitos: 0, aceitos: 0 });
+    r.relaysManifest = await Relay.publicar(relays, r.manifest, { sinal: o.sinal, timeoutMs: o.timeoutMs, aoRelay: function (x) {
+      feitosRelay++; if (x && x.estado === 'aceito') aceitosRelay++;
+      prog({ passo: 'relays', total: relays.length, feitos: feitosRelay, aceitos: aceitosRelay, relay: x });
+    } });
     r.placar = Relay.placar(r.relaysManifest);
     if (!r.placar.ok) { r.desfecho = 'sem_relay'; return r; }        // o site continua no ar: não se apaga nada
 
@@ -157,6 +162,9 @@ const Despublicar = (function () {
     return {
       manifest_event: Saude.limpo(resultado.manifest), manifest_event_id: resultado.manifest.id, created_at: resultado.manifest.created_at,
       paths: {}, relays: relaysEstado, servers: {},
+      // 31 — fora do ar, nada está publicado, a configuração inclusive: `null`
+      // difere de qualquer assinatura e o contador volta a acender sozinho.
+      site_config: null,
       metadata_events: Object.assign({ kind0: null, kind10002: null, kind10063: null }, (anterior && anterior.metadata_events) || {}),
       takedown_at: quando,
       health: { checked_at: quando, relays_with_manifest: p.aceitos.slice(), relays_outdated: [], relays_newer: [],

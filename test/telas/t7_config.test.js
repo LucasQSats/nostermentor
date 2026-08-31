@@ -504,5 +504,84 @@ module.exports = async function (ctx, u) {
     return 'T2 → T7 com o site criado';
   });
 
+  // --- 31: o contador de "Publicar" e as Configurações ---------------------
+
+  await it('31: mexer SÓ nas Configurações acende o contador de "Publicar", e T3 diz o que mudou', async () => {
+    // O relato do dono era este: "só é publicado quando inserimos ou alteramos
+    // mídia, página ou artigo". O motor estava certo o tempo todo — trocar o
+    // título produz 4 caminhos a atualizar —; cego era o contador, que somava
+    // status de registros e o `site` não tem status nenhum.
+    const s = await publicado();
+    await aba(s.p.pg, 'site');
+    await s.p.pg.waitForSelector('#t7-titulo');
+    const depoisDePublicar = await s.p.pg.textContent('#btn-publicar');
+    assert(/Nada a publicar/.test(depoisDePublicar), 'acabou de publicar: ' + depoisDePublicar);
+
+    await s.p.pg.fill('#t7-titulo', 'Site do teste T7 — outro nome');
+    await salvar(s.p.pg);
+    const aceso = await s.p.pg.textContent('#btn-publicar');
+    assert(/Publicar \(1\)/.test(aceso), 'mudou só o título: ' + aceso);
+
+    // e o motor confirma que há mesmo o que subir — o contador não está a mentir
+    // para o outro lado (13 §5.4: `plano.nada`).
+    const plano = await s.p.pg.evaluate(async () => {
+      const db = Shell.dados().db;
+      const dados = { site: await db.get('site', 'site'), pages: await db.getAll('pages'), posts: await db.getAll('posts'), media: await db.getAll('media') };
+      const g = await Gerador.gerarSite(dados);
+      const pl = Publicar.planear({ dados: dados, published: await db.get('published', 'current'), gerado: g });
+      return { nada: pl.nada, atualiza: pl.atualiza.length, kind0: pl.eventos.kind0 };
+    });
+    assert(plano.nada === false && plano.atualiza > 0, JSON.stringify(plano));
+
+    // T3 tem de dizer o QUE mudou: sem registros pendentes, "0 artigos, 0
+    // páginas, 0 mídias" seria pior do que calar.
+    await s.p.pg.click('#menu .item[data-tela="t3"]');
+    await s.p.pg.waitForSelector('#cartao-alteracoes');
+    const resumo = await s.p.pg.textContent('#alteracoes-resumo');
+    assert(/Configurações do site alteradas/.test(resumo), resumo);
+
+    // publicar outra vez apaga o aviso — a fotografia nova guarda a configuração
+    await s.p.pg.click('#btn-publicar');
+    await s.p.pg.waitForSelector('#t8-assinar:not([disabled])', { timeout: 30000 });
+    await s.p.pg.click('#t8-assinar');
+    await s.p.pg.waitForSelector('#t8-publicado', { timeout: 60000 });
+    const apagado = await s.p.pg.textContent('#btn-publicar');
+    assert(/Nada a publicar/.test(apagado), 'publicou de novo: ' + apagado);
+
+    assert(s.p.erros.length === 0 && s.p.consoleErros.length === 0, JSON.stringify({ pageerror: s.p.erros, console: s.p.consoleErros }));
+    await s.p.pg.close();
+    return 'contador 0 → 1 → 0 mexendo só no título; ' + plano.atualiza + ' caminhos a atualizar, kind0 ' + plano.kind0;
+  });
+
+  await it('31: fotografia antiga (sem `site_config`) não inventa pendência — e ainda apanha o título pelas tags do manifest', async () => {
+    // Quem já tem site publicado por versão anterior não tem a configuração
+    // guardada. O caminho de reserva usa só o que a fotografia velha traz;
+    // o que ele NÃO pode fazer é acender sozinho e nunca mais apagar.
+    const s = await publicado();
+    const r = await s.p.pg.evaluate(async () => {
+      const db = Shell.dados().db;
+      const site = await db.get('site', 'site');
+      const pub = await db.get('published', 'current');
+      const velha = Object.assign({}, pub); delete velha.site_config;   // como era antes de 2026-08-31
+      const media = await db.getAll('media');
+      const outro = Object.assign({}, site, { title: 'Nome trocado' });
+      const soMenu = Object.assign({}, site, { menu: [] });
+      return {
+        temCampo: pub.site_config !== undefined,
+        parada: Publicar.configPendente(site, velha, media),       // nada mudou → false
+        titulo: Publicar.configPendente(outro, velha, media),      // título → apanhado pelas tags
+        menu: Publicar.configPendente(soMenu, velha, media),       // menu → fora do alcance da fotografia velha
+        exata: Publicar.configPendente(soMenu, pub, media)         // com o campo novo → apanhado
+      };
+    });
+    assert(r.temCampo === true, 'a fotografia nova tem de guardar a configuração');
+    assert(r.parada === false, 'sem mudança nenhuma não pode acender');
+    assert(r.titulo === true, 'o título está nas tags do manifest, tem de ser apanhado');
+    assert(r.menu === false, 'o menu não cabe na fotografia velha — honesto é não adivinhar');
+    assert(r.exata === true, 'com a fotografia nova, o menu tem de ser apanhado');
+    await s.p.pg.close();
+    return 'reserva conservadora: título sim, menu só com a fotografia nova';
+  });
+
   return R;
 };

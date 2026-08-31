@@ -138,8 +138,15 @@
     // 2. alterações não publicadas
     const cartaoAlt = h('div', { class: 'cartao', id: 'cartao-alteracoes' }, h('h2', {}, T.alteracoes.titulo));
     if (c.pendentes > 0) {
-      cartaoAlt.appendChild(h('p', { class: 'destaque', id: 'alteracoes-resumo' }, texto(T.alteracoes.resumo, { a: Modelo.pendentes(c.posts), p: Modelo.pendentes(c.pages), m: Modelo.pendentes(c.media) })));
-      cartaoAlt.appendChild(h('p', { class: 'apoio' }, texto(T.alteracoes.detalhe, { n: c.novos, a: c.alterados, r: c.aRemover })));
+      // 31 — a configuração conta como pendência, mas não é registro: com ela
+      // sozinha, "0 artigos, 0 páginas, 0 mídias" seria pior que não dizer nada.
+      cartaoAlt.appendChild(h('p', { class: 'destaque', id: 'alteracoes-resumo' }, c.registros > 0
+        ? texto(T.alteracoes.resumo, { a: Modelo.pendentes(c.posts), p: Modelo.pendentes(c.pages), m: Modelo.pendentes(c.media) })
+        : T.alteracoes.soConfig));
+      if (c.registros > 0) {
+        cartaoAlt.appendChild(h('p', { class: 'apoio' }, texto(T.alteracoes.detalhe, { n: c.novos, a: c.alterados, r: c.aRemover })));
+        if (c.configPendente) cartaoAlt.appendChild(h('p', { class: 'apoio', id: 'alteracoes-config' }, T.alteracoes.configuracoes));
+      }
       cartaoAlt.appendChild(h('div', { class: 'acoes' }, h('button', { type: 'button', onclick: function () { Shell.ir('t8'); } }, T.alteracoes.publicar)));
     } else cartaoAlt.appendChild(h('p', { id: 'alteracoes-resumo' }, T.alteracoes.nada));
     if (c.herdados > 0) cartaoAlt.appendChild(h('p', { class: 'apoio', id: 'herdados-resumo' }, texto(T.herdados, { n: c.herdados })));

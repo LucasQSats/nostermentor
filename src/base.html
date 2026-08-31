@@ -2,7 +2,7 @@
 <html lang="pt">
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'unsafe-inline'; connect-src https: wss:; img-src 'self' data: blob:; style-src 'unsafe-inline'; frame-src 'self' data: blob:;">
+      content="default-src 'none'; script-src 'unsafe-inline'; connect-src https: wss:; img-src 'self' data: blob:; media-src blob:; style-src 'unsafe-inline'; frame-src 'self' data: blob:;">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="nostermentor-version" content="__APP_VERSION__">
 <title>Nostermentor</title>
@@ -213,6 +213,25 @@ button.perigoso{background:var(--erro);border-color:var(--erro)}
 #t6-lista .onde{display:inline-block}
 .alerta-inline{color:#8a6d00}
 #t6-lista tr.colide td{background:var(--erro-fundo)}
+/* 32(a) — a miniatura pode chegar depois (mídia da rede baixada sob demanda):
+   a caixa reserva o lugar para a lista não saltar quando a imagem entra. */
+.mini-caixa{display:inline-block;line-height:0}
+.mini-caixa .sem-mini{line-height:normal}
+.sem-mini.baixando{color:var(--acento)}
+button.ver-mini{background:var(--papel);color:var(--acento);border:1px dashed var(--acento);font-size:11px;text-transform:none}
+button.ver-mini:hover{background:var(--papel);color:var(--acento-escuro)}
+/* 36 — "Inserir imagem" passou de lista de nomes a grade, a mesma da capa. */
+.grade-inserir .inserir-opcao{cursor:default;gap:6px}
+.grade-inserir .inserir-opcao .mini-caixa img{width:100%;height:80px;object-fit:cover;border-radius:2px}
+.grade-inserir .inserir-opcao .acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:0}
+.grade-inserir .inserir-opcao button{font-size:12px;padding:4px 8px}
+/* 33 — o bloco por arquivo virou LINHA: sem os campos, precisa de separador
+   próprio para cinco arquivos não virarem um muro de texto. */
+#t6a-pendentes .pendente{border-top:1px solid var(--linha);padding:8px 0}
+#t6a-pendentes .pendente:first-child{border-top:0}
+#t6a-pendentes .pendente p{margin:2px 0}
+#t6a-pendentes .pendente.bloqueado{background:var(--erro-fundo)}
+#t6a-pendentes .caminho-final code{word-break:break-all}
 #t6-relato .t6-relato-item{border-top:1px solid var(--linha);padding:8px 0}
 #t6-relato .t6-relato-item:first-of-type{border-top:0}
 #t6-relato .t6-relato-item p{margin:0 0 4px}

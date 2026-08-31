@@ -57,7 +57,7 @@ const SiteJson = (function () {
     return { id: p.id, slug: p.slug.slice(0, 120), aliases: strings(p.aliases, 50), title: p.title.slice(0, 300),
       description: str(p.description, 1000), body: str(p.body, 5000000), body_format: 'markdown' };
   }
-  function lerPagina(p) { const c = lerComum(p); if (!c) return null; c.in_menu = p.in_menu === true; return c; }
+  function lerPagina(p) { const c = lerComum(p); if (!c) return null; c.in_menu = p.in_menu === true; c.cover_media_id = idOuNulo(p.cover_media_id); return c; }
   function lerArtigo(p) {
     const c = lerComum(p); if (!c) return null;
     c.date = eStr(p.date) && /^\d{4}-\d{2}-\d{2}/.test(p.date) ? p.date.slice(0, 25) : '';
@@ -117,8 +117,13 @@ const SiteJson = (function () {
     o.network = { relays: urls(s.network && s.network.relays, 'wss:'), servers: urls(s.network && s.network.servers, 'https:') };
     return o;
   }
+  // 31 — assinatura determinista da configuração do site, para comparar o que
+  // está no painel com o que foi publicado. Reusa `escreverSite`, que já é a
+  // forma canónica e ordenada de `13` §6.1 — sem páginas, artigos nem mídia.
+  function assinaturaSite(s) { return JSON.stringify(escreverSite(s || {})); }
+
   const comum = p => ({ id: p.id, slug: p.slug, aliases: arr(p.aliases).filter(eStr).slice().sort(), title: str(p.title, 300), description: s1000(p.description), body: String(p.body == null ? '' : p.body), body_format: 'markdown' });
-  function escreverPagina(p) { const c = comum(p); c.in_menu = p.in_menu === true; return c; }
+  function escreverPagina(p) { const c = comum(p); c.in_menu = p.in_menu === true; c.cover_media_id = idOuNulo(p.cover_media_id); return c; }
   function escreverArtigo(p) { const c = comum(p); c.date = str(p.date, 25); c.excerpt = str(p.excerpt, 2000); c.tags = arr(p.tags).filter(eStr).map(t => t.toLowerCase()).slice(0, 50); c.cover_media_id = idOuNulo(p.cover_media_id); return c; }
   function escreverMidia(m) { return { id: m.id, path: m.path, mime: eStr(m.mime) ? m.mime : Modelo.mimePorCaminho(m.path), size: Number.isInteger(m.size) ? m.size : null, sha256: m.sha256, width: Number.isInteger(m.width) ? m.width : null, height: Number.isInteger(m.height) ? m.height : null, alt: str(m.alt, 500), caption: s1000(m.caption) }; }
   const porSlug = (a, b) => String(a.slug).localeCompare(String(b.slug));
@@ -133,5 +138,5 @@ const SiteJson = (function () {
     return JSON.stringify(saida);
   }
 
-  return Object.freeze({ CAMINHO, FORMATO, decodificar, ler, lerSite, escrever });
+  return Object.freeze({ CAMINHO, FORMATO, decodificar, ler, lerSite, escrever, assinaturaSite });
 })();

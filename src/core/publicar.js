@@ -185,7 +185,10 @@ const Publicar = (function () {
       picture_url: pictureUrl, picture_sha: avatar ? avatar.sha256 : null, bytes: bytes,
       relays: Modelo.uniao(site.network && site.network.relays), servidores: Modelo.uniao(site.network && site.network.servers),
       nada: mudou === 0 && !eventos.kind0 && !eventos.kind10002 && !eventos.kind10063,
-      caminhos: Object.keys(mapa).length
+      caminhos: Object.keys(mapa).length,
+      // 31 — vai inteira para a fotografia: é contra ela que o contador de
+      // "Publicar" compara as Configurações › Site na sessão seguinte.
+      site_config: SiteJson.assinaturaSite(site)
     };
   }
 
@@ -257,6 +260,39 @@ const Publicar = (function () {
     const antes = valoresDeTag(eventoAnterior, nomeTag) || [];
     return Modelo.uniao(atual).join('\n') !== Modelo.uniao(antes).join('\n');
   }
+  // 31 — o contador de "Publicar" tem de enxergar as Configurações › Site, e
+  // não só os registros: `Modelo.pendentes` soma status, e o `site` não tem
+  // status nenhum. Aqui a pergunta é feita a quem sabe responder — o publicado.
+  //   • fotografia nova (desde 2026-08-31): compara a assinatura inteira, exato;
+  //   • fotografia antiga (sem `site_config`): usa só o que ela guarda — os
+  //     eventos de metadados e as tags `title`/`description` do manifest. NÃO
+  //     cobre menu, home, blog, doações, idioma nem privacidade; para esses o
+  //     contador só acorda depois da 1ª publicação com a fotografia nova.
+  //     É de propósito conservador: falso negativo é o bug de hoje, falso
+  //     positivo seria um aviso que nunca mais apaga.
+  function configPendente(site, published, media) {
+    if (!site || !published) return false;                  // nunca publicado: T3 já o diz com todas as letras
+    if (published.site_config !== undefined) return SiteJson.assinaturaSite(site) !== published.site_config;
+    // Cada comparação só vale se o dado EXISTIR na fotografia. `mudouPerfil` e
+    // `mudouLista` respondem à pergunta do publicador ("preciso publicar este
+    // evento?"), e para ela ausência significa sim; aqui a pergunta é outra
+    // ("a configuração mudou?") e ausência significa **não sei**. Confundir as
+    // duas acendia o contador em site recém-carregado da rede cujo relay não
+    // devolveu o kind 0 — falso positivo que nunca mais apagava.
+    const ev = published.metadata_events || {};
+    if (ev.kind0 && mudouPerfil(site, ev.kind0, urlDoAvatar(site, media))) return true;
+    if (ev.kind10002 && mudouLista(site.network && site.network.relays, ev.kind10002, 'r')) return true;
+    if (ev.kind10063 && mudouLista(site.network && site.network.servers, ev.kind10063, 'server')) return true;
+    const m = published.manifest_event;
+    if (m) {
+      const tag = (nome) => { const v = valoresDeTag(m, nome); return v && v.length ? String(v[0]) : null; };
+      const t = tag('title'), d = tag('description');
+      if (t !== null && String(site.title || '').slice(0, 200) !== t) return true;
+      if (d !== null && String(site.description || '').slice(0, 1000) !== d) return true;
+    }
+    return false;
+  }
+
   function mudouPerfil(site, eventoAnterior, pictureUrl) {
     const agora = conteudoPerfil(site, pictureUrl);
     if (!eventoAnterior) return agora !== '{"name":"","about":""}';
@@ -355,8 +391,15 @@ const Publicar = (function () {
     resultado.manifest = manifest;
 
     // 4. relays
-    prog({ passo: 'relays', total: relays.length });
-    resultado.relaysManifest = await Relay.publicar(relays, manifest, { sinal: o.sinal, timeoutMs: o.timeoutMs, aoRelay: function (r) { prog({ passo: 'relays', relay: r }); } });
+    // 34 — pelo Tor esta é a fase LONGA (um relay mudo só cai no tempo-limite)
+    // e era a única sem barra: o motor avisava relay a relay e a tela descartava.
+    // Contar aqui, e não na tela, mantém a tela sem estado — como no upload.
+    let relaysFeitos = 0, relaysAceitos = 0;
+    prog({ passo: 'relays', total: relays.length, feitos: 0, aceitos: 0 });
+    resultado.relaysManifest = await Relay.publicar(relays, manifest, { sinal: o.sinal, timeoutMs: o.timeoutMs, aoRelay: function (r) {
+      relaysFeitos++; if (r && r.estado === 'aceito') relaysAceitos++;
+      prog({ passo: 'relays', total: relays.length, feitos: relaysFeitos, aceitos: relaysAceitos, relay: r });
+    } });
     resultado.placar = Relay.placar(resultado.relaysManifest);
     if (!resultado.placar.ok) { resultado.desfecho = 'sem_relay'; return resultado; }
 
@@ -398,6 +441,7 @@ const Publicar = (function () {
     return {
       manifest_event: Saude.limpo(resultado.manifest), manifest_event_id: resultado.manifest.id, created_at: resultado.manifest.created_at,
       paths: Object.assign({}, plano.mapa), relays: relaysEstado, servers: servers, metadata_events: meta,
+      site_config: plano.site_config,
       health: { checked_at: Modelo.agora(), relays_with_manifest: p.aceitos.slice(), relays_outdated: [], relays_newer: [],
         relays_missing: p.recusados.slice(), relays_unreachable: p.mudos.slice() }
     };
@@ -496,6 +540,6 @@ const Publicar = (function () {
   return Object.freeze({
     KIND_MANIFEST, KIND_PERFIL, KIND_RELAYS, KIND_SERVIDORES, CLIENTE, PARALELAS_PADRAO,
     planear, caminhosDoApp, modeloManifest, modeloPerfil, modeloRelays, modeloServidores, conteudoPerfil, avatarDe, urlDoAvatar,
-    mudouPerfil, mudouLista, valoresDeTag, emLotes, executar, fotografia, aplicar, registrarSubidos, republicar
+    mudouPerfil, mudouLista, valoresDeTag, configPendente, emLotes, executar, fotografia, aplicar, registrarSubidos, republicar
   });
 })();

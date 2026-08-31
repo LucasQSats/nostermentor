@@ -239,17 +239,22 @@
     if (naoPodeSubir.length) { btn.disabled = true; pErro.hidden = false; pErro.textContent = T.bloqueado; }
 
     // --- 3 e 4. publicar e relatar ---------------------------------------
+    // 34 — a barra servia só o upload. Com 1 arquivo de 2 KB e 8 relays, o dono
+    // via "Enviando aos relays" parado durante a parte inteira que demora.
     function progresso(p) {
       pProgresso.hidden = false;
-      if (p.passo === 'upload') {
+      const comBarra = (p.passo === 'upload' || p.passo === 'relays') && typeof p.total === 'number' && p.total > 0;
+      if (comBarra) {
         medidor.hidden = false;
         medidor.setAttribute('max', String(p.total));
-        medidor.setAttribute('value', String(p.feitos));
-        pProgresso.textContent = texto(T.passos.upload, { f: p.feitos, t: p.total });
-      } else {
-        medidor.hidden = true; medidor.removeAttribute('value');
-        pProgresso.textContent = T.passos[p.passo] || '';
-      }
+        medidor.setAttribute('value', String(p.feitos || 0));
+      } else { medidor.hidden = true; medidor.removeAttribute('value'); }
+      if (p.passo === 'upload') pProgresso.textContent = texto(T.passos.upload, { f: p.feitos, t: p.total });
+      // quantos ACEITARAM é o número acionável — é dele que depende o site ir
+      // ao ar (T3 mostra o mesmo placar). Antes do primeiro, "0 de 8 — 0
+      // aceitaram" só assustaria: fica a frase simples.
+      else if (comBarra) pProgresso.textContent = (p.feitos || 0) === 0 ? T.passos.relays : texto(T.passos.relaysConta, { f: p.feitos, t: p.total, a: p.aceitos || 0 });
+      else pProgresso.textContent = T.passos[p.passo] || '';
     }
 
     async function publicar() {

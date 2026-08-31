@@ -22,6 +22,10 @@ module.exports = async function (ctx, u) {
   const SERVIDORES = [f.url('x1'), f.url('x2')];
   const EXIF = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'limpeza', 'exif.jpg'));
   const paginas = [];
+  // ids como os do app (13 §4), gerados aqui porque estes registros são
+  // semeados a partir do Node e não de dentro da página.
+  let seq = 0;
+  const Modelo_novoId = () => 'm-teste-' + (++seq).toString(16).padStart(8, '0');
 
   async function sessao(o) {
     o = o || {};
@@ -242,6 +246,57 @@ module.exports = async function (ctx, u) {
     assert(/vai recusar/.test(segundo) && /já verificado antes/.test(segundo), segundo);
     await p.pg.close();
     return `${antes} HEAD no primeiro, 0 no segundo`;
+  });
+
+  // --- 32(a) e 36: mídia da rede, numa máquina onde não há bytes -----------
+
+  await it('32(a): mídia vinda da REDE (sem bytes locais) ganha miniatura baixada sob demanda — o caso que o dono viu no Tails com o banco vazio', async () => {
+    const PNG = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'limpeza', 'limpo.png'));
+    const sha = f.blobEm('x1', PNG, 'image/png');
+    // como o app a reconstrói da rede: descrita no site.json, SEM bytes
+    const daRede = { id: Modelo_novoId(), path: '/img/da-rede.png', mime: 'image/png', size: PNG.length,
+      sha256: sha, width: null, height: null, alt: 'veio da rede', caption: '', bytes: null,
+      status: 'published', servers: [f.url('x1')], removal: null,
+      metadata: { stripped: null, removed_segments: [], warning: null }, origin: 'upload',
+      created_at: '2026-08-30T10:00:00Z', updated_at: '2026-08-30T10:00:00Z', previous_status: null };
+    const { p, ch } = await sessao({ extra: { media: [daRede] } });
+    await p.pg.click('#menu .item[data-tela="t6"]');
+    await p.pg.waitForSelector('#t6-tabela');
+    // antes de baixar não há <img>; o módulo só vai à rede quando a linha entra em vista
+    await p.pg.waitForFunction(() => {
+      const c = document.querySelector('#t6-tabela .mini-caixa');
+      return !!(c && c.querySelector('img'));
+    }, null, { timeout: 30000 });
+    const r = await p.pg.evaluate(() => {
+      const img = document.querySelector('#t6-tabela .mini-caixa img');
+      return { src: img.getAttribute('src'), alt: img.getAttribute('alt'), lazy: img.getAttribute('loading') };
+    });
+    assert(/^blob:/.test(r.src), 'a CSP do painel é img-src self data: blob: — tem de ser blob:, nunca https: direto: ' + r.src);
+    assert(r.alt === 'veio da rede' && r.lazy === 'lazy', JSON.stringify(r));
+    // e os bytes NÃO foram parar ao banco (13 D17: cache de sessão; P38: no Tails é RAM)
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    assert(banco.media.length === 1 && !banco.media[0].bytes, 'os bytes não podem ser gravados no banco: ' + JSON.stringify(banco.media.map(m => [m.path, m.bytes])));
+    await p.pg.close();
+    return 'miniatura da rede em blob:, sem tocar no banco';
+  });
+
+  await it('32(a): arquivo GRANDE não baixa sozinho — mostra um botão, porque rolar a lista não pode custar megabytes pelo Tor', async () => {
+    const PNG = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'limpeza', 'limpo.png'));
+    const sha = f.blobEm('x2', PNG, 'image/png');
+    const grande = { id: Modelo_novoId(), path: '/img/enorme.png', mime: 'image/png',
+      size: 8 * 1024 * 1024,                      // o que o site.json declara: 8 MB
+      sha256: sha, width: null, height: null, alt: 'enorme', caption: '', bytes: null,
+      status: 'published', servers: [f.url('x2')], removal: null,
+      metadata: { stripped: null, removed_segments: [], warning: null }, origin: 'upload',
+      created_at: '2026-08-30T10:00:00Z', updated_at: '2026-08-30T10:00:00Z', previous_status: null };
+    const { p } = await sessao({ extra: { media: [grande] } });
+    await p.pg.click('#menu .item[data-tela="t6"]');
+    await p.pg.waitForSelector('#t6-tabela .ver-mini');
+    assert(!(await p.pg.$('#t6-tabela .mini-caixa img')), 'não podia ter baixado sozinho');
+    await p.pg.click('#t6-tabela .ver-mini');
+    await p.pg.waitForSelector('#t6-tabela .mini-caixa img', { timeout: 30000 });
+    await p.pg.close();
+    return 'acima do teto espera o clique, e o clique baixa';
   });
 
   await it('sem erros de página/console em nenhuma das sessões', () => {

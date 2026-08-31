@@ -124,6 +124,148 @@ module.exports = async function (ctx, u) {
     await p.pg.close();
   });
 
+  await it('35: o editor de PÁGINA ganha capa — mesmo modal do artigo, com o aviso de que o tema Padrão não a mostra', async () => {
+    const { p, ch: chI } = await sessaoIsolada();
+    // uma imagem na biblioteca para haver o que escolher
+    await p.pg.evaluate(async (pk) => {
+      const db = await Db.abrir(pk);
+      const brutos = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]);
+      await db.put('media', { id: Modelo.novoId(), path: '/img/capa-pagina.png', mime: 'image/png', size: brutos.length,
+        sha256: await Blossom.sha256Hex(brutos), width: 900, height: 300, alt: 'uma capa', caption: '',
+        bytes: new Blob([brutos], { type: 'image/png' }), status: 'draft', servers: [], removal: null,
+        metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload',
+        created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null });
+      db.fechar();
+    }, chI.pubkey);
+    await p.pg.click('#menu .item[data-tela="t4"]'); await p.pg.waitForSelector('#t4');
+    await p.pg.click('#novo-registro');
+    await p.pg.waitForSelector('#editor[data-tipo="page"]');
+    assert(await p.pg.$('#ed-capa-escolher'), 'a página tem de ter o botão de capa (35)');
+    const apoio = await p.pg.textContent('#ed-capa-apoio');
+    assert(/tema Padrão não mostra a capa nas páginas/.test(apoio), apoio);
+    await p.pg.fill('#ed-titulo', 'Página com capa');
+    await p.pg.click('#ed-capa-escolher');
+    await p.pg.waitForSelector('.grade-capas .capa-opcao[data-media-id]');
+    await p.pg.click('.grade-capas .capa-opcao[data-media-id]');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+    assert(/capa-pagina\.png/.test(await p.pg.textContent('#ed-capa-atual')), await p.pg.textContent('#ed-capa-atual'));
+    await p.pg.click('#ed-salvar');
+    await statusSalvo(p.pg);
+    const b = await lerBanco(p.pg, chI.pubkey);
+    const pag = b.pages[0];
+    assert(pag.cover_media_id && pag.cover_media_id === b.media[0].id, JSON.stringify([pag.cover_media_id, b.media[0].id]));
+    // decisão do dono: guardada sim, desenhada não
+    const html = await p.pg.evaluate(async () => {
+      const db = Shell.dados().db;
+      const dados = { site: await db.get('site', 'site'), pages: await db.getAll('pages'), posts: await db.getAll('posts'), media: await db.getAll('media') };
+      return Gerador.htmlDe(dados, dados.pages[0], 'page');
+    });
+    assert(!/<figure class="capa"/.test(html), 'o tema Padrão não pode desenhar a capa na página');
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.evaluate(async (pk) => { await Db.apagar(pk); }, chI.pubkey);
+    await p.pg.close();
+  });
+
+  await it('36: o modal "Inserir imagem" mostra MINIATURA, não só o nome — com os dois botões preservados', async () => {
+    // O caso do dono: seis arquivos `controle`, `controle2`… `controle5`.
+    // Uma lista de nomes torna a escolha impossível; a grade da capa já
+    // existia desde 2026-08-26 e este modal ficou para trás.
+    const { p, ch: chI } = await sessaoIsolada();
+    await p.pg.evaluate(async (pk) => {
+      const db = await Db.abrir(pk);
+      const brutos = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 7, 7, 7, 7]);
+      for (const n of ['controle', 'controle2', 'controle3']) {
+        await db.put('media', { id: Modelo.novoId(), path: '/img/' + n + '.png', mime: 'image/png', size: brutos.length,
+          sha256: await Blossom.sha256Hex(new Uint8Array(brutos.map((b, i) => i === 11 ? n.length : b))),
+          width: 640, height: 480, alt: n, caption: '',
+          bytes: new Blob([brutos], { type: 'image/png' }), status: 'draft', servers: [], removal: null,
+          metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload',
+          created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null });
+      }
+      db.fechar();
+    }, chI.pubkey);
+    await p.pg.click('#menu .item[data-tela="t4"]'); await p.pg.waitForSelector('#t4');
+    await p.pg.click('#novo-registro');
+    await p.pg.waitForSelector('#editor[data-tipo="page"]');
+    await p.pg.click('.ferramenta[data-acao="imagem"]');
+    await p.pg.waitForSelector('.grade-inserir');
+    const grade = await p.pg.evaluate(() => ({
+      opcoes: document.querySelectorAll('.grade-inserir .inserir-opcao').length,
+      comImagem: document.querySelectorAll('.grade-inserir .inserir-opcao img').length,
+      inserir: document.querySelectorAll('.grade-inserir .escolher-imagem').length,
+      comLink: document.querySelectorAll('.grade-inserir .com-link').length,
+      semLista: !document.querySelector('.lista-imagens')
+    }));
+    assert(grade.opcoes === 3 && grade.comImagem === 3, 'cada opção precisa da sua miniatura: ' + JSON.stringify(grade));
+    assert(grade.inserir === 3 && grade.comLink === 3, 'os DOIS botões continuam: ' + JSON.stringify(grade));
+    assert(grade.semLista, 'a lista de nomes tinha de sair');
+    // e continua a inserir o Markdown certo
+    await p.pg.click('.escolher-imagem[data-path="/img/controle2.png"]');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+    const corpo = await p.pg.inputValue('#ed-corpo');
+    assert(/!\[controle2\]\(\/img\/controle2\.png\)/.test(corpo), corpo);
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.evaluate(async (pk) => { await Db.apagar(pk); }, chI.pubkey);
+    await p.pg.close();
+  });
+
+  await it('39: "Vídeo" insere <video> com capa, controls e preload="none" — e a marcação SOBREVIVE ao sanitizador, sem um único script no site', async () => {
+    const { p, ch: chI } = await sessaoIsolada();
+    await p.pg.evaluate(async (pk) => {
+      const db = await Db.abrir(pk);
+      const img = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 5, 5, 5, 5]);
+      const vid = new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109]);   // cabeçalho mp4 (não é vídeo tocável)
+      await db.put('media', { id: Modelo.novoId(), path: '/img/capa-video.png', mime: 'image/png', size: img.length,
+        sha256: await Blossom.sha256Hex(img), width: 640, height: 360, alt: 'capa do vídeo', caption: '',
+        bytes: new Blob([img], { type: 'image/png' }), status: 'draft', servers: [], removal: null,
+        metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload',
+        created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null });
+      await db.put('media', { id: Modelo.novoId(), path: '/video/aula.mp4', mime: 'video/mp4', size: vid.length,
+        sha256: await Blossom.sha256Hex(vid), width: null, height: null, alt: 'a aula', caption: '',
+        bytes: new Blob([vid], { type: 'video/mp4' }), status: 'draft', servers: [], removal: null,
+        metadata: { stripped: false, removed_segments: [], warning: 'Este tipo pode conter metadados que o app não remove.' }, origin: 'upload',
+        created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null });
+      db.fechar();
+    }, chI.pubkey);
+    await p.pg.click('#menu .item[data-tela="t4"]'); await p.pg.waitForSelector('#t4');
+    await p.pg.click('#novo-registro');
+    await p.pg.waitForSelector('#editor[data-tipo="page"]');
+
+    // o vídeo NÃO pode aparecer no modal de imagem (era o caso errado: o botão
+    // "Imagem" com um mp4 gerava <img src="…mp4">, que não mostra nada)
+    await p.pg.click('.ferramenta[data-acao="imagem"]');
+    await p.pg.waitForSelector('.grade-inserir');
+    const naGradeDeImagem = await p.pg.evaluate(() => [...document.querySelectorAll('.grade-inserir .inserir-opcao')].map(x => x.getAttribute('data-path')));
+    assert(naGradeDeImagem.length === 1 && naGradeDeImagem[0] === '/img/capa-video.png', JSON.stringify(naGradeDeImagem));
+    await p.pg.click('#modal-fechar');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+
+    // o botão próprio: lista os vídeos e diz os limites MEDIDOS
+    await p.pg.click('.ferramenta[data-acao="video"]');
+    await p.pg.waitForSelector('.escolher-video');
+    const limites = await p.pg.textContent('#video-limites');
+    assert(/50 MB publica/.test(limites) && /98 MB falhou nas três tentativas/.test(limites) && /0,46 MB\/s/.test(limites), limites);
+    await p.pg.click('.escolher-video[data-path="/video/aula.mp4"]');
+    await p.pg.waitForSelector('.poster-usar');
+    await p.pg.click('.poster-usar[data-path="/img/capa-video.png"]');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+
+    const corpo = await p.pg.inputValue('#ed-corpo');
+    assert(/<video src="\/video\/aula\.mp4" poster="\/img\/capa-video\.png" controls preload="none">/.test(corpo), corpo);
+
+    // A MEDIÇÃO que interessa: o que o site publicaria depois do DOMPurify.
+    const html = await p.pg.evaluate((md) => Gerador.renderizarCorpo(md), corpo);
+    assert(/<video/.test(html), 'o <video> não pode ser removido: ' + html);
+    assert(/src="\/video\/aula\.mp4"/.test(html) && /poster="\/img\/capa-video\.png"/.test(html), html);
+    assert(/controls/.test(html) && /preload="none"/.test(html), 'controls e preload têm de sobreviver: ' + html);
+    assert(/<a href="\/video\/aula\.mp4"/.test(html), 'o link de reserva tem de sobreviver: ' + html);
+    assert(!/<script/i.test(html) && !/onerror/i.test(html), 'o site publicado continua sem um único script: ' + html);
+
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.evaluate(async (pk) => { await Db.apagar(pk); }, chI.pubkey);
+    await p.pg.close();
+  });
+
   await it('19(b): "Imagem" → "Inserir com link…" produz [![alt](img)](url), Markdown de imagem clicável', async () => {
     const midia = { id: 'm-link', path: '/img/quadro.png', mime: 'image/png', size: 70, sha256: 'f'.repeat(64), width: 1, height: 1, alt: 'Um quadro', caption: '', bytes: null, status: 'draft', servers: [], removal: null, metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload', created_at: '2026-08-26T00:00:00Z', updated_at: '2026-08-26T00:00:00Z', previous_status: null };
     const { p, ch: chI } = await sessaoIsolada([{ op: 'put', store: 'media', valor: midia }]);

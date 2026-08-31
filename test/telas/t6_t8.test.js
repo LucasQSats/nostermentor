@@ -55,34 +55,41 @@ module.exports = async function (ctx, u) {
   f.relay('m-recusa', { escrita: 'recusa' });
   f.relay('m-mudo', { escrita: 'muda' });
 
-  await it('T6a: JPEG com EXIF → limpeza marcada por padrão, caminho /img/<slug>.jpg proposto, pré-flight "vai aceitar" nos dois servidores; "Adicionar" guarda como rascunho SEM subir nada', async () => {
+  await it('33: T6a envia DIRETO — nada a preencher, metadados limpos sempre, caminho vindo do nome do arquivo; "Adicionar" guarda como rascunho SEM subir nada', async () => {
     const { p, ch } = await sessao();
     await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6a');
     assert(await p.pg.textContent('#t6-vazio'), 'a biblioteca devia começar vazia');
     await escolherArquivo(p.pg, 'IMG_20240812_casa.jpg', EXIF, 'image/jpeg');
     const est = await p.pg.evaluate(() => ({
-      slug: document.querySelector('.t6a-slug').value,
+      // 33 — nenhum campo por arquivo: era isto que fazia cinco imagens virarem
+      // uma página comprida.
+      campos: document.querySelectorAll('#t6a-pendentes input, #t6a-pendentes textarea').length,
       caminho: document.querySelector('.caminho-final').textContent,
-      limpar: document.querySelector('.t6a-limpar').checked,
       pre: [...document.querySelectorAll('#t6a-pendentes .pre')].map(x => x.textContent.trim()),
       podeAdicionar: !document.getElementById('t6a-adicionar').disabled
     }));
-    assert(est.slug === 'img-20240812-casa' && /\/img\/img-20240812-casa\.jpg/.test(est.caminho), JSON.stringify(est));
-    assert(est.limpar === true, 'a limpeza de metadados devia vir marcada (D15)');
+    assert(est.campos === 0, 'o bloco por arquivo não pode ter campo nenhum: ' + est.campos);
+    assert(/\/img\/img-20240812-casa\.jpg/.test(est.caminho), est.caminho);
     assert(est.pre.length === 2 && est.pre.every(x => /vai aceitar/.test(x)), JSON.stringify(est.pre));
     assert(est.podeAdicionar, 'devia poder adicionar');
-    await p.pg.fill('.t6a-slug', 'casa');
-    await p.pg.fill('.t6a-alt', 'A casa do conselho');
     await p.pg.click('#t6a-adicionar');
     await p.pg.waitForSelector('#t6-tabela');
     const banco = await lerBanco(p.pg, ch.pubkey);
     const m = banco.media[0];
-    assert(banco.media.length === 1 && m.path === '/img/casa.jpg' && m.status === 'draft' && m.alt === 'A casa do conselho', JSON.stringify(banco.media.map(x => [x.path, x.status])));
+    assert(banco.media.length === 1 && m.path === '/img/img-20240812-casa.jpg' && m.status === 'draft', JSON.stringify(banco.media.map(x => [x.path, x.status])));
+    assert(m.alt === '' && m.caption === '', 'alt e legenda ficam em branco — pedidos depois, na biblioteca');
+    // D15 continua honrado, agora sem opção: a limpeza deixou de ser escolha.
+    assert(m.metadata.stripped === true, 'os metadados têm de ser limpos sempre');
     assert(m.sha256 !== F.sha256(EXIF), 'o hash devia ser o do arquivo LIMPO, não o do original');
     assert(m.size < EXIF.length, 'o arquivo limpo devia ser menor: ' + m.size + ' vs ' + EXIF.length);
+    // e o alt não se perde de vista: a linha discreta leva à biblioteca
+    const chamada = await p.pg.textContent('#t6a-descrever');
+    assert(/Descrever a?s? 1 imagem/.test(chamada), chamada);
+    await p.pg.click('#t6a-descrever');
+    await p.pg.waitForSelector('#t6-tabela');
     assert(f.blobsDe('m1').length === 0 && f.blobsDe('m2').length === 0, 'nada pode ter subido em T6a — subir é ato de T8');
     await p.pg.close();
-    return `${EXIF.length} B → ${m.size} B, ainda só neste navegador`;
+    return `${EXIF.length} B → ${m.size} B, sem um campo para preencher`;
   });
 
   await it('T6a: servidor que recusa o tipo aparece como "vai recusar" com o motivo; e a marcação copiável entra na lista', async () => {
@@ -118,9 +125,13 @@ module.exports = async function (ctx, u) {
     // chegar a ser pintado (o de assinar é síncrono e escapava; ver 11, 2026-08-27)
     await p.pg.evaluate(() => {
       window.__passos = [];
+      window.__barraRelays = [];                       // 34
       new MutationObserver(() => {
         const t = document.getElementById('t8-progresso');
-        if (t && t.textContent) window.__passos.push(t.textContent);
+        if (!t || !t.textContent) return;
+        window.__passos.push(t.textContent);
+        const b = document.getElementById('t8-barra');
+        if (/aos relays/.test(t.textContent) && b) window.__barraRelays.push({ visivel: !b.hidden, valor: b.getAttribute('value'), max: b.getAttribute('max') });
       }).observe(document.getElementById('t8-corpo'), { subtree: true, childList: true, characterData: true, attributes: true });
     });
     await p.pg.click('#t8-assinar');
@@ -128,6 +139,14 @@ module.exports = async function (ctx, u) {
     const passos = await p.pg.evaluate(() => window.__passos);
     for (const esperado of [/Enviando arquivos: \d+ de \d+/, /Assinando o mapa do site/, /Enviando aos relays/])
       assert(passos.some(x => esperado.test(x)), 'passo nunca pintado (' + esperado + '): ' + JSON.stringify(passos));
+
+    // 34 — a barra só servia o upload: com 1 arquivo pequeno e N relays, o dono
+    // ficava a olhar para "Enviando aos relays" parado durante a parte lenta.
+    const barra = await p.pg.evaluate(() => window.__barraRelays);
+    assert(barra.some(x => x.visivel), 'a barra tem de aparecer na fase de relays: ' + JSON.stringify(barra));
+    assert(barra.some(x => Number(x.valor) > 0 && Number(x.max) > 0), 'a barra tem de avançar relay a relay: ' + JSON.stringify(barra));
+    assert(passos.some(x => /Enviando aos relays: \d+ de \d+ — \d+ aceitaram/.test(x)),
+      'quantos aceitaram é o número acionável: ' + JSON.stringify(passos.filter(x => /relays/.test(x))));
     const placar = await p.pg.evaluate(() => ({
       arquivos: [...document.querySelectorAll('#t8-placar-arquivos li')].map(x => x.textContent),
       relays: document.getElementById('t8-placar-relays').textContent,

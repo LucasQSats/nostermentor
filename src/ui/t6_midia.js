@@ -25,13 +25,18 @@
 
   const DIA_MS = 24 * 60 * 60 * 1000;
   const AVISO_20 = 20 * 1024 * 1024;
-  const AVISO_100 = 100 * 1000 * 1000;
+  // 39/P37b — era 100 MB, herdado de quando o aviso só dizia "demora". A
+  // bancada Tails de 2026-08-28 mediu o que importa: 50 MB publica pelo Tor,
+  // 98 MB falhou nas três tentativas. O aviso passa a acender onde a evidência
+  // termina, não onde a estimativa começava.
+  const AVISO_100 = 50 * 1024 * 1024;
 
   function desmontar() {
     if (ctrl) { ctrl.abort(); ctrl = null; }
     pendentes.length = 0;
     for (const u of urlsAbertas) { try { URL.revokeObjectURL(u); } catch (e) {} }
     urlsAbertas.length = 0;
+    Miniaturas.limpar();          // 32(a): revoga os blob:, o cache de bytes fica
   }
   function texto(m, mapa) { let s = String(m); for (const k of Object.keys(mapa || {})) s = s.split('{' + k + '}').join(String(mapa[k])); return s; }
   function bytesTexto(n) {
@@ -229,33 +234,30 @@
       return null;
     }
 
+    // 33 — o bloco por arquivo era um formulário completo (nome, alt, legenda,
+    // limpar, pré-flight): cinco imagens davam uma página comprida e o dono
+    // desistia. Agora é uma LINHA por arquivo, sem nada para preencher — o
+    // nome vem do arquivo, a limpeza é sempre feita onde o app sabe fazê-la, e
+    // o alt passa a ser pedido depois, pela biblioteca (ver `pAviso`).
+    // O que NÃO saiu, porque não é formulário e sim proteção: o caminho final,
+    // o tamanho/tipo/dimensões, o aviso de arquivo grande, o pré-flight por
+    // servidor e o bloqueio quando nenhum servidor aceita.
     function renderPendentes() {
       Shell.limpar(listaPendentes);
       for (const item of pendentes) {
         const caminho = caminhoDe(item.slug, item.ext, item.mime);
-        const campoSlug = h('input', { type: 'text', class: 't6a-slug', value: item.slug, 'data-id': item.id });
-        campoSlug.addEventListener('input', function () { item.slug = Modelo.slug(campoSlug.value); pCaminho.textContent = texto(TA.caminhoFinal, { p: caminhoDe(item.slug, item.ext, item.mime) }); });
-        const pCaminho = h('p', { class: 'apoio caminho-final' }, texto(TA.caminhoFinal, { p: caminho }));
-        const campoAlt = h('input', { type: 'text', class: 't6a-alt', value: item.alt });
-        campoAlt.addEventListener('input', function () { item.alt = campoAlt.value; });
-        const campoLegenda = h('input', { type: 'text', class: 't6a-legenda', value: item.caption });
-        campoLegenda.addEventListener('input', function () { item.caption = campoLegenda.value; });
-        const caixaLimpar = h('input', { type: 'checkbox', class: 't6a-limpar', checked: item.limpar });
-        caixaLimpar.addEventListener('change', async function () { item.limpar = caixaLimpar.checked; await preparar(item); });
         const semLimpeza = !Limpeza.limpaEsteTipo(item.mime);
         const ok = podeEntrar(item);
         const tam = item.bytes ? item.bytes.length : 0;
         const aviso = avisoTamanho(tam);
         listaPendentes.appendChild(h('div', { class: 'pendente' + (ok ? '' : ' bloqueado'), 'data-slug': item.slug },
-          h('p', {}, h('strong', {}, bytesTexto(tam)), ' ', h('code', {}, item.mime),
-            item.width ? h('span', { class: 'apoio' }, '  ' + texto(TA.dimensoes, { l: item.width, a: item.height })) : null),
+          h('p', { class: 'caminho-final' }, h('code', {}, caminho), ' ',
+            h('span', { class: 'apoio' }, bytesTexto(tam) + ' · ' + item.mime + (item.width ? ' · ' + texto(TA.dimensoes, { l: item.width, a: item.height }) : ''))),
           aviso ? h('p', { class: 'alerta t6a-grande' }, aviso) : null,
-          h('label', {}, TA.nomeNoSite, campoSlug), h('span', { class: 'apoio' }, TA.nomeApoio), pCaminho,
-          ehImagem(item.mime) ? h('label', {}, TA.alt, campoAlt) : null,
-          ehImagem(item.mime) ? h('span', { class: 'apoio' }, TA.altApoio) : null,
-          h('label', {}, TA.legenda, campoLegenda),
-          semLimpeza ? h('p', { class: 'alerta' }, item.mime === 'image/svg+xml' ? TA.svg : TA.semLimpeza)
-            : h('p', {}, h('label', {}, caixaLimpar, ' ', TA.limpar), item.limpar ? null : h('span', { class: 'alerta' }, ' ' + TA.limparAviso)),
+          // O aviso de metadados só sobrevive onde é VERDADE: nos tipos que o
+          // app não limpa (vídeo, e o SVG que só perde scripts). Nos que limpa,
+          // deixou de haver escolha — e portanto deixou de haver o que avisar.
+          semLimpeza ? h('p', { class: 'alerta' }, item.mime === 'image/svg+xml' ? TA.svg : TA.semLimpeza) : null,
           h('p', { class: 'apoio' }, TA.paraOnde + ': ',
             item.preflight.length ? item.preflight.map(r => h('span', { class: 'pre ' + r.estado + (r.cache ? ' cache' : '') }, servidorCurto(r.servidor) + ' — ' + estadoPre(r) + '  ')) : '—'),
           ok ? null : h('p', { class: 'erro' }, TA.nenhumServidor)));
@@ -281,10 +283,28 @@
           metadata: item.metadata, origin: 'upload', created_at: agora, updated_at: agora, previous_status: null } });
         n++;
       }
+      const imagensAdicionadas = ops.filter(o => ehImagem(o.valor.mime)).length;
       if (ops.length) await db.escrever(ops);
       pendentes.length = 0;
       renderPendentes();
-      pAviso.hidden = false; pAviso.textContent = texto(TA.adicionadas, { n: n });
+      // 33 — o alt deixou de ser pedido no envio; esta linha é o que impede que
+      // ele se perca de vista. Só aparece quando há imagem: em vídeo não há alt.
+      Shell.limpar(pAviso);
+      pAviso.hidden = false;
+      pAviso.appendChild(document.createTextNode(texto(TA.adicionadas, { n: n })));
+      if (imagensAdicionadas > 0) {
+        pAviso.appendChild(document.createTextNode(' '));
+        pAviso.appendChild(h('button', { type: 'button', class: 'ligacao', id: 't6a-descrever', onclick: function () {
+          // A biblioteca vive na mesma tela, logo abaixo — mas pode estar na
+          // aba "herdados", onde as imagens novas não aparecem.
+          if (aba !== 'biblioteca') { aba = 'biblioteca'; render(); }
+          const alvo = document.getElementById('t6-lista');
+          if (!alvo) return;
+          if (alvo.scrollIntoView) alvo.scrollIntoView({ block: 'start' });
+          const b = alvo.querySelector('.t6-editar');
+          if (b) b.focus();
+        } }, texto(TA.descrever, { n: imagensAdicionadas })));
+      }
       for (let i = 0; i < n; i++) await Shell.registrarAlteracao(1);
       await recarregar();
       const c = await Rede.contagens(db);
@@ -425,12 +445,11 @@
     }
 
     // --- a biblioteca -----------------------------------------------------
+    // 32(a) — mídia da rede não tem `bytes`: até 2026-08-31 a coluna ficava
+    // vazia numa máquina nova, que é como o dono a viu no Tails. Agora o
+    // módulo baixa sob demanda o que entra no campo de visão.
     function miniatura(m) {
-      if (!ehImagem(m.mime) || !m.bytes) return h('span', { class: 'sem-mini', title: T.semMiniatura }, Modelo.extensao(m.path) || '?');
-      let url;
-      try { url = URL.createObjectURL(m.bytes); } catch (e) { return h('span', { class: 'sem-mini' }, Modelo.extensao(m.path) || '?'); }
-      urlsAbertas.push(url);
-      return h('img', { class: 'mini', src: url, alt: m.alt || '', loading: 'lazy' });
+      return Miniaturas.elemento(m, { servidores: servidores, classe: 'mini', textos: T.mini });
     }
     function ondeEsta(m) {
       const n = (m.servers || []).length;

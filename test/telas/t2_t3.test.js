@@ -215,7 +215,10 @@ module.exports = async function (ctx, u) {
     f.relay('t-c', { eventos: [m2, m1] });
     await entrarCom(p.pg, chC.nsec);
     const d = await esperarT2(p.pg, 30000);
-    assert(d.tela === 't3' && /Outra máquina publicou uma versão mais nova deste site/.test(d.faixa), JSON.stringify(d));
+    // 41 — a faixa contempla o caso comum ("se foi você, está tudo certo") sem
+    // perder as duas garantias que ela existe para dar.
+    assert(d.tela === 't3' && /publicado a partir de outro navegador ou máquina/.test(d.faixa), JSON.stringify(d));
+    assert(/atualizado a partir da rede/.test(d.faixa) && /rascunhos ficaram/.test(d.faixa), d.faixa);
     const b = await lerBanco(p.pg, chC.pubkey);
     assert(b.published.manifest_event_id === m2.id && b.pages.find(x => x.id === 'p-home').title === 'Início v2', 'não atualizou');
     await p.pg.screenshot({ path: u.captura('t3-concorrente'), fullPage: true });

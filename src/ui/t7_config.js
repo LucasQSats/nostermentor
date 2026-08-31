@@ -473,7 +473,10 @@
 
       function progresso(p) {
         pProgresso.hidden = false;
-        if (p.passo === 'apagar') {
+        if (p.passo === 'relays' && typeof p.total === 'number' && p.total > 0) {
+          medidor.hidden = false; medidor.setAttribute('max', String(p.total)); medidor.setAttribute('value', String(p.feitos || 0));
+          pProgresso.textContent = (p.feitos || 0) === 0 ? C.passos.relays : texto(C.passos.relaysConta, { f: p.feitos, t: p.total, a: p.aceitos || 0 });
+        } else if (p.passo === 'apagar') {
           medidor.hidden = false; medidor.setAttribute('max', String(p.total)); medidor.setAttribute('value', String(p.feitos));
           pProgresso.textContent = texto(C.passos.apagar, { f: p.feitos, t: p.total });
         } else { medidor.hidden = true; medidor.removeAttribute('value'); pProgresso.textContent = C.passos[p.passo] || ''; }

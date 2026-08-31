@@ -46,7 +46,11 @@ const TemaPadrao = (function () {
   ].join('\n');
 
   // Página fixa. Contexto: titulo, corpo (HTML sanitizado), ultimos
-  // {blog_titulo, blog_href, artigos[] {href, titulo, data, data_iso}} | null.
+  // {blog_titulo, blog_href, artigos[] {href, titulo, data, data_iso}} | null,
+  // capa {src, alt, largura, altura, legenda} | null.
+  // 35 — a capa CHEGA aqui e este tema não a desenha, de propósito: a decisão
+  // do dono (2026-08-31) é que ela seja dado para os temas que virão. Um tema
+  // que a queira só precisa de acrescentar o bloco `{{#capa}}`.
   const pagina = [
     '<article class="pagina">',
     '<h1>{{titulo}}</h1>',

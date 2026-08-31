@@ -29,6 +29,10 @@ const Editor = (function () {
     return m;
   }
   function imagensDe(media) { return (media || []).filter(r => r && r.status !== 'removed' && /^image\//.test(r.mime || '') && r.origin !== 'network'); }
+  // 39 — o botão "Imagem" com um mp4 gerava `<img src="…mp4">`, que não mostra
+  // NADA. Vídeo tem de ter caminho próprio; foi o que a medição da varredura
+  // de 2026-08-31 apanhou.
+  function videosDe(media) { return (media || []).filter(r => r && r.status !== 'removed' && /^video\//.test(r.mime || '') && r.origin !== 'network'); }
 
   // "Ver como ficará" (14 T4a): a página inteira com o tema, isolada (usado por T4/T5 também)
   async function verComoFicara(db, reg, tipo) {
@@ -47,13 +51,14 @@ const Editor = (function () {
     const e = E; E = null;
     clearInterval(e.timerAuto); clearTimeout(e.timerPrevia);
     window.removeEventListener('beforeunload', e.aoSair);
+    Miniaturas.limpar();                         // 32(a): revoga os blob:, o cache de bytes fica
     if (e.sujo && !e.removido) salvar(e, { silencioso: true, motivo: 'sair' });   // não perder o que foi digitado (14 T-12)
   }
 
   // o: { tipo: 'page' | 'post', id?, novo?, voltar }
   async function montar(raiz, o) {
     desmontar();
-    const h = Shell.h, T = Textos.editor, C = T.campos, tipo = o.tipo, store = tipo === 'page' ? 'pages' : 'posts';
+    const h = Shell.h, T = Textos.editor, C = T.campos, TM = Textos.t6.mini, tipo = o.tipo, store = tipo === 'page' ? 'pages' : 'posts';
     const TL = tipo === 'page' ? Textos.t4 : Textos.t5;
     const dados = Shell.dados();
     if (!dados || !dados.db || !dados.db.estaAberto()) { Shell.ir('t3'); return; }
@@ -62,8 +67,10 @@ const Editor = (function () {
     if (o.id) { reg = await db.get(store, o.id); if (!reg) { Shell.erro(T.erros.naoEncontrado); o.voltar(); return; } }
     else reg = tipo === 'page' ? Modelo.novaPagina('') : Modelo.novoArtigo('');
     const site = (await db.get('site', 'site')) || Modelo.sitePadrao(s.pubkey, s.npub);
+    const servidoresMidia = Modelo.uniao(site.network && site.network.servers);   // 32(a)/36: de onde vêm as miniaturas da rede
     const media = await db.getAll('media');
     const imagens = imagensDe(media);
+    const videos = videosDe(media);
     const novo = !o.id;
     const removido = reg.status === 'removed';
     const travado = !novo && reg.status !== 'draft';   // 13 §4.0: slug imutável após a primeira publicação
@@ -140,10 +147,12 @@ const Editor = (function () {
       inData = h('input', { type: 'date', id: 'ed-data', value: Modelo.formatarData(reg.date), disabled: removido });   // E7: ler só .value
       inResumo = h('textarea', { id: 'ed-resumo', rows: 2, disabled: removido }); inResumo.value = reg.excerpt || '';
       inEtiquetas = h('input', { type: 'text', id: 'ed-etiquetas', value: (reg.tags || []).join(', '), disabled: removido });
-      spanCapaAtual = h('span', { id: 'ed-capa-atual' }, rotuloCapa());
-      capaBloco = h('div', { class: 'linha-capa' }, spanCapaAtual, ' ',
-        h('button', { type: 'button', id: 'ed-capa-escolher', class: 'secundario', disabled: removido, onclick: function () { escolherCapa(); } }, C.capaEscolher));
     } else cbMenu = h('input', { type: 'checkbox', id: 'ed-menu', checked: reg.in_menu !== false, disabled: removido });
+    // 35 — capa nos dois tipos, com o mesmo modal. Na página o texto de apoio
+    // avisa que o tema padrão não a mostra: sem isso pareceria avariado.
+    spanCapaAtual = h('span', { id: 'ed-capa-atual' }, rotuloCapa());
+    capaBloco = h('div', { class: 'linha-capa' }, spanCapaAtual, ' ',
+      h('button', { type: 'button', id: 'ed-capa-escolher', class: 'secundario', disabled: removido, onclick: function () { escolherCapa(); } }, C.capaEscolher));
 
     function coletar() {
       const c = { title: inTitulo.value.trim(), slug: inSlug.value.trim().toLowerCase(), description: inDescricao.value.trim(), body: taCorpo.value };
@@ -157,8 +166,8 @@ const Editor = (function () {
         c.date = dia + hora;
         c.excerpt = inResumo.value.trim();
         c.tags = Array.from(new Set(inEtiquetas.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean))).slice(0, 50);
-        c.cover_media_id = capaId;
       } else c.in_menu = cbMenu.checked;
+      c.cover_media_id = capaId;
       return c;
     }
     // 19(a): modal com miniaturas da biblioteca (mesmo padrão de inserirImagem);
@@ -174,7 +183,9 @@ const Editor = (function () {
       const grade = h('div', { class: 'grade-capas' },
         h('button', { type: 'button', class: 'capa-opcao' + (!capaId ? ' selecionada' : ''), onclick: function () { definir(null); } }, M.semCapa),
         imagens.map(m => h('button', { type: 'button', class: 'capa-opcao' + (capaId === m.id ? ' selecionada' : ''), 'data-media-id': m.id, onclick: function () { definir(m.id); } },
-          m.bytes ? h('img', { src: URL.createObjectURL(m.bytes), alt: m.alt || '' }) : null,
+          // 32(a): sem bytes locais (máquina nova, mídia da rede) isto era um
+          // botão só com o caminho — impossível escolher entre controle2 e 3.
+          Miniaturas.elemento(m, { servidores: servidoresMidia, classe: '', textos: TM }),
           h('span', {}, m.path))));
       const rodape = h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.fecharModal(); Shell.ir('t6', { enviar: true }); } }, M.enviarNova));
       Shell.modal({ titulo: M.titulo, conteudo: [grade, rodape] });
@@ -254,15 +265,62 @@ const Editor = (function () {
             h('button', { type: 'button', id: 'img-link-confirmar', onclick: function () { const url = inUrl.value.trim() || 'https://'; Shell.fecharModal(); envolver('[' + marcacaoDe(m) + '](' + url + ')', '', ''); } }, M.linkConfirmar),
             h('button', { type: 'button', class: 'secundario', id: 'img-link-cancelar', onclick: function () { Shell.fecharModal(); } }, M.linkCancelar))) });
       }
-      const lista = h('ul', { class: 'lista-imagens' }, imagens.map(m => h('li', {}, h('code', {}, m.path), ' ', h('span', { class: 'apoio' }, m.alt || ''), ' ',
-        h('button', { type: 'button', class: 'secundario escolher-imagem', 'data-path': m.path, onclick: function () { Shell.fecharModal(); envolver(marcacaoDe(m), '', ''); } }, M.inserir), ' ',
-        h('button', { type: 'button', class: 'secundario com-link', 'data-path': m.path, onclick: function () { formLink(m); } }, M.comLink))));
-      Shell.modal({ titulo: M.titulo, conteudo: lista });
+      // 36 — este modal mostrava SÓ os nomes: com `controle`, `controle2`…
+      // `controle5` era impossível escolher. O comentário de `escolherCapa`
+      // já dizia "mesmo padrão de inserirImagem" — a semelhança que ficou por
+      // fazer quando a capa ganhou miniaturas em 2026-08-26. Agora é a mesma
+      // grade e o mesmo CSS, com os DOIS botões preservados.
+      const lista = h('div', { class: 'grade-capas grade-inserir' }, imagens.map(m => h('div', { class: 'capa-opcao inserir-opcao', 'data-path': m.path },
+        Miniaturas.elemento(m, { servidores: servidoresMidia, classe: '', textos: TM }),
+        h('span', {}, m.path),
+        m.alt ? h('span', { class: 'apoio' }, m.alt) : null,
+        h('div', { class: 'acoes' },
+          h('button', { type: 'button', class: 'secundario escolher-imagem', 'data-path': m.path, onclick: function () { Shell.fecharModal(); envolver(marcacaoDe(m), '', ''); } }, M.inserir),
+          h('button', { type: 'button', class: 'secundario com-link', 'data-path': m.path, onclick: function () { formLink(m); } }, M.comLink)))));
+      Shell.modal({ titulo: M.titulo, conteudo: lista, largo: true });
     }
+    // 39 — `<video src poster controls preload="none">` com link de reserva
+    // sobrevive inteiro ao DOMPurify (`video` não está em FORBID_TAGS) e o
+    // site publicado continua SEM UM ÚNICO SCRIPT: `controls` é o player
+    // nativo do navegador. `preload="none"` por decisão do dono — o vídeo só
+    // baixa se o leitor der play, o que pelo Tor é a diferença entre abrir a
+    // página e esperar minutos por ela.
+    function inserirVideo() {
+      const V = T.video;
+      if (!videos.length) { Shell.modal({ titulo: V.titulo, conteudo: h('p', { class: 'alerta', id: 'sem-videos' }, V.nenhum) }); return; }
+      function marcacaoDe(m, posterPath) {
+        const alt = String(m.alt || m.path).replace(/"/g, '');
+        return '<video src="' + m.path + '"' + (posterPath ? ' poster="' + posterPath + '"' : '') +
+          ' controls preload="none"><a href="' + m.path + '">' + alt + '</a></video>';
+      }
+      // A capa (`poster`) é o que o leitor vê antes de dar play: sem ela o
+      // vídeo é um retângulo preto. Vem da biblioteca de imagens, como a capa
+      // de um artigo.
+      function escolherPoster(m) {
+        if (!imagens.length) { Shell.fecharModal(); envolver(marcacaoDe(m, null), '', ''); return; }
+        const grade = h('div', { class: 'grade-capas grade-inserir' },
+          h('div', { class: 'capa-opcao inserir-opcao' }, h('span', {}, V.semCapa),
+            h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario poster-nenhum', onclick: function () { Shell.fecharModal(); envolver(marcacaoDe(m, null), '', ''); } }, V.usar))),
+          imagens.map(im => h('div', { class: 'capa-opcao inserir-opcao', 'data-path': im.path },
+            Miniaturas.elemento(im, { servidores: servidoresMidia, classe: '', textos: TM }),
+            h('span', {}, im.path),
+            h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario poster-usar', 'data-path': im.path, onclick: function () { Shell.fecharModal(); envolver(marcacaoDe(m, im.path), '', ''); } }, V.usar)))));
+        Shell.modal({ titulo: V.capaTitulo, conteudo: grade, largo: true });
+      }
+      const grade = h('div', { class: 'grade-capas grade-inserir' }, videos.map(m => h('div', { class: 'capa-opcao inserir-opcao', 'data-path': m.path },
+        Miniaturas.elementoVideo(m, { servidores: servidoresMidia, classe: '', textos: TM }),
+        h('span', {}, m.path),
+        h('div', { class: 'acoes' },
+          h('button', { type: 'button', class: 'secundario escolher-video', 'data-path': m.path, onclick: function () { escolherPoster(m); } }, V.inserir)))));
+      // Os números são os MEDIDOS na bancada Tails de 2026-08-28 (`05` §2.2),
+      // não estimativas: dizer só o que se sabe.
+      Shell.modal({ titulo: V.titulo, conteudo: [grade, h('p', { class: 'apoio', id: 'video-limites' }, V.limites)], largo: true });
+    }
+
     const M = T.modelos;
     const acoes = {
       negrito: () => envolver('**', '**', M.negrito), italico: () => envolver('*', '*', M.italico), titulo: () => prefixarLinhas('## ', M.titulo),
-      link: () => envolver('[', '](https://)', M.link), imagem: inserirImagem, lista: () => prefixarLinhas('- ', M.lista), citacao: () => prefixarLinhas('> ', M.citacao),
+      link: () => envolver('[', '](https://)', M.link), imagem: inserirImagem, video: inserirVideo, lista: () => prefixarLinhas('- ', M.lista), citacao: () => prefixarLinhas('> ', M.citacao),
       codigo: () => { const sel = taCorpo.value.slice(taCorpo.selectionStart, taCorpo.selectionEnd); if (sel.indexOf('\n') !== -1) envolver('```\n', '\n```', sel); else envolver('`', '`', M.codigo); }
     };
     const ferramentas = h('div', { class: 'ferramentas', role: 'toolbar', 'aria-label': C.conteudo }, Object.keys(T.ferramentas).map(k =>
@@ -289,7 +347,10 @@ const Editor = (function () {
           h('div', {}, h('label', {}, C.capa), capaBloco, h('p', { class: 'apoio' }, C.capaApoio))),
         h('label', { for: 'ed-resumo' }, C.resumo), inResumo, h('p', { class: 'apoio' }, C.resumoApoio),
         h('label', { for: 'ed-etiquetas' }, C.etiquetas), inEtiquetas, h('p', { class: 'apoio' }, C.etiquetasApoio)
-      ] : h('label', { class: 'inline', for: 'ed-menu' }, cbMenu, C.menu),
+      ] : [
+        h('label', { class: 'inline', for: 'ed-menu' }, cbMenu, C.menu),
+        h('div', {}, h('label', {}, C.capa), capaBloco, h('p', { class: 'apoio', id: 'ed-capa-apoio' }, C.capaApoioPagina))
+      ],
       h('label', { for: 'ed-corpo' }, C.conteudo), ferramentas, taCorpo, h('p', { class: 'apoio' }, C.conteudoApoio));
     // 19(d): só faz sentido depois de já ter ido ao ar ao menos uma vez.
     const jaPublicado = !novo && (reg.status === 'published' || reg.status === 'modified');

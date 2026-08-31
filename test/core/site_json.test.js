@@ -44,6 +44,37 @@ module.exports = async function (ctx, u) {
   await it('JSON inválido / formato errado / versão 0 / array → recusa sem lançar; objeto mínimo válido → 0 registros', () => assert(r.json.codigo === 'json' && r.formato.codigo === 'formato' && r.estrutura.codigo === 'estrutura' && r.array.codigo === 'formato' && r.vazio.ok && r.vazio.dados.pages.length === 0, JSON.stringify([r.json, r.formato, r.estrutura, r.array, r.vazio.ok])));
   await it('decodificar: UTF-8 estrito (bytes inválidos lançam)', () => assert(r.utf8 === 'lancou' && r.decod === '{"a":"é"}', r.utf8));
   await it('constantes: CAMINHO = /nostermentor/site.json = Modelo.CAMINHO_SITE_JSON', () => assert(r.constantes.igualModelo && r.constantes.formato === 'nostermentor-site'));
+  // 35 — a capa da PÁGINA é dado: o tema padrão não a desenha, mas ela tem de
+  // sobreviver ao ida-e-volta pelo site.json. Sem os DOIS lados (escrever e
+  // ler) a capa some assim que o dono reconstrói o site noutra máquina.
+  const capa = await p.pg.evaluate(async () => {
+    const pag = Modelo.novaPagina('Sobre');
+    pag.cover_media_id = 'm-capa';
+    const site = Modelo.sitePadrao('a'.repeat(64), 'npub1teste');
+    site.title = 'Site'; site.description = 'd';
+    const midia = { id: 'm-capa', path: '/img/c.jpg', mime: 'image/jpeg', size: 10,
+      sha256: 'b'.repeat(64), width: 800, height: 600, alt: 'capa', caption: '' };
+    const texto = SiteJson.escrever({ site: site, pages: [pag], posts: [], media: [midia] });
+    const lido = SiteJson.ler(texto);
+    // e o tema padrão NÃO a desenha na página (decisão do dono, 2026-08-31),
+    // enquanto o do artigo continua a aparecer
+    const dados = { site: site, pages: [pag], posts: [], media: [midia] };
+    const htmlPag = Gerador.htmlDe(dados, pag, 'page');
+    const art = Modelo.novoArtigo('Um artigo'); art.cover_media_id = 'm-capa'; art.date = '2026-08-01T00:00:00Z';
+    const htmlArt = Gerador.htmlDe({ site: site, pages: [], posts: [art], media: [midia] }, art, 'post');
+    return {
+      nascePreenchido: 'cover_media_id' in Modelo.novaPagina('X'),
+      noJson: /"cover_media_id":"m-capa"/.test(texto),
+      voltou: lido.ok ? lido.dados.pages[0].cover_media_id : null,
+      paginaSemFigura: !/<figure class="capa"/.test(htmlPag),
+      artigoComFigura: /<figure class="capa"/.test(htmlArt)
+    };
+  });
+  await it('35: a capa da página nasce no registro, entra no site.json e volta dele — sem os dois lados não sobrevive a reconstruir pela rede', () =>
+    assert(capa.nascePreenchido && capa.noJson && capa.voltou === 'm-capa', JSON.stringify(capa)));
+  await it('35: o tema Padrão NÃO desenha a capa na página (é dado para os temas que virão), mas continua a desenhá-la no artigo', () =>
+    assert(capa.paginaSemFigura && capa.artigoComFigura, JSON.stringify(capa)));
+
   await it('sem erros de página/console', () => assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros })));
   await p.pg.close();
   return R;

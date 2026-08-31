@@ -203,7 +203,13 @@ const Rede = (function () {
     const c = { pages: Modelo.contarPorStatus(pages), posts: Modelo.contarPorStatus(posts), media: Modelo.contarPorStatus(media.filter(m => m.origin !== 'network')) };
     c.herdados = media.filter(m => m.origin === 'network').length;
     c.midiaSoLocal = media.filter(m => m.bytes && (!m.servers || !m.servers.length)).length;
-    c.pendentes = Modelo.pendentes(c.pages) + Modelo.pendentes(c.posts) + Modelo.pendentes(c.media);
+    c.registros = Modelo.pendentes(c.pages) + Modelo.pendentes(c.posts) + Modelo.pendentes(c.media);
+    // 31 — o `site` não tem `status`, logo nunca entraria nesta soma; sem isto
+    // mexer no título ou nas doações salva e cala, contra a promessa da tela.
+    const site = (await db.get('site', 'site')) || null;
+    const published = (await db.get('published', 'current')) || null;
+    c.configPendente = Publicar.configPendente(site, published, media);
+    c.pendentes = c.registros + (c.configPendente ? 1 : 0);
     c.novos = c.pages.draft + c.posts.draft + c.media.draft;
     c.alterados = c.pages.modified + c.posts.modified + c.media.modified;
     c.aRemover = c.pages.removed + c.posts.removed + c.media.removed;
@@ -317,6 +323,11 @@ const Rede = (function () {
       metadata_events: { kind0: porKind[0] || null, kind10002: porKind[10002] || null, kind10063: porKind[10063] || null },
       health: Saude.saudeDe(classificacao, agora)
     };
+    // 31 — o `site.json` que veio da rede É a configuração publicada: guardá-la
+    // aqui dá ao contador o caminho exato também para quem carregou o site
+    // noutra máquina, em vez do caminho de reserva. Sem `site.json` (site de
+    // outra ferramenta) fica ausente de propósito — não se inventa fotografia.
+    if (dados) published.site_config = SiteJson.assinaturaSite(site);
     ops.push({ op: 'put', store: 'published', chave: 'current', valor: published });
     ops.push({ op: 'put', store: 'meta', valor: { key: 'last_network_load_at', value: agora } });
     if (tinhaConteudo) prog({ passo: 'juntar', rascunhos: rascunhosAntes });

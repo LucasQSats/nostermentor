@@ -90,7 +90,12 @@ const Textos = Object.freeze({
     herdado: 'Este site foi publicado por outra ferramenta. O Nostermentor vê os {n} arquivos dele, mas não consegue editá-los como páginas e artigos.',
     herdadoApoio: 'Eles aparecem em Mídia → Arquivos herdados e são preservados em toda publicação até você os remover, um a um.',
     irParaInicio: 'Ir para o Início',
-    concorrente: 'Outra máquina publicou uma versão mais nova deste site. O que estava publicado foi atualizado a partir da rede; os seus rascunhos ficaram.',
+    // 41 — a frase antiga assumia o pior caso ("Outra máquina publicou uma
+    // versão mais nova deste site") e soava a intrusão para quem tinha
+    // acabado de publicar do seu próprio Tails. O caso comum vem primeiro; as
+    // duas garantias — o publicado veio da rede, os rascunhos ficaram —
+    // continuam inteiras, que é o que a faixa existe para dizer.
+    concorrente: 'Este site foi publicado a partir de outro navegador ou máquina — se foi você, está tudo certo. O que estava publicado aqui foi atualizado a partir da rede, e os seus rascunhos ficaram como estavam.',
     sobrescritos: 'Substituídos pela versão da rede: {lista}',
     erro: 'Não consegui carregar da rede: {e}',
     entrouComo: 'Você entrou como '
@@ -132,6 +137,8 @@ const Textos = Object.freeze({
       titulo: 'Alterações não publicadas',
       resumo: '{a} artigos, {p} páginas, {m} mídias',
       detalhe: 'novos: {n} · alterados: {a} · a remover: {r}',
+      soConfig: 'Configurações do site alteradas',
+      configuracoes: 'As configurações do site também mudaram.',
       nada: 'Tudo o que está aqui está publicado.',
       publicar: 'Publicar'
     },
@@ -208,6 +215,9 @@ const Textos = Object.freeze({
       resumo: 'Resumo', resumoApoio: 'Aparece na lista do blog; se vazio, o primeiro parágrafo.',
       etiquetas: 'Etiquetas', etiquetasApoio: 'Separadas por vírgula. Só para exibir — páginas por etiqueta vêm numa fase seguinte.',
       capa: 'Imagem de capa', capaNenhuma: '(nenhuma)', capaApoio: 'Escolha da biblioteca de Mídia.', capaEscolher: 'Escolher…',
+      // 35 — a página guarda a capa mas o tema Padrão não a desenha. Dizer isto
+      // aqui é o que separa "decisão" de "está avariado".
+      capaApoioPagina: 'Escolha da biblioteca de Mídia. O tema Padrão não mostra a capa nas páginas — ela fica guardada para os temas que a usarem.',
       menu: 'Mostrar no menu'
     },
     // M5: UI de aliases — onde o dono vê e, se quiser, apaga um redirecionamento
@@ -223,7 +233,7 @@ const Textos = Object.freeze({
       confirmar: 'Remover',
       cancelar: 'Cancelar'
     },
-    ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', lista: 'Lista', citacao: 'Citação', codigo: 'Código' },
+    ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', video: 'Vídeo', lista: 'Lista', citacao: 'Citação', codigo: 'Código' },
     modelos: { negrito: 'texto em negrito', italico: 'texto em itálico', titulo: 'Título', link: 'texto do link', lista: 'item', citacao: 'citação', codigo: 'código' },
     imagem: {
       titulo: 'Inserir imagem da biblioteca',
@@ -233,6 +243,19 @@ const Textos = Object.freeze({
     capaModal: {
       titulo: 'Escolher imagem de capa', nenhuma: 'Ainda não há imagens na biblioteca. Envie uma em Mídia.',
       semCapa: '(nenhuma)', enviarNova: 'Enviar nova imagem…'
+    },
+    // 39 — os números são os MEDIDOS na bancada Tails de 2026-08-28 (`05` §2.2),
+    // não estimativas. E corrigem, de passagem, uma promessa exagerada que já
+    // existia (P37b): "o servidor aceita" nunca significou "o app entrega pelo
+    // Tor" — o vídeo de 98 MB foi aceito no pré-flight e falhou nas 3 vezes.
+    video: {
+      titulo: 'Inserir vídeo da biblioteca',
+      nenhum: 'Ainda não há vídeos na biblioteca. Envie um em Mídia.',
+      inserir: 'Inserir…',
+      capaTitulo: 'Capa do vídeo (o que se vê antes de dar play)',
+      semCapa: '(sem capa — retângulo preto até o leitor dar play)',
+      usar: 'Usar esta',
+      limites: 'Medido pelo Tor: 50 MB publica (leva cerca de 2 min 45 s, a ~0,46 MB/s); 98 MB falhou nas três tentativas. Entre 50 e 98 MB não sabemos onde está o limite — não foi procurado. Fora do Tor o limite é outro, bem maior. O vídeo só é baixado quando o leitor dá play.'
     },
     previa: { titulo: 'Pré-visualização', rotulo: 'Pré-visualização do conteúdo (isolada)' },
     lateral: {
@@ -281,6 +304,15 @@ const Textos = Object.freeze({
     naoPublicadas: '{n} arquivo(s) ainda não publicado(s).',
     semMiniatura: 'sem pré-visualização aqui',
     dimensoes: '{l} × {a}',
+    // 32(a) — textos do módulo de miniaturas, usados também pelos dois modais
+    // do editor (a capa e "Inserir imagem"). Ficam aqui, num sítio só.
+    mini: {
+      semMiniatura: 'sem pré-visualização aqui',
+      baixando: 'Baixando a imagem…',
+      falhou: 'Não consegui baixar esta imagem dos servidores.',
+      ver: 'ver',
+      grandeTitulo: 'Arquivo grande: só baixa se você pedir. Pelo Tor isto demora.'
+    },
     // "Onde está" (13 §7.2): o caso que o Tails torna crítico é o de baixo.
     emServidores: 'em {n} servidor(es)',
     soAqui: 'só neste navegador — entra no backup obrigatoriamente',
@@ -323,11 +355,16 @@ const Textos = Object.freeze({
     nenhumServidor: 'Nenhum dos seus servidores aceita este tipo ou tamanho. O arquivo não entra.',
     // Faixas de 05 §2.2 — ditas antes de subir, não depois da recusa.
     grande20: 'Acima de 20 MB este arquivo não cabe nos servidores mais restritivos: ele vai ficar em menos cópias.',
-    grande100: 'Acima de 100 MB só os dois servidores principais aceitam. Pelo Tor, um arquivo deste tamanho demora — não feche o navegador durante a publicação.',
+    // 39/P37b — a frase antiga dizia só "demora", e ao lado o pré-flight dizia
+    // "vai aceitar": as duas juntas prometiam o que a bancada mediu ser falso.
+    // O servidor aceitar não significa que o app entregue pelo Tor.
+    grande100: 'Acima de 50 MB, pelo Tor, a publicação pode não chegar ao fim: foi o que aconteceu nas três tentativas com um arquivo de 98 MB. Um de 50 MB publicou, em cerca de 2 min 45 s. Entre os dois não sabemos onde está o limite. "Vai aceitar" abaixo é o que o servidor responde — não é promessa de que o arquivo chega lá pelo Tor. Fora do Tor o limite é bem maior.',
     jaVerificado: 'já verificado antes',
     dimensoes: '{l} × {a} pixels',
     adicionar: 'Adicionar à biblioteca',
     adicionadas: '{n} arquivo(s) na biblioteca. Nada subiu ainda — subir é o que "Publicar" faz.',
+    // 33 — o único lugar onde o alt ainda é lembrado, agora que o envio não o pede.
+    descrever: 'Descrever as {n} imagem(ns) →',
     erroLeitura: 'Não consegui ler este arquivo.',
     repetido: 'Já existe um arquivo com este caminho.',
     cancelar: 'Cancelar'
@@ -381,6 +418,7 @@ const Textos = Object.freeze({
       upload: 'Enviando arquivos: {f} de {t}',
       assinar: 'Assinando o mapa do site',
       relays: 'Enviando aos relays',
+      relaysConta: 'Enviando aos relays: {f} de {t} — {a} aceitaram',
       metadados: 'Enviando os dados da identidade',
       remover: 'Apagando arquivos removidos'
     },
@@ -548,7 +586,8 @@ const Textos = Object.freeze({
       palavraSemTitulo: 'TIRAR DO AR',
       botao: 'Tirar o site do ar',
       trabalhando: 'Tirando do ar…',
-      passos: { assinar: 'Assinando o mapa vazio', relays: 'Enviando aos relays', apagar: 'Apagando arquivos: {f} de {t}' },
+      passos: { assinar: 'Assinando o mapa vazio', relays: 'Enviando aos relays',
+        relaysConta: 'Enviando aos relays: {f} de {t} — {a} aceitaram', apagar: 'Apagando arquivos: {f} de {t}' },
       semRelay: 'Nenhum relay aceitou o mapa vazio. O seu site continua no ar exatamente como estava, e nenhum arquivo foi apagado. Tente de novo em instantes.',
       semAssinatura: 'Não consegui assinar. Entre de novo com a sua chave.',
       feito: 'Site fora do ar.',
