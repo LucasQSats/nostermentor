@@ -213,6 +213,25 @@ button.perigoso{background:var(--erro);border-color:var(--erro)}
 #t6-lista .onde{display:inline-block}
 .alerta-inline{color:#8a6d00}
 #t6-lista tr.colide td{background:var(--erro-fundo)}
+/* 44 — filtros, busca e paginação (biblioteca e modais do editor). */
+.barra-colecao{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0}
+.barra-colecao .chips{display:flex;gap:6px;flex-wrap:wrap}
+button.chip{background:var(--papel);color:var(--acento);border:1px solid var(--linha);border-radius:14px;padding:4px 12px;font-size:13px}
+button.chip:hover{background:#f0f6fc;color:var(--acento-escuro)}
+button.chip.atual{background:var(--acento);color:#fff;border-color:var(--acento)}
+input.busca{min-width:200px;flex:0 1 260px;padding:6px 10px;border:1px solid var(--linha);border-radius:3px;font-size:14px}
+.paginacao{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0 0}
+.paginacao .pags{display:flex;align-items:center;gap:8px}
+.paginacao .pag-num.atual{font-weight:700;text-decoration:none;color:var(--tinta)}
+.paginacao button[disabled]{color:var(--suave);text-decoration:none;cursor:default}
+/* 43 — o resumo e o botão ficam ACIMA da lista, e a lista rola dentro de si:
+   com dezenas de arquivos o botão deixava de estar à vista. */
+.barra-resumo{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:10px 12px;margin:12px 0;background:#f0f6fc;border:1px solid var(--linha);border-radius:4px}
+.barra-resumo p{margin:0}
+.barra-resumo .acoes{margin:0}
+#t6a-pendentes{max-height:40vh;overflow-y:auto;border:1px solid var(--linha);border-radius:4px;padding:0 12px}
+#t6a-pendentes:empty{display:none}
 /* 32(a) — a miniatura pode chegar depois (mídia da rede baixada sob demanda):
    a caixa reserva o lugar para a lista não saltar quando a imagem entra. */
 .mini-caixa{display:inline-block;line-height:0}

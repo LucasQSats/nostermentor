@@ -28,6 +28,10 @@ const Editor = (function () {
     }
     return m;
   }
+  // 45 — nos modais o dono escolhe pelo NOME ("controle-2.mp4"), não pelo
+  // caminho inteiro: o prefixo é igual em todos e só rouba espaço ao nome.
+  // O caminho completo continua acessível, no `title` de cada cartão.
+  function nomeDe(path) { const s = String(path || ''); const i = s.lastIndexOf('/'); return i === -1 ? s : s.slice(i + 1); }
   function imagensDe(media) { return (media || []).filter(r => r && r.status !== 'removed' && /^image\//.test(r.mime || '') && r.origin !== 'network'); }
   // 39 — o botão "Imagem" com um mp4 gerava `<img src="…mp4">`, que não mostra
   // NADA. Vídeo tem de ter caminho próprio; foi o que a medição da varredura
@@ -180,15 +184,28 @@ const Editor = (function () {
         e.sujo = JSON.stringify(coletar()) !== e.instantaneo;
         salvar(e, { silencioso: true, motivo: 'auto' });
       }
-      const grade = h('div', { class: 'grade-capas' },
-        h('button', { type: 'button', class: 'capa-opcao' + (!capaId ? ' selecionada' : ''), onclick: function () { definir(null); } }, M.semCapa),
-        imagens.map(m => h('button', { type: 'button', class: 'capa-opcao' + (capaId === m.id ? ' selecionada' : ''), 'data-media-id': m.id, onclick: function () { definir(m.id); } },
-          // 32(a): sem bytes locais (máquina nova, mídia da rede) isto era um
-          // botão só com o caminho — impossível escolher entre controle2 e 3.
-          Miniaturas.elemento(m, { servidores: servidoresMidia, classe: '', textos: TM }),
-          h('span', {}, m.path))));
-      const rodape = h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.fecharModal(); Shell.ir('t6', { enviar: true }); } }, M.enviarNova));
-      Shell.modal({ titulo: M.titulo, conteudo: [grade, rodape] });
+      const estC = Colecao.novoEstado();
+      const caixaC = h('div', {});
+      function pintarCapas(o) {
+        Shell.limpar(caixaC);
+        caixaC.appendChild(Colecao.barra(imagens, estC, { aoMudar: pintarCapas, idBusca: 'capa-busca' }));
+        const filtradas = Colecao.filtrar(imagens, estC);
+        const grade = h('div', { class: 'grade-capas' },
+          // "(nenhuma)" só na 1.ª página: é a opção de LIMPAR a capa, não um
+          // arquivo, e repeti-la em cada página confundiria a contagem.
+          estC.pagina === 1 ? h('button', { type: 'button', class: 'capa-opcao' + (!capaId ? ' selecionada' : ''), onclick: function () { definir(null); } }, M.semCapa) : null,
+          Colecao.fatia(filtradas, estC).map(m => h('button', { type: 'button', class: 'capa-opcao' + (capaId === m.id ? ' selecionada' : ''), 'data-media-id': m.id, title: m.path, onclick: function () { definir(m.id); } },
+            // 32(a): sem bytes locais (máquina nova, mídia da rede) isto era um
+            // botão só com o caminho — impossível escolher entre controle2 e 3.
+            Miniaturas.elemento(m, { servidores: servidoresMidia, classe: '', textos: TM }),
+            h('span', {}, nomeDe(m.path)))));
+        caixaC.appendChild(filtradas.length ? grade : h('p', { class: 'apoio', id: 'capa-sem-resultado' }, Textos.t6.colecao.semResultado));
+        caixaC.appendChild(Colecao.paginacao(filtradas.length, estC, { aoMudar: pintarCapas }));
+        caixaC.appendChild(h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.fecharModal(); Shell.ir('t6', { enviar: true }); } }, M.enviarNova)));
+        if (o && o.focoBusca) { const c = document.getElementById('capa-busca'); if (c) { c.focus(); try { c.setSelectionRange(c.value.length, c.value.length); } catch (e) {} } }
+      }
+      pintarCapas();
+      Shell.modal({ titulo: M.titulo, conteudo: caixaC, largo: true });
     }
     e.instantaneo = JSON.stringify(coletar());
 
@@ -270,14 +287,28 @@ const Editor = (function () {
       // já dizia "mesmo padrão de inserirImagem" — a semelhança que ficou por
       // fazer quando a capa ganhou miniaturas em 2026-08-26. Agora é a mesma
       // grade e o mesmo CSS, com os DOIS botões preservados.
-      const lista = h('div', { class: 'grade-capas grade-inserir' }, imagens.map(m => h('div', { class: 'capa-opcao inserir-opcao', 'data-path': m.path },
-        Miniaturas.elemento(m, { servidores: servidoresMidia, classe: '', textos: TM }),
-        h('span', {}, m.path),
-        m.alt ? h('span', { class: 'apoio' }, m.alt) : null,
-        h('div', { class: 'acoes' },
-          h('button', { type: 'button', class: 'secundario escolher-imagem', 'data-path': m.path, onclick: function () { Shell.fecharModal(); envolver(marcacaoDe(m), '', ''); } }, M.inserir),
-          h('button', { type: 'button', class: 'secundario com-link', 'data-path': m.path, onclick: function () { formLink(m); } }, M.comLink)))));
-      Shell.modal({ titulo: M.titulo, conteudo: lista, largo: true });
+      // 44/45 — busca e páginas também aqui: com centenas de imagens o modal
+      // abria 300 `blob:` de uma vez, e é a memória que isso custa (a medição
+      // está em `test/telas/escala.test.js`).
+      const est = Colecao.novoEstado();
+      const caixa = h('div', {});
+      function pintar(o) {
+        Shell.limpar(caixa);
+        caixa.appendChild(Colecao.barra(imagens, est, { aoMudar: pintar, idBusca: 'img-busca' }));
+        const filtradas = Colecao.filtrar(imagens, est);
+        if (!filtradas.length) caixa.appendChild(h('p', { class: 'apoio', id: 'img-sem-resultado' }, Textos.t6.colecao.semResultado));
+        else caixa.appendChild(h('div', { class: 'grade-capas grade-inserir' }, Colecao.fatia(filtradas, est).map(m => h('div', { class: 'capa-opcao inserir-opcao', 'data-path': m.path, title: m.path },
+          Miniaturas.elemento(m, { servidores: servidoresMidia, classe: '', textos: TM }),
+          h('span', {}, nomeDe(m.path)),
+          m.alt ? h('span', { class: 'apoio' }, m.alt) : null,
+          h('div', { class: 'acoes' },
+            h('button', { type: 'button', class: 'secundario escolher-imagem', 'data-path': m.path, onclick: function () { Shell.fecharModal(); envolver(marcacaoDe(m), '', ''); } }, M.inserir),
+            h('button', { type: 'button', class: 'secundario com-link', 'data-path': m.path, onclick: function () { formLink(m); } }, M.comLink)))))); 
+        caixa.appendChild(Colecao.paginacao(filtradas.length, est, { aoMudar: pintar }));
+        if (o && o.focoBusca) { const c = document.getElementById('img-busca'); if (c) { c.focus(); try { c.setSelectionRange(c.value.length, c.value.length); } catch (e) {} } }
+      }
+      pintar();
+      Shell.modal({ titulo: M.titulo, conteudo: caixa, largo: true });
     }
     // 39 — `<video src poster controls preload="none">` com link de reserva
     // sobrevive inteiro ao DOMPurify (`video` não está em FORBID_TAGS) e o
@@ -301,20 +332,34 @@ const Editor = (function () {
         const grade = h('div', { class: 'grade-capas grade-inserir' },
           h('div', { class: 'capa-opcao inserir-opcao' }, h('span', {}, V.semCapa),
             h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario poster-nenhum', onclick: function () { Shell.fecharModal(); envolver(marcacaoDe(m, null), '', ''); } }, V.usar))),
-          imagens.map(im => h('div', { class: 'capa-opcao inserir-opcao', 'data-path': im.path },
+          imagens.map(im => h('div', { class: 'capa-opcao inserir-opcao', 'data-path': im.path, title: im.path },
             Miniaturas.elemento(im, { servidores: servidoresMidia, classe: '', textos: TM }),
-            h('span', {}, im.path),
+            h('span', {}, nomeDe(im.path)),
             h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario poster-usar', 'data-path': im.path, onclick: function () { Shell.fecharModal(); envolver(marcacaoDe(m, im.path), '', ''); } }, V.usar)))));
         Shell.modal({ titulo: V.capaTitulo, conteudo: grade, largo: true });
       }
-      const grade = h('div', { class: 'grade-capas grade-inserir' }, videos.map(m => h('div', { class: 'capa-opcao inserir-opcao', 'data-path': m.path },
-        Miniaturas.elementoVideo(m, { servidores: servidoresMidia, classe: '', textos: TM }),
-        h('span', {}, m.path),
-        h('div', { class: 'acoes' },
-          h('button', { type: 'button', class: 'secundario escolher-video', 'data-path': m.path, onclick: function () { escolherPoster(m); } }, V.inserir)))));
-      // Os números são os MEDIDOS na bancada Tails de 2026-08-28 (`05` §2.2),
-      // não estimativas: dizer só o que se sabe.
-      Shell.modal({ titulo: V.titulo, conteudo: [grade, h('p', { class: 'apoio', id: 'video-limites' }, V.limites)], largo: true });
+      // 44 — pagina como os outros: aqui cada cartão manda EXTRAIR um quadro,
+      // que é mais caro do que desenhar uma miniatura já pronta.
+      const estV = Colecao.novoEstado();
+      const caixaV = h('div', {});
+      function pintarVideos(o) {
+        Shell.limpar(caixaV);
+        caixaV.appendChild(Colecao.barra(videos, estV, { aoMudar: pintarVideos, idBusca: 'video-busca' }));
+        const filtrados = Colecao.filtrar(videos, estV);
+        if (!filtrados.length) caixaV.appendChild(h('p', { class: 'apoio', id: 'video-sem-resultado' }, Textos.t6.colecao.semResultado));
+        else caixaV.appendChild(h('div', { class: 'grade-capas grade-inserir' }, Colecao.fatia(filtrados, estV).map(m => h('div', { class: 'capa-opcao inserir-opcao', 'data-path': m.path, title: m.path },
+          Miniaturas.elementoVideo(m, { servidores: servidoresMidia, classe: '', textos: TM }),
+          h('span', {}, nomeDe(m.path)),
+          h('div', { class: 'acoes' },
+            h('button', { type: 'button', class: 'secundario escolher-video', 'data-path': m.path, onclick: function () { escolherPoster(m); } }, V.inserir))))));
+        caixaV.appendChild(Colecao.paginacao(filtrados.length, estV, { aoMudar: pintarVideos }));
+        // Os números são os MEDIDOS na bancada Tails de 2026-08-28 (`05` §2.2),
+        // não estimativas: dizer só o que se sabe.
+        caixaV.appendChild(h('p', { class: 'apoio', id: 'video-limites' }, V.limites));
+        if (o && o.focoBusca) { const c = document.getElementById('video-busca'); if (c) { c.focus(); try { c.setSelectionRange(c.value.length, c.value.length); } catch (e) {} } }
+      }
+      pintarVideos();
+      Shell.modal({ titulo: V.titulo, conteudo: caixaV, largo: true });
     }
 
     const M = T.modelos;

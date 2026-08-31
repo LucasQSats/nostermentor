@@ -304,6 +304,15 @@ const Textos = Object.freeze({
     naoPublicadas: '{n} arquivo(s) ainda não publicado(s).',
     semMiniatura: 'sem pré-visualização aqui',
     dimensoes: '{l} × {a}',
+    // 44 — filtros, busca e paginação, partilhados pela biblioteca e pelos
+    // modais do editor. Os nomes são os do dono, não os do MIME.
+    colecao: {
+      tipos: { todos: 'Todos', imagem: 'Imagens', video: 'Vídeos', audio: 'Áudio', documento: 'Documentos', outro: 'Outros' },
+      buscar: 'Buscar pelo nome…',
+      intervalo: '{a}–{b} de {t}',
+      nenhum: 'nenhum arquivo',
+      semResultado: 'Nenhum arquivo corresponde ao filtro ou à busca.'
+    },
     // 32(a) — textos do módulo de miniaturas, usados também pelos dois modais
     // do editor (a capa e "Inserir imagem"). Ficam aqui, num sítio só.
     mini: {
@@ -362,6 +371,11 @@ const Textos = Object.freeze({
     jaVerificado: 'já verificado antes',
     dimensoes: '{l} × {a} pixels',
     adicionar: 'Adicionar à biblioteca',
+    // 43 — o resumo que substitui percorrer a lista inteira.
+    resumo: '{n} arquivo(s) · {t}',
+    resumoTodosOk: 'Todos os seus servidores aceitam.',
+    resumoBloqueados: '{n} não pode(m) subir',
+    resumoAvisos: '{n} com aviso de tamanho',
     adicionadas: '{n} arquivo(s) na biblioteca. Nada subiu ainda — subir é o que "Publicar" faz.',
     // 33 — o único lugar onde o alt ainda é lembrado, agora que o envio não o pede.
     descrever: 'Descrever as {n} imagem(ns) →',

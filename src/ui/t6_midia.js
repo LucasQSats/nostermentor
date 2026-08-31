@@ -20,6 +20,9 @@
   'use strict';
   let ctrl = null;
   let aba = 'biblioteca';           // por sessão, não persiste
+  // 44 — filtro/busca/página, um estado por aba: quem está a procurar um vídeo
+  // na biblioteca não quer o filtro reposto ao espreitar os herdados.
+  const estadoLista = { biblioteca: null, herdados: null };
   const pendentes = [];             // arquivos escolhidos, ainda não guardados
   const urlsAbertas = [];           // blob: das miniaturas — revogadas ao sair
 
@@ -54,6 +57,12 @@
     const e = m ? m[1].toLowerCase() : null;
     if (e && Modelo.MIME[e]) return e;
     for (const k of Object.keys(Modelo.MIME)) if (Modelo.MIME[k] === mime) return k;
+    // 46 — a lista acima nunca vai cobrir tudo. Quando o NAVEGADOR reconheceu
+    // um tipo de mídia, a extensão que o arquivo já tinha vale mais que `bin`:
+    // o gateway serve pelo caminho, e `.bin` mata o vídeo na página do leitor.
+    // Só para tipos de mídia — se nem o navegador sabe o que é, `bin` é a
+    // resposta honesta e não se inventa extensão.
+    if (e && /^(image|video|audio|font)\//.test(String(mime || ''))) return e;
     return 'bin';
   }
   function caminhoDe(slug, ext, mime) {
@@ -115,9 +124,16 @@
     }
 
     // --- T6a: escolher e preparar ----------------------------------------
+    // 43 — com dezenas de arquivos a lista empurrava o botão "Adicionar" para
+    // fora da tela. O resumo e o botão passam a ficar ANTES da lista, e a
+    // lista ganha rolagem própria: o dono decide sem ter de percorrer tudo.
     const entrada = h('input', { type: 'file', id: 't6a-arquivos', multiple: true });
     const listaPendentes = h('div', { id: 't6a-pendentes' });
     const btnAdicionar = h('button', { type: 'button', id: 't6a-adicionar', disabled: true, onclick: adicionar }, TA.adicionar);
+    const pResumo = h('p', { id: 't6a-resumo', class: 'destaque' });
+    const pResumoAviso = h('p', { id: 't6a-resumo-aviso', class: 'alerta', hidden: true });
+    const barraResumo = h('div', { id: 't6a-barra', class: 'barra-resumo', hidden: true },
+      h('div', {}, pResumo, pResumoAviso), h('div', { class: 'acoes' }, btnAdicionar));
     const pAviso = h('p', { id: 't6a-aviso', class: 'apoio', hidden: true });
     entrada.addEventListener('change', function () { escolher(Array.prototype.slice.call(entrada.files || [])); });
 
@@ -125,8 +141,8 @@
     divEnviar.appendChild(h('h2', {}, TA.titulo));
     divEnviar.appendChild(h('p', { class: 'apoio' }, TA.apoio));
     divEnviar.appendChild(entrada);
+    divEnviar.appendChild(barraResumo);
     divEnviar.appendChild(listaPendentes);
-    divEnviar.appendChild(h('div', { class: 'acoes' }, btnAdicionar));
     divEnviar.appendChild(pAviso);
 
     async function escolher(arquivos) {
@@ -242,9 +258,38 @@
     // O que NÃO saiu, porque não é formulário e sim proteção: o caminho final,
     // o tamanho/tipo/dimensões, o aviso de arquivo grande, o pré-flight por
     // servidor e o bloqueio quando nenhum servidor aceita.
+    // 43 — o que precisa de atenção sobe: bloqueado primeiro, depois o que
+    // tem aviso de tamanho, depois o resto na ordem em que foi escolhido.
+    // Com 24 arquivos, os 2 que interessam estão à vista sem rolar nada.
+    function ordemDeAtencao(item) {
+      if (!podeEntrar(item)) return 0;
+      if (avisoTamanho(item.bytes ? item.bytes.length : 0)) return 1;
+      return 2;
+    }
+    function renderResumo() {
+      const n = pendentes.length;
+      barraResumo.hidden = n === 0;
+      if (!n) return;
+      let bytes = 0, bloqueados = 0, comAviso = 0;
+      for (const it of pendentes) {
+        bytes += it.bytes ? it.bytes.length : 0;
+        if (!podeEntrar(it)) bloqueados++;
+        else if (avisoTamanho(it.bytes ? it.bytes.length : 0)) comAviso++;
+      }
+      pResumo.textContent = texto(TA.resumo, { n: n, t: bytesTexto(bytes) });
+      const partes = [];
+      if (bloqueados) partes.push(texto(TA.resumoBloqueados, { n: bloqueados }));
+      if (comAviso) partes.push(texto(TA.resumoAvisos, { n: comAviso }));
+      pResumoAviso.hidden = partes.length === 0;
+      pResumoAviso.textContent = partes.join(' · ');
+      if (!partes.length) { pResumoAviso.hidden = false; pResumoAviso.className = 'apoio'; pResumoAviso.textContent = TA.resumoTodosOk; }
+      else pResumoAviso.className = 'alerta';
+    }
     function renderPendentes() {
       Shell.limpar(listaPendentes);
-      for (const item of pendentes) {
+      renderResumo();
+      const ordenados = pendentes.slice().sort((a, b) => ordemDeAtencao(a) - ordemDeAtencao(b));
+      for (const item of ordenados) {
         const caminho = caminhoDe(item.slug, item.ext, item.mime);
         const semLimpeza = !Limpeza.limpaEsteTipo(item.mime);
         const ok = podeEntrar(item);
@@ -287,6 +332,7 @@
       if (ops.length) await db.escrever(ops);
       pendentes.length = 0;
       renderPendentes();
+      barraResumo.hidden = true;
       // 33 — o alt deixou de ser pedido no envio; esta linha é o que impede que
       // ele se perca de vista. Só aparece quando há imagem: em vídeo não há alt.
       Shell.limpar(pAviso);
@@ -515,25 +561,49 @@
       return t;
     }
 
-    function renderLista() {
+    // 44 — filtros por tipo, busca e páginas numeradas, como o painel do WP.
+    // A medição de escala mostrou que o custo não é o tempo (300 linhas em
+    // ~130 ms) e sim a MEMÓRIA: 300 `blob:` abertos ao mesmo tempo. Paginar
+    // limita-os a 24, que é o que faz a biblioteca caber numa sessão Tails.
+    function renderLista(o) {
+      o = o || {};
       Shell.limpar(divLista);
       for (const u of urlsAbertas.splice(0)) { try { URL.revokeObjectURL(u); } catch (e) {} }
+      Miniaturas.limpar();          // os blob: da página anterior não ficam pendurados
       const ordenar = (a, b) => String(a.path).localeCompare(String(b.path));
       const proprias = midias.filter(m => !ehHerdado(m)).sort(ordenar);
       const herdadas = midias.filter(ehHerdado).sort(ordenar);
+      const doApp = aba === 'herdados' ? Publicar.caminhosDoApp({ pages: pages, posts: posts }) : null;
+      const todas = aba === 'herdados' ? herdadas : proprias;
+
       if (aba === 'herdados') {
         divLista.appendChild(h('h2', {}, T.abas[1][1]));
         divLista.appendChild(h('p', { class: 'apoio' }, T.herdadosApoio));
         if (!herdadas.length) { divLista.appendChild(h('p', { class: 'apoio', id: 't6-herdados-vazio' }, T.herdadosVazio)); return; }
-        const doApp = Publicar.caminhosDoApp({ pages: pages, posts: posts });
-        divLista.appendChild(tabela(herdadas, doApp));
-        return;
+      } else {
+        divLista.appendChild(h('h2', {}, T.titulo));
+        if (!proprias.length) { divLista.appendChild(h('p', { class: 'apoio', id: 't6-vazio' }, T.vazio)); return; }
+        const naoPublicadas = proprias.filter(m => m.status !== 'published').length;
+        if (naoPublicadas) divLista.appendChild(h('p', { class: 'destaque', id: 't6-pendentes' }, texto(T.naoPublicadas, { n: naoPublicadas })));
       }
-      divLista.appendChild(h('h2', {}, T.titulo));
-      if (!proprias.length) { divLista.appendChild(h('p', { class: 'apoio', id: 't6-vazio' }, T.vazio)); return; }
-      const naoPublicadas = proprias.filter(m => m.status !== 'published').length;
-      if (naoPublicadas) divLista.appendChild(h('p', { class: 'destaque', id: 't6-pendentes' }, texto(T.naoPublicadas, { n: naoPublicadas })));
-      divLista.appendChild(tabela(proprias, null));
+
+      if (!estadoLista[aba]) estadoLista[aba] = Colecao.novoEstado();
+      const est = estadoLista[aba];
+      const refazer = (op) => renderLista(op);
+      divLista.appendChild(Colecao.barra(todas, est, { aoMudar: refazer, idBusca: 't6-busca' }));
+      const filtradas = Colecao.filtrar(todas, est);
+      if (!filtradas.length) {
+        divLista.appendChild(h('p', { class: 'apoio', id: 't6-sem-resultado' }, T.colecao.semResultado));
+      } else {
+        divLista.appendChild(tabela(Colecao.fatia(filtradas, est), doApp));
+      }
+      divLista.appendChild(Colecao.paginacao(filtradas.length, est, { aoMudar: refazer }));
+      // escrever na busca redesenha a lista inteira: devolver o foco (e o
+      // cursor no fim) é o que permite continuar a escrever sem reparar nisso.
+      if (o.focoBusca) {
+        const c = document.getElementById('t6-busca');
+        if (c) { c.focus(); try { c.setSelectionRange(c.value.length, c.value.length); } catch (e) {} }
+      }
     }
 
     function renderAbas() {

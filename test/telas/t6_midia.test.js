@@ -248,6 +248,61 @@ module.exports = async function (ctx, u) {
     return `${antes} HEAD no primeiro, 0 no segundo`;
   });
 
+  await it('43: com muitos arquivos, o resumo e o botão "Adicionar" ficam ANTES da lista — e o que tem problema sobe ao topo', async () => {
+    const { p } = await sessao({ servidores: [f.url('x-so-midia')] });   // recusa text/html
+    await irAMidia(p.pg);
+    const pequeno = Buffer.alloc(1024, 3);
+    for (let i = 0; i < 8; i++) await escolherArquivo(p.pg, 'foto-' + i + '.png', pequeno, 'image/png');
+    await escolherArquivo(p.pg, 'pagina.html', Buffer.from('<p>oi</p>'), 'text/html');   // este NENHUM servidor aceita
+    await p.pg.waitForFunction(() => document.querySelectorAll('#t6a-pendentes .pendente').length === 9, null, { timeout: 20000 });
+    const r = await p.pg.evaluate(() => {
+      const barra = document.getElementById('t6a-barra');
+      const lista = document.getElementById('t6a-pendentes');
+      const btn = document.getElementById('t6a-adicionar');
+      const primeiro = lista.querySelector('.pendente');
+      return {
+        barraVisivel: !barra.hidden,
+        // o botão tem de vir ANTES da lista no documento: era o defeito
+        botaoAntesDaLista: !!(btn.compareDocumentPosition(lista) & Node.DOCUMENT_POSITION_FOLLOWING),
+        resumo: document.getElementById('t6a-resumo').textContent,
+        aviso: document.getElementById('t6a-resumo-aviso').textContent,
+        primeiroBloqueado: primeiro.classList.contains('bloqueado'),
+        // e a lista rola dentro de si, em vez de empurrar a página
+        rola: getComputedStyle(lista).overflowY
+      };
+    });
+    assert(r.barraVisivel && r.botaoAntesDaLista, JSON.stringify(r));
+    assert(/9 arquivo\(s\)/.test(r.resumo), r.resumo);
+    assert(/1 não pode\(m\) subir/.test(r.aviso), r.aviso);
+    assert(r.primeiroBloqueado, 'o arquivo que não pode subir tem de estar no topo, não perdido no meio de 9');
+    assert(r.rola === 'auto' || r.rola === 'scroll', 'a lista tem de rolar dentro de si: ' + r.rola);
+    await p.pg.close();
+    return r.resumo + ' — ' + r.aviso;
+  });
+
+  await it('46: extensão que a lista não conhece não vira `.bin` quando o navegador sabe que é mídia — `.bin` mataria o vídeo na página do leitor', async () => {
+    const { p, ch } = await sessao();
+    await irAMidia(p.pg);
+    const bytes = Buffer.alloc(64, 9);
+    await escolherArquivo(p.pg, 'ferias.mov', bytes, 'video/quicktime');       // agora está na tabela
+    await escolherArquivo(p.pg, 'gravacao.xyz', bytes, 'video/algum-formato'); // fora da tabela, mas o navegador diz que é vídeo
+    await escolherArquivo(p.pg, 'sei-la.dat', bytes, '');                      // nem o navegador sabe: `bin` é honesto
+    await p.pg.waitForFunction(() => document.querySelectorAll('#t6a-pendentes .pendente').length === 3, null, { timeout: 20000 });
+    await p.pg.click('#t6a-adicionar');
+    await p.pg.waitForSelector('#t6-tabela');
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    const caminhos = banco.media.map(m => m.path).sort();
+    assert(caminhos.indexOf('/media/ferias.mov') !== -1, JSON.stringify(caminhos));
+    assert(caminhos.indexOf('/media/gravacao.xyz') !== -1, JSON.stringify(caminhos));
+    assert(caminhos.indexOf('/media/sei-la.bin') !== -1, 'sem tipo nenhum, `bin` continua a ser a resposta certa: ' + JSON.stringify(caminhos));
+    // e o `.mov` passa a ter mime derivável do caminho — é disso que a
+    // reconstrução pela rede depende para saber o que é o arquivo
+    const mime = await p.pg.evaluate(() => Modelo.mimePorCaminho('/media/ferias.mov'));
+    assert(mime === 'video/quicktime', 'mimePorCaminho: ' + mime);
+    await p.pg.close();
+    return caminhos.join(' · ');
+  });
+
   // --- 32(a) e 36: mídia da rede, numa máquina onde não há bytes -----------
 
   await it('32(a): mídia vinda da REDE (sem bytes locais) ganha miniatura baixada sob demanda — o caso que o dono viu no Tails com o banco vazio', async () => {

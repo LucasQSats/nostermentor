@@ -35,7 +35,16 @@ const Modelo = (function () {
     png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
     avif: 'image/avif', ico: 'image/x-icon', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg',
     m4a: 'audio/mp4', ogg: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav', pdf: 'application/pdf',
-    ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2'
+    ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2',
+    // 46 — formatos que faltavam e que o dono encontra no dia a dia: um vídeo
+    // de telemóvel é `.mov`. Sem estar aqui, o caminho publicado virava
+    // `.bin`, e `.bin` faz o navegador do LEITOR tratar o vídeo como arquivo
+    // para baixar em vez de o tocar. Vão no fim de propósito: `extensaoDe`
+    // procura pela primeira chave com o mesmo mime, e a ordem de cima é a
+    // que já estava certa (`jpg` antes de `jpeg`).
+    mov: 'video/quicktime', m4v: 'video/x-m4v', mkv: 'video/x-matroska',
+    avi: 'video/x-msvideo', '3gp': 'video/3gpp', ogv: 'video/ogg',
+    flac: 'audio/flac', aac: 'audio/aac', weba: 'audio/webm'
   });
 
   // 14 §0.9 / T-10: tudo em UTC, sem milissegundos.
