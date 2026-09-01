@@ -62,6 +62,45 @@ module.exports = async function (ctx, u) {
     // 06 §4: imagem clicável, sem script. Quatro casos numa tacada: local,
     // já linkada pelo dono, data: URI e externa.
     out.clicavel = Gerador.renderizarCorpo('![a](/img/capa.png)\n\n[![b](/img/capa.png)](https://destino.test/)\n\n![c](data:image/png;base64,AAAA)\n\n![d](https://fora.test/x.png)');
+    // --- 24: o CSS virou molde --------------------------------------------
+    const OPC = { esquema: 'escuro', cor_destaque: '#FF0000', fonte_texto: 'sem-serifa', fonte_titulos: 'igual', tamanho_texto: 'grande', largura: 'larga', cantos: 'arredondados', altura_logo: 60 };
+    out.cssPadrao = TemaPadrao.css({});
+    out.cssEscuro = TemaPadrao.css(OPC);
+    out.cssDeterminista = TemaPadrao.css(OPC) === TemaPadrao.css(JSON.parse(JSON.stringify(OPC)));
+    // valor que não bate com o manifesto: cai no padrão. A `cor_destaque` aqui
+    // é uma tentativa de INJEÇÃO de CSS — se passasse, a folha do leitor
+    // buscaria um pixel ao servidor de quem a escreveu (02 G.2.4).
+    out.cssLixo = TemaPadrao.css({ esquema: 'roxo', cor_destaque: '#fff;background:url(https://mau.test/p.gif)', tamanho_texto: 42, altura_logo: 900, largura: '"><style>' });
+    out.resolvidoLixo = TemaPadrao.resolver({ esquema: 'roxo', cor_destaque: 'red', altura_logo: 900 });
+    // a cor que o dono escolhe pode ficar ilegível sobre o fundo do esquema:
+    // o tema afasta-a antes de a usar em texto, e mantém a cor cheia no botão
+    out.cssAcentoEscuro = TemaPadrao.css({ esquema: 'escuro', cor_destaque: '#001133' });
+    out.cssAcentoClaro = TemaPadrao.css({ esquema: 'claro', cor_destaque: '#fffbe6' });
+    // nenhuma combinação pode gerar recurso externo (G.2.4)
+    const M = TemaPadrao.manifesto.options;
+    out.combinacoes = 0; out.combinacoesLimpas = 0;
+    for (const esq of M.esquema.opcoes.map(x => x[0]))
+      for (const ft of M.fonte_texto.opcoes.map(x => x[0]))
+        for (const fh of M.fonte_titulos.opcoes.map(x => x[0]))
+          for (const ct of M.cantos.opcoes.map(x => x[0])) {
+            const c = TemaPadrao.css({ esquema: esq, fonte_texto: ft, fonte_titulos: fh, cantos: ct, cor_destaque: '#123456' });
+            out.combinacoes++; if (!/url\(|@import|https?:/.test(c)) out.combinacoesLimpas++;
+          }
+    // 13 §5.3: mexer só numa cor muda a folha de estilo (e o site.json), não as páginas
+    const d6 = JSON.parse(JSON.stringify(dados)); d6.site.theme.options = { cor_destaque: '#8a2be2' };
+    const g7 = await Gerador.gerarSite(d6);
+    out.mudouOpcao = Object.keys(g1.hashes).filter(k => g1.hashes[k] !== g7.hashes[k]).sort();
+
+    // --- 38: o logo no cabeçalho -------------------------------------------
+    const d7 = JSON.parse(JSON.stringify(dados)); d7.site.logo_media_id = 'm-1';
+    const g8 = await Gerador.gerarSite(d7);
+    out.comLogo = g8.arquivos.find(a => a.path === '/index.html').texto;
+    out.mudouLogo = Object.keys(g1.hashes).filter(k => g1.hashes[k] !== g8.hashes[k] && /\.html$/.test(k)).length;
+    const d8 = JSON.parse(JSON.stringify(dados)); d8.site.logo_media_id = 'nao-existe';
+    out.logoFantasma = (await Gerador.gerarSite(d8)).arquivos.find(a => a.path === '/index.html').texto;
+    const d9 = JSON.parse(JSON.stringify(dados)); d9.site.logo_media_id = 'm-1'; d9.media[0].width = null; d9.media[0].height = null;
+    out.logoSemMedidas = (await Gerador.gerarSite(d9)).arquivos.find(a => a.path === '/index.html').texto;
+
     out.shaTotal = await Gerador.sha256Hex(new TextEncoder().encode(g1.arquivos.map(a => a.path + ':' + a.sha256).join('\n')));
     return out;
   });
@@ -105,10 +144,38 @@ module.exports = async function (ctx, u) {
   });
   await it('alias: stub com meta refresh para o caminho atual (página e artigo)', () => assert(/<meta http-equiv="refresh" content="0; url=\/sobre-nos\.html">/.test(r.alias) && /<meta http-equiv="refresh" content="0; url=\/blog\/segundo-artigo\.html">/.test(r.aliasPost), r.alias));
   await it('tema: CSS sem url()/@import/http (G.2.4)', () => assert(!/url\(|@import|https?:/.test(r.css) && r.css.length > 500, 'css'));
+  await it('24: o CSS é molde — cada opção do manifesto vira variável, e as mesmas opções dão sempre os mesmos bytes (13 §5.2)', () => {
+    // o padrão tem de ficar EXATAMENTE como estava: o azul já se lê sobre o
+    // fundo claro, e um site que nunca abriu a aba Aparência não pode mudar de cor
+    assert(/--acento:#2271b1;--acento-legivel:#2271b1/.test(r.cssPadrao) && /--fundo:#fbfbfa/.test(r.cssPadrao) && /--logo-altura:44px/.test(r.cssPadrao), r.cssPadrao.slice(0, 400));
+    assert(/--fundo:#16181d/.test(r.cssEscuro) && /--acento:#ff0000/.test(r.cssEscuro) && /--largura:900px/.test(r.cssEscuro) && /--base:19px/.test(r.cssEscuro) && /--logo-altura:60px/.test(r.cssEscuro) && /--canto:6px/.test(r.cssEscuro), r.cssEscuro.slice(0, 500));
+    assert(r.cssDeterminista, 'as mesmas opções deram bytes diferentes');
+  });
+  await it('24 (02 G.0/G.2.4): opção que não bate com o manifesto é DESCARTADA — injeção de CSS não chega à folha do leitor', () => {
+    assert(!/mau\.test|url\(|@import|<style/.test(r.cssLixo), r.cssLixo.slice(0, 500));
+    assert(/--acento:#2271b1/.test(r.cssLixo) && /--fundo:#fbfbfa/.test(r.cssLixo) && /--logo-altura:44px/.test(r.cssLixo) && /--largura:760px/.test(r.cssLixo), 'não voltou ao padrão');
+    assert(r.resolvidoLixo.esquema === 'claro' && r.resolvidoLixo.cor_destaque === '#2271b1' && r.resolvidoLixo.altura_logo === 44, JSON.stringify(r.resolvidoLixo));
+  });
+  await it('24: a cor escolhida pelo dono nunca fica ilegível — o link afasta-se do fundo, o botão fica com a cor cheia e o texto contrasta', () => {
+    const escuro = /--acento-legivel:(#[0-9a-f]{6})/.exec(r.cssAcentoEscuro);
+    const claro = /--acento-legivel:(#[0-9a-f]{6})/.exec(r.cssAcentoClaro);
+    assert(escuro && escuro[1] !== '#001133' && /--acento:#001133/.test(r.cssAcentoEscuro), 'azul quase preto sobre fundo escuro: ' + (escuro && escuro[1]));
+    assert(claro && claro[1] !== '#fffbe6' && /--acento:#fffbe6/.test(r.cssAcentoClaro), 'creme sobre fundo claro: ' + (claro && claro[1]));
+    assert(/--acento-texto:#111111/.test(r.cssAcentoClaro) && /--acento-texto:#ffffff/.test(r.cssAcentoEscuro), 'texto do botão');
+  });
+  await it('24: nenhuma combinação de esquema, letras e cantos produz recurso externo (G.2.4)', () => assert(r.combinacoes === 36 && r.combinacoesLimpas === 36, r.combinacoesLimpas + ' de ' + r.combinacoes));
+  await it('24 (13 §5.3): mexer só numa cor muda a folha de estilo e o site.json — nenhuma página', () => assert(JSON.stringify(r.mudouOpcao) === JSON.stringify(['/nostermentor/site.json', '/tema/estilo.css']), JSON.stringify(r.mudouOpcao)));
+  await it('38: o logo substitui o título no cabeçalho e leva o título no alt; mídia inexistente volta ao texto; e o logo muda todas as páginas (menos os stubs de alias)', () => {
+    assert(/<a class="marca marca-logo" href="\/index\.html"><img src="\/img\/capa\.png" alt="Meu Site" width="10" height="5"><\/a>/.test(r.comLogo), (/<header[\s\S]*?<\/header>/.exec(r.comLogo) || [''])[0]);
+    assert(!/marca-logo/.test(r.home) && /<a class="marca" href="\/index\.html">Meu Site<\/a>/.test(r.home), 'sem logo, o cabeçalho é o título em texto');
+    assert(/<a class="marca" href="\/index\.html">Meu Site<\/a>/.test(r.logoFantasma) && !/marca-logo/.test(r.logoFantasma), 'mídia inexistente devia voltar ao texto');
+    assert(/<img src="\/img\/capa\.png" alt="Meu Site">/.test(r.logoSemMedidas), 'sem width/height medidos, o img sai sem os atributos: ' + (/<header[\s\S]*?<\/header>/.exec(r.logoSemMedidas) || [''])[0]);
+    assert(r.mudouLogo === r.totalHtml - 2, r.mudouLogo + ' de ' + r.totalHtml);
+  });
   await it('site.json (13 §6.1): chaves na ordem, sem rascunhos removidos, sem herdados, sem created_at/updated_at/status; SiteJson.ler lê de volta com os mesmos ids', () => {
     const j = JSON.parse(r.siteJsonTexto);
     assert(Object.keys(j).join(',') === 'format,version,site,pages,posts,media,theme', Object.keys(j).join(','));
-    assert(Object.keys(j.site).join(',') === 'pubkey,npub,title,description,language,profile,home,blog,menu,theme,donations,privacy,network', Object.keys(j.site).join(','));
+    assert(Object.keys(j.site).join(',') === 'pubkey,npub,title,description,language,profile,logo_media_id,home,blog,menu,theme,donations,privacy,network', Object.keys(j.site).join(','));
     assert(j.pages.length === 3 && j.posts.length === 3 && j.media.length === 1 && j.media[0].id === 'm-1', JSON.stringify([j.pages.length, j.posts.length, j.media.map(m => m.id)]));
     assert(!/created_at|updated_at|"status"|published_hash|bytes/.test(r.siteJsonTexto), 'campos locais vazaram');
     assert(r.siteJsonLido.ok && r.siteJsonLido.dados.pages.length === 3 && r.siteJsonLido.dados.posts[0].slug === 'terceiro' && r.siteJsonLido.ignorados === 0, JSON.stringify(r.siteJsonLido).slice(0, 200));

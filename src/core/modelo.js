@@ -97,6 +97,7 @@ const Modelo = (function () {
     return {
       pubkey: pubkey, npub: npub, title: '', description: '', language: 'pt-BR',
       profile: { name: '', about: '', picture_media_id: null },
+      logo_media_id: null,                 // 38: o logo do cabeçalho — NÃO é o avatar do kind 0
       home: { mode: 'blog', page_id: null, latest_posts: 5 },
       blog: { prefix: PREFIXO_BLOG, title: 'Blog' },
       menu: [{ type: 'blog' }],

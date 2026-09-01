@@ -127,15 +127,33 @@ const Gerador = (function () {
     const mostrarHora = !!(site.privacy && site.privacy.show_publish_time);
     const resumoDe = (post) => (post.excerpt && String(post.excerpt).trim()) ? String(post.excerpt).trim() : primeiroParagrafo(renderizarCorpo(post.body));
     const itemLista = (post) => Object.assign({ href: hrefPost(post), titulo: post.title, resumo: resumoDe(post) }, datas(post.date, mostrarHora));
-    return { site, pages, posts, media, porIdMedia, homePage, hrefPagina, hrefPost, hrefBlog, menu, mostrarHora, resumoDe, itemLista, lang: site.language || 'pt-BR' };
+    return { site, pages, posts, media, porIdMedia, homePage, hrefPagina, hrefPost, hrefBlog, menu, mostrarHora, resumoDe, itemLista,
+      logo: logoDe(site, porIdMedia), opcoes: opcoesDe(site), lang: site.language || 'pt-BR' };
   }
+
+  // 38 — o logo do cabeçalho. Campo do SITE, não do tema (13 §3): trocar de
+  // tema não pode fazer a marca desaparecer. O que é opção do tema é a altura.
+  // Não confundir com `profile.picture_media_id`, que é o avatar do kind 0 —
+  // são dois campos porque são duas imagens (avatar quadrado no Nostr, logo
+  // horizontal no site). O título do site vai para o `alt`: quem lê por leitor
+  // de ecrã, e quem indexa, continua a ver o nome (03 §1.1).
+  function logoDe(site, porIdMedia) {
+    const m = site.logo_media_id ? porIdMedia.get(site.logo_media_id) : null;
+    if (!m) return null;
+    const tem = Number.isInteger(m.width) && Number.isInteger(m.height) && m.width > 0 && m.height > 0;
+    return { src: m.path, alt: site.title || '', largura: tem ? m.width : null, altura: tem ? m.height : null };
+  }
+  // 24 — as opções que o tema vai resolver. O core não conhece nome nenhum
+  // (06 §5.3): passa o objeto inteiro e é o tema que valida e descarta o que
+  // não bate com o manifesto dele.
+  function opcoesDe(site) { const t = site && site.theme; return (t && t.options && typeof t.options === 'object') ? t.options : {}; }
 
   function layout(ctx, o) {
     preparar();
     const site = ctx.site;
     const doacoes = (site.donations && site.donations.support_block && site.donations.lightning_address) ? { lightning_address: site.donations.lightning_address } : null;
     return Mustache.render(TemaPadrao.templates.layout, {
-      lang: ctx.lang, titulo_pagina: o.tituloPagina, descricao: o.descricao || '', site_titulo: site.title || '',
+      lang: ctx.lang, titulo_pagina: o.tituloPagina, descricao: o.descricao || '', site_titulo: site.title || '', logo: ctx.logo,
       menu: ctx.menu.map(m => ({ href: m.href, rotulo: m.rotulo, externo: m.externo, atual: !!o.atualId && m.id === o.atualId })),
       conteudo: o.conteudo, doacoes: doacoes, credito: !(site.donations && site.donations.footer_credit === false)
     });
@@ -197,7 +215,7 @@ const Gerador = (function () {
       add(ctx.hrefPost(p), htmlArtigo(ctx, p), 'text/html', 'post', p.id);
       for (const a of (p.aliases || [])) if (Modelo.slugValido(a) && a !== p.slug) add(Modelo.caminhoDe('post', a), htmlAlias(ctx, p.title, ctx.hrefPost(p)), 'text/html', 'alias', p.id);
     }
-    add(caminhoCss(), TemaPadrao.css, 'text/css', 'tema', null);
+    add(caminhoCss(), TemaPadrao.css(ctx.opcoes), 'text/css', 'tema', null);
     add(Modelo.caminhoDe('site_json'), SiteJson.escrever({ site: ctx.site, pages: ctx.pages, posts: ctx.posts, media: ctx.media.filter(m => m.origin !== 'network') }), 'application/json', 'site_json', null);
     // caminhos únicos: um alias nunca pode sobrepor um caminho real (o primeiro vence — páginas e artigos entram antes dos seus aliases)
     const vistos = new Set(), unicos = [];
@@ -217,8 +235,8 @@ const Gerador = (function () {
     const rot = String(src).slice(0, 60).replace(/[<>&"']/g, '');
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120"><rect width="100%" height="100%" fill="#dcdcde"/><text x="50%" y="50%" font-family="sans-serif" font-size="13" fill="#50575e" text-anchor="middle" dominant-baseline="middle">' + rot + '</text></svg>');
   }
-  function previa(html, dataUris) {
-    let s = html.replace(linkCss(), '<style>\n' + TemaPadrao.css + '</style>');
+  function previa(html, dataUris, opcoes) {
+    let s = html.replace(linkCss(), '<style>\n' + TemaPadrao.css(opcoes) + '</style>');
     s = s.replace(/(<img\b[^>]*\bsrc=")([^"]*)(")/g, function (tudo, a, src, z) {
       if (dataUris && dataUris[src]) return a + dataUris[src] + z;
       if (/^data:/i.test(src)) return tudo;
@@ -227,11 +245,11 @@ const Gerador = (function () {
     return s;
   }
   // Só o corpo (o editor, enquanto se digita): artigo/página mínimos com o CSS do tema
-  function previaCorpo(titulo, markdown, dataUris) {
+  function previaCorpo(titulo, markdown, dataUris, opcoes) {
     const corpo = renderizarCorpo(markdown);
     const html = '<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n<title>' + escapar(titulo) + '</title>\n' + linkCss() + '\n</head>\n<body>\n<main class="principal">\n<article class="pagina">\n<h1>' + escapar(titulo) + '</h1>\n' + corpo + '\n</article>\n</main>\n</body>\n</html>\n';
-    return previa(html, dataUris);
+    return previa(html, dataUris, opcoes);
   }
 
-  return Object.freeze({ caminhoCss, PURIFY, escapar, imagensClicaveis, renderizarCorpo, primeiroParagrafo, sha256Hex, contexto, htmlDe, gerarSite, previa, previaCorpo });
+  return Object.freeze({ caminhoCss, PURIFY, escapar, imagensClicaveis, renderizarCorpo, primeiroParagrafo, sha256Hex, contexto, opcoesDe, htmlDe, gerarSite, previa, previaCorpo });
 })();

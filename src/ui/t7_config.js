@@ -14,7 +14,9 @@
   let secao = 'site';                 // aba escolhida — por sessão, não persiste
   let avancadoAberto = false;
 
-  function desmontar() { if (ctrl) { ctrl.abort(); ctrl = null; } }
+  let urlsAbertas = [];
+  function soltarUrls() { for (const u of urlsAbertas.splice(0)) { try { URL.revokeObjectURL(u); } catch (e) {} } }
+  function desmontar() { if (ctrl) { ctrl.abort(); ctrl = null; } soltarUrls(); }
   function texto(m, mapa) { let s = String(m); for (const k of Object.keys(mapa || {})) s = s.split('{' + k + '}').join(String(mapa[k])); return s; }
   function servidorCurto(u) { try { return new URL(u).hostname; } catch (e) { return String(u); } }
   function relayCurto(u) { return String(u).replace(/^wss:\/\//, ''); }
@@ -22,9 +24,16 @@
 
   // Os campos que o tema renderiza: mudar qualquer um deles regenera TODO o
   // HTML (13 §5.3). `profile` e `network` não — só o site.json e os eventos
-  // de identidade. A tela diz qual dos dois é o caso.
-  const CAMPOS_TEMA = ['title', 'description', 'language', 'home', 'blog', 'menu', 'theme', 'donations', 'privacy'];
-  function mudouTema(a, b) { return CAMPOS_TEMA.some(k => JSON.stringify(a[k]) !== JSON.stringify(b[k])); }
+  // de identidade. A tela diz qual dos três casos é.
+  // 24 — `theme` saiu desta lista e ganhou uma pergunta própria: mexer numa
+  // COR ou numa medida muda só `/tema/estilo.css`, um arquivo. Dizer "vai
+  // subir tudo de novo" seria falso, e a tela promete o diff verdadeiro.
+  // O `logo_media_id` entra aqui porque o logo está no cabeçalho de todas as
+  // páginas — esse, sim, regenera tudo (38).
+  const CAMPOS_TEMA = ['title', 'description', 'language', 'logo_media_id', 'home', 'blog', 'menu', 'donations', 'privacy'];
+  function temaId(s) { const t = s && s.theme; return JSON.stringify([t && t.id, t && t.version]); }
+  function mudouTema(a, b) { return CAMPOS_TEMA.some(k => JSON.stringify(a[k]) !== JSON.stringify(b[k])) || temaId(a) !== temaId(b); }
+  function mudouEstilo(a, b) { return JSON.stringify((a.theme || {}).options || {}) !== JSON.stringify((b.theme || {}).options || {}); }
 
   async function montar(raiz, params) {
     const h = Shell.h, T = Textos.t7, s = Shell.sessao();
@@ -79,7 +88,7 @@
       naoExportadas = (await db.getMeta('alteracoes_nao_exportadas')) || 0;
       btnSalvar.textContent = T.salvar;
       Shell.atualizarSite(rascunho);
-      pAviso.textContent = T.salvo + ' ' + (mudouTema(antes, rascunho) ? T.regenera : T.soMapa);
+      pAviso.textContent = T.salvo + ' ' + (mudouTema(antes, rascunho) ? T.regenera : (mudouEstilo(antes, rascunho) ? T.soEstilo : T.soMapa));
       pAviso.className = 'apoio';
       marcarSujo();
       const c = await Rede.contagens(db);
@@ -147,14 +156,9 @@
         h('p', { class: 'apoio' }, C.avatarApoio)));
 
       function escolherAvatar() {
-        if (!imagens.length) { Shell.modal({ titulo: C.avatarModal, conteudo: h('p', { class: 'alerta', id: 't7-avatar-sem-imagens' }, C.avatarSemImagens) }); return; }
-        function definir(id) { rascunho.profile.picture_media_id = id; Shell.fecharModal(); render(); marcarSujo(); }
-        const grade = h('div', { class: 'grade-capas' },
-          h('button', { type: 'button', class: 'capa-opcao' + (!rascunho.profile.picture_media_id ? ' selecionada' : ''), onclick: function () { definir(null); } }, C.avatarNenhuma),
-          imagens.map(m => h('button', { type: 'button', class: 'capa-opcao' + (rascunho.profile.picture_media_id === m.id ? ' selecionada' : ''), 'data-media-id': m.id, onclick: function () { definir(m.id); } },
-            m.bytes ? h('img', { src: URL.createObjectURL(m.bytes), alt: m.alt || '' }) : null, h('span', {}, m.path))));
-        Shell.modal({ titulo: C.avatarModal, conteudo: [grade,
-          h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.fecharModal(); Shell.ir('t6', { enviar: true }); } }, C.avatarEnviar))] });
+        escolherImagem({ titulo: C.avatarModal, semImagens: C.avatarSemImagens, nenhuma: C.avatarNenhuma, enviar: C.avatarEnviar,
+          idSemImagens: 't7-avatar-sem-imagens', atualId: rascunho.profile.picture_media_id,
+          definir: function (id) { rascunho.profile.picture_media_id = id; } });
       }
 
       // página inicial
@@ -238,6 +242,29 @@
       return h('div', {}, lista, addPagina, addBlog, addLink);
     }
 
+    // 38 — o mesmo gesto serve dois campos diferentes: o avatar do perfil (kind 0,
+    // aba Site) e o logo do cabeçalho (aba Aparência). São imagens distintas de
+    // propósito — juntá-las impediria avatar quadrado no Nostr e logo horizontal
+    // no site —, mas escolher é o mesmo modal.
+    // o: { titulo, semImagens, nenhuma, enviar, idSemImagens, atualId, definir }
+    function escolherImagem(o) {
+      const imagens = Editor.imagensDe(midias);
+      if (!imagens.length) { Shell.modal({ titulo: o.titulo, conteudo: h('p', { class: 'alerta', id: o.idSemImagens }, o.semImagens) }); return; }
+      function definir(id) { o.definir(id); Shell.fecharModal(); render(); marcarSujo(); }
+      function miniatura(m) {
+        if (!m.bytes) return null;
+        let u = null; try { u = URL.createObjectURL(m.bytes); } catch (e) { return null; }
+        urlsAbertas.push(u);
+        return h('img', { src: u, alt: m.alt || '' });
+      }
+      const grade = h('div', { class: 'grade-capas' },
+        h('button', { type: 'button', class: 'capa-opcao' + (!o.atualId ? ' selecionada' : ''), onclick: function () { definir(null); } }, o.nenhuma),
+        imagens.map(m => h('button', { type: 'button', class: 'capa-opcao' + (o.atualId === m.id ? ' selecionada' : ''), 'data-media-id': m.id, onclick: function () { definir(m.id); } },
+          miniatura(m), h('span', {}, m.path))));
+      Shell.modal({ titulo: o.titulo, conteudo: [grade,
+        h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.fecharModal(); Shell.ir('t6', { enviar: true }); } }, o.enviar))] });
+    }
+
     // --- aba Doações --------------------------------------------------------
     function painelDoacoes() {
       const C = T.doacoes;
@@ -255,29 +282,85 @@
       rascunho.theme = Object.assign({ id: 'padrao', version: 1, options: {} }, rascunho.theme || {});
       if (!rascunho.theme.options || typeof rascunho.theme.options !== 'object') rascunho.theme.options = {};
       painel.appendChild(h('p', { id: 't7-tema' }, C.tema + ': ' + (TemaPadrao.manifesto.nome || C.temaAtual)));
-      // As opções vêm do MANIFESTO do tema, não do core (06 §5.3): o core não
-      // conhece nem valida nomes de opção. Na v1 o tema padrão não declara
-      // nenhuma — e a tela diz isso, em vez de inventar controles.
+      // `theme.version` fica no que estava: é a versão do tema com que o site
+      // foi gravado, e hoje ninguém a lê — quem vai passar a lê-la é a troca de
+      // tema (pendência 12). Sincronizá-la agora sujaria todos os sites que
+      // existem por uma comparação que ninguém faz.
+
+      // --- 38: o logo do cabeçalho ------------------------------------------
+      // Campo do SITE (13 §3), não do tema: trocar de tema não pode apagar a
+      // marca. O que é opção do tema é a ALTURA, logo abaixo.
+      // procurado em `midias` inteira, não em `imagensDe`: um site carregado da
+      // rede tem a mídia com `origin: 'network'` e sem bytes — o logo continua
+      // a existir e o campo tem de o mostrar, mesmo sem miniatura para escolher.
+      const logo = (midias || []).find(m => m && m.id === rascunho.logo_media_id && m.status !== 'removed') || null;
+      const spanLogo = h('span', { id: 't7-logo-atual', class: 'cresce' }, logo ? logo.path : C.logoNenhum);
+      painel.appendChild(h('div', {},
+        h('label', {}, C.logo),
+        h('div', { class: 'linha-capa' }, spanLogo,
+          h('button', { type: 'button', id: 't7-logo-escolher', class: 'secundario', onclick: function () {
+            escolherImagem({ titulo: C.logoModal, semImagens: C.logoSemImagens, nenhuma: C.logoNenhum, enviar: C.logoEnviar,
+              idSemImagens: 't7-logo-sem-imagens', atualId: rascunho.logo_media_id,
+              definir: function (id) { rascunho.logo_media_id = id; } });
+          } }, C.logoEscolher),
+          logo ? h('button', { type: 'button', id: 't7-logo-remover', class: 'ligacao', onclick: function () { rascunho.logo_media_id = null; render(); marcarSujo(); } }, C.logoRemover) : null),
+        h('p', { class: 'apoio' }, C.logoApoio)));
+
+      // --- 24: as opções que o TEMA declara ---------------------------------
+      // Vêm do MANIFESTO, não do core (06 §5.3): o core não conhece nem valida
+      // nome de opção nenhum — só sabe desenhar os TIPOS (`escolha`, `cor`,
+      // `medida`, texto). Um tema de terceiro que declare outras opções cai
+      // aqui sem uma linha nova. Quem valida o VALOR é o tema, ao montar o CSS.
       const opcoes = TemaPadrao.manifesto.options || {};
       const nomes = Object.keys(opcoes);
       if (!nomes.length) painel.appendChild(h('p', { class: 'apoio', id: 't7-tema-sem-opcoes' }, C.semOpcoes));
       else {
+        painel.appendChild(h('h3', {}, C.opcoes));
         const div = h('div', { id: 't7-tema-opcoes' });
         for (const nome of nomes) {
           const o = opcoes[nome] || {};
           const id = 't7-opcao-' + nome;
           const atual = rascunho.theme.options[nome] != null ? rascunho.theme.options[nome] : o.padrao;
-          let el;
+          let el, ler;
           if (o.tipo === 'escolha' && Array.isArray(o.opcoes)) {
             el = h('select', { id: id }, o.opcoes.map(x => h('option', { value: x[0], selected: x[0] === atual }, x[1])));
             el.value = atual;
-          } else el = h('input', { type: o.tipo === 'cor' ? 'color' : 'text', id: id, value: atual == null ? '' : String(atual) });
-          el.addEventListener('input', function () { rascunho.theme.options[nome] = el.value; marcarSujo(); });
-          el.addEventListener('change', function () { rascunho.theme.options[nome] = el.value; marcarSujo(); });
-          div.appendChild(h('div', {}, h('label', { for: id }, o.rotulo || nome), el));
+            ler = function () { return el.value; };
+          } else if (o.tipo === 'medida') {
+            // O tipo "medida" nasceu com a altura do logo (38) e é o "medidas"
+            // do nome da pendência 24. Guardado como NÚMERO — o tema recusa o
+            // que estiver fora de [min, max] e volta ao padrão.
+            el = h('input', { type: 'number', id: id, min: String(o.min), max: String(o.max), step: String(o.passo || 1), value: String(atual) });
+            ler = function () { const n = parseInt(el.value, 10); return Number.isInteger(n) ? n : o.padrao; };
+          } else {
+            el = h('input', { type: o.tipo === 'cor' ? 'color' : 'text', id: id, value: atual == null ? '' : String(atual) });
+            ler = function () { return el.value; };
+          }
+          const aoMudar = function () { rascunho.theme.options[nome] = ler(); marcarSujo(); if (nome === 'altura_logo') avisarLogo(); };
+          el.addEventListener('input', aoMudar);
+          el.addEventListener('change', aoMudar);
+          div.appendChild(h('div', {}, h('label', { for: id }, o.rotulo || nome), el,
+            o.unidade ? h('span', { class: 'apoio' }, ' ' + o.unidade) : null,
+            o.apoio ? h('p', { class: 'apoio' }, o.apoio) : null));
         }
         painel.appendChild(div);
       }
+
+      // O app já mede a imagem no envio (T6), então pode dizer de frente quando
+      // o logo escolhido não tem altura para a altura pedida — em tela densa o
+      // navegador mostra o dobro dos pontos, e uma imagem curta fica esticada.
+      const pAvisoLogo = h('p', { class: 'alerta', id: 't7-logo-baixo', hidden: true });
+      painel.appendChild(pAvisoLogo);
+      function avisarLogo() {
+        const alt = logo && Number.isInteger(logo.height) ? logo.height : null;
+        const o = opcoes.altura_logo || {};
+        const bruta = rascunho.theme.options.altura_logo;
+        const pedida = Number.isInteger(bruta) ? bruta : o.padrao;
+        const baixa = alt != null && Number.isInteger(pedida) && alt < pedida * 2;
+        pAvisoLogo.hidden = !baixa;
+        if (baixa) pAvisoLogo.textContent = texto(C.logoBaixo, { altura: alt, pedida: pedida, dobro: pedida * 2 });
+      }
+      avisarLogo();
       painel.appendChild(h('div', { class: 'acoes' }, h('button', { type: 'button', id: 't7-previa', class: 'secundario', onclick: previa }, C.previa)));
       painel.appendChild(h('p', { class: 'apoio', id: 't7-temas-outros' }, C.outros));
 
@@ -295,7 +378,7 @@
         } catch (e) { html = null; }
         if (!html) { Shell.modal({ titulo: C.previaTitulo, conteudo: h('p', { class: 'apoio' }, C.previaVazia) }); return; }
         const iframe = h('iframe', { id: 'previa-completa', sandbox: 'allow-scripts', title: C.previaTitulo });
-        iframe.srcdoc = Gerador.previa(html, await Editor.dataUrisDe(midias));
+        iframe.srcdoc = Gerador.previa(html, await Editor.dataUrisDe(midias), Gerador.opcoesDe(rascunho));
         Shell.modal({ titulo: C.previaTitulo, conteudo: iframe, largo: true });
       }
     }

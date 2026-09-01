@@ -37,7 +37,7 @@ module.exports = async function (ctx, u) {
       site.menu = [{ type: 'page', page_id: home.id }, { type: 'blog' }];
       const brutos = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 9, 9, 9, 9]);
       const midia = { id: Modelo.novoId(), path: '/img/retrato.png', mime: 'image/png', size: brutos.length,
-        sha256: await Blossom.sha256Hex(brutos), width: null, height: null, alt: 'retrato', caption: '',
+        sha256: await Blossom.sha256Hex(brutos), width: 300, height: 60, alt: 'retrato', caption: '',
         bytes: new Blob([brutos], { type: 'image/png' }), status: 'draft', servers: [], removal: null,
         metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload',
         created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null };
@@ -72,7 +72,8 @@ module.exports = async function (ctx, u) {
     const g = await Gerador.gerarSite(dados);
     const arq = g.arquivos.find(a => a.path === '/index.html');
     const blog = g.arquivos.find(a => a.path === '/blog/primeiro-artigo.html');
-    return { home: arq ? arq.texto : '', artigo: blog ? blog.texto : '' };
+    const css = g.arquivos.find(a => a.path === '/tema/estilo.css');
+    return { home: arq ? arq.texto : '', artigo: blog ? blog.texto : '', css: css ? css.texto : '' };
   });
 
   await it('as cinco abas de 14 T7 existem e Site abre por padrão; título e descrição chegam ao <title>/<meta description> do site', async () => {
@@ -221,20 +222,74 @@ module.exports = async function (ctx, u) {
     return (/<time[^>]*>[^<]*<\/time>/.exec(g.artigo) || [''])[0];
   });
 
-  await it('Aparência: só o tema Padrão, sem opções na v1, e a pré-visualização abre isolada (iframe sem allow-same-origin)', async () => {
-    const { p } = await sessao();
+  await it('24: o tema Padrão declara cor, letras e medidas; mexer numa cor muda SÓ a folha de estilo, e a tela diz isso em vez de prometer que sobe tudo', async () => {
+    const { p, ch } = await sessao();
     await aba(p.pg, 'aparencia');
     assert(/Padrão/.test(await p.pg.textContent('#t7-tema')));
-    assert(await p.pg.$('#t7-tema-sem-opcoes'), 'o tema padrão da v1 não declara opções — a tela devia dizer isso');
+    assert(!(await p.pg.$('#t7-tema-sem-opcoes')), 'o tema já declara opções — a tela não pode continuar a dizer que não tem');
+    const controles = await p.pg.$$eval('#t7-tema-opcoes [id^="t7-opcao-"]', els => els.map(e => e.id.replace('t7-opcao-', '') + ':' + (e.tagName === 'SELECT' ? 'select' : e.getAttribute('type'))));
+    assert(controles.join(',') === 'esquema:select,cor_destaque:color,fonte_texto:select,fonte_titulos:select,tamanho_texto:select,largura:select,cantos:select,altura_logo:number', controles.join(','));
+    await p.pg.selectOption('#t7-opcao-esquema', 'escuro');
+    await p.pg.selectOption('#t7-opcao-fonte_texto', 'sem-serifa');
+    await p.pg.selectOption('#t7-opcao-largura', 'larga');
+    // <input type=color> não se preenche por teclado: põe-se o valor e avisa-se a tela
+    await p.pg.$eval('#t7-opcao-cor_destaque', el => { el.value = '#8a2be2'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    const aviso = await salvar(p.pg);
+    assert(/só a folha de estilo/.test(aviso), aviso);
+    const g = await homeGerada(p.pg);
+    assert(/--fundo:#16181d/.test(g.css) && /--acento:#8a2be2/.test(g.css) && /--largura:900px/.test(g.css) && /--fonte-texto:system-ui/.test(g.css), g.css.slice(0, 400));
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    assert(banco.site.theme.options.esquema === 'escuro' && banco.site.theme.options.cor_destaque === '#8a2be2' && banco.site.theme.options.largura === 'larga', JSON.stringify(banco.site.theme.options));
+    await p.pg.close();
+    return 'esquema escuro, acento #8a2be2, largura larga — ' + aviso;
+  });
+
+  await it('38: o logo escolhido substitui o título no topo de TODAS as páginas, leva o título no alt, e o app avisa quando a imagem é baixa para a altura pedida', async () => {
+    const { p, ch } = await sessao();
+    await aba(p.pg, 'aparencia');
+    assert((await p.pg.textContent('#t7-logo-atual')) === '(nenhum)' && !(await p.pg.$('#t7-logo-remover')), 'sem logo não há o que remover');
+    await p.pg.click('#t7-logo-escolher');
+    await p.pg.waitForSelector('.grade-capas');
+    await p.pg.click('.capa-opcao[data-media-id]');
+    await p.pg.waitForSelector('#modal-fundo', { state: 'detached' });
+    assert((await p.pg.textContent('#t7-logo-atual')) === '/img/retrato.png');
+    // a imagem tem 60 pontos de altura; a altura pedida (44) pede o dobro
+    assert(!(await p.pg.$('#t7-logo-baixo[hidden]')) && /60 pontos de altura/.test(await p.pg.textContent('#t7-logo-baixo')), await p.pg.textContent('#t7-logo-baixo'));
+    await p.pg.fill('#t7-opcao-altura_logo', '28');
+    await p.pg.waitForSelector('#t7-logo-baixo[hidden]', { state: 'attached' });
+    const aviso = await salvar(p.pg);
+    assert(/subir tudo de novo/.test(aviso), 'o logo está no cabeçalho de todas as páginas: ' + aviso);
+    const g = await homeGerada(p.pg);
+    const cabecalho = (/<header[\s\S]*?<\/header>/.exec(g.home) || [''])[0];
+    assert(/<a class="marca marca-logo" href="\/index\.html"><img src="\/img\/retrato\.png" alt="Site do teste T7" width="300" height="60"><\/a>/.test(cabecalho), cabecalho);
+    assert(/marca-logo/.test(g.artigo) && /--logo-altura:28px/.test(g.css), 'o logo tem de estar no artigo também, com a altura pedida');
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    assert(banco.site.logo_media_id === banco.media[0].id && banco.site.profile.picture_media_id !== banco.media[0].id, 'logo e avatar são campos separados: ' + JSON.stringify([banco.site.logo_media_id, banco.site.profile.picture_media_id]));
+    await p.pg.click('#t7-logo-remover');
+    assert((await p.pg.textContent('#t7-logo-atual')) === '(nenhum)');
+    await salvar(p.pg);
+    const g2 = await homeGerada(p.pg);
+    assert(!/marca-logo/.test(g2.home) && /<a class="marca" href="\/index\.html">Site do teste T7<\/a>/.test(g2.home), 'remover devia devolver o título em texto');
+    await p.pg.close();
+    return 'logo no cabeçalho de todas as páginas, com o título no alt; aviso de altura visto e apagado';
+  });
+
+  await it('Aparência: a pré-visualização abre isolada (iframe sem allow-same-origin) e mostra as opções do rascunho', async () => {
+    const { p } = await sessao();
+    await aba(p.pg, 'aparencia');
     assert(/numa fase seguinte/.test(await p.pg.textContent('#t7-temas-outros')));
+    await p.pg.selectOption('#t7-opcao-esquema', 'escuro');
     await p.pg.click('#t7-previa');
     await p.pg.waitForSelector('#previa-completa');
     const sandbox = await p.pg.getAttribute('#previa-completa', 'sandbox');
     assert(sandbox === 'allow-scripts', 'o iframe da prévia não pode ter allow-same-origin (02 G.2): ' + sandbox);
     const dentro = await p.pg.frameLocator('#previa-completa').locator('h1').first().textContent();
     assert(/Início/.test(dentro), dentro);
+    // a prévia usa o RASCUNHO, não o que está gravado — senão mostraria o antes
+    const estilo = await p.pg.frameLocator('#previa-completa').locator('style').first().textContent();
+    assert(/--fundo:#16181d/.test(estilo), 'a prévia ignorou a opção que ainda não foi salva');
     await p.pg.close();
-    return 'prévia isolada: ' + dentro;
+    return 'prévia isolada, com o rascunho: ' + dentro;
   });
 
   await it('Avançado vem recolhido com o aviso; abre com um clique — e T2 "Tentar outros relays" já entra com ele aberto', async () => {

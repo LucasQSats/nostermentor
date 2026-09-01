@@ -18,6 +18,13 @@ placar honesto ("N de M") → conferir a saúde da publicação e reenviar o map
 aos relays que o perderam, sem pedir a chave → exportar e importar o backup.
 O site gerado é HTML estático **sem uma única tag de script**.
 
+A aparência do site ajusta-se sem sair do painel: fundo, cor de destaque,
+letras, tamanho, largura, cantos e o **logo do cabeçalho**. As opções vêm do
+manifesto do tema, não de uma lista no core — e é o tema que valida os
+valores, para que nada escrito por alguém de fora chegue à folha de estilo que
+o leitor baixa. As letras são sempre as do sistema: uma fonte remota diria ao
+servidor dela quem visitou o site.
+
 Arquivos publicados por outra ferramenta são preservados; quando um deles
 ocupa um caminho que o app precisa gerar, a publicação **para** e o dono
 escolhe — nunca se troca em silêncio.

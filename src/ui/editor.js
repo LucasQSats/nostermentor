@@ -44,7 +44,7 @@ const Editor = (function () {
     const lista = tipo === 'page' ? dados.pages : dados.posts;
     const i = lista.findIndex(r => r.id === reg.id);
     if (i === -1) lista.push(reg); else lista[i] = reg;
-    const html = Gerador.previa(Gerador.htmlDe(dados, reg, tipo), await dataUrisDe(dados.media));
+    const html = Gerador.previa(Gerador.htmlDe(dados, reg, tipo), await dataUrisDe(dados.media), Gerador.opcoesDe(dados.site));
     const iframe = Shell.h('iframe', { id: 'previa-completa', sandbox: 'allow-scripts', title: Textos.editor.verComoFicara.titulo });
     iframe.srcdoc = html;
     Shell.modal({ titulo: Textos.editor.verComoFicara.titulo, conteudo: iframe, largo: true });
@@ -374,7 +374,7 @@ const Editor = (function () {
     // --- pré-visualização --------------------------------------------------------
     const iframe = h('iframe', { id: 'ed-previa', sandbox: 'allow-scripts', title: T.previa.rotulo });
     e.iframe = iframe;
-    function renderPrevia() { const c = coletar(); iframe.srcdoc = Gerador.previaCorpo(c.title, c.body, e.dataUris); }
+    function renderPrevia() { const c = coletar(); iframe.srcdoc = Gerador.previaCorpo(c.title, c.body, e.dataUris, Gerador.opcoesDe(site)); }
     e.renderPrevia = renderPrevia;
     dataUrisDe(media).then(function (m) { if (E === e) { e.dataUris = m; renderPrevia(); } });
 

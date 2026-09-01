@@ -75,6 +75,27 @@ module.exports = async function (ctx, u) {
   await it('35: o tema Padrão NÃO desenha a capa na página (é dado para os temas que virão), mas continua a desenhá-la no artigo', () =>
     assert(capa.paginaSemFigura && capa.artigoComFigura, JSON.stringify(capa)));
 
+  // 24 — `theme.options` chega da rede e é dado (02 G.0). O tema decide se o
+  // VALOR faz sentido; o site.json garante que é objeto plano, pequeno e com
+  // chaves de forma fixa — sem isto aceitava profundidade e tamanho quaisquer.
+  const opcoes = await p.pg.evaluate(() => {
+    const site = Modelo.sitePadrao('a'.repeat(64), 'npub1teste');
+    site.title = 'Site'; site.description = 'd';
+    site.theme.options = { esquema: 'escuro', altura_logo: 60, ligado: true, 'Maiúscula': 'x', 'com-traco': 'x', __proto__x: 'x',
+      aninhado: { a: 1 }, lista: [1, 2], nulo: null, longa: 'y'.repeat(300) };
+    const texto = SiteJson.escrever({ site: site, pages: [], posts: [], media: [] });
+    const lido = SiteJson.ler(texto).dados.site.theme.options;
+    const daRede = SiteJson.lerSite({ theme: { id: 'padrao', version: 1, options: { esquema: 'creme', mau: { profundo: { x: 1 } } } } }).theme.options;
+    return { escrito: JSON.parse(texto).site.theme.options, lido: lido, daRede: daRede };
+  });
+  await it('24 (02 G.0): `theme.options` passa por lista branca nos dois sentidos — só escalares, chave em minúsculas, texto limitado, chaves ordenadas', () => {
+    const e = opcoes.escrito;
+    assert(Object.keys(e).join(',') === 'altura_logo,esquema,ligado,longa', Object.keys(e).join(','));
+    assert(e.esquema === 'escuro' && e.altura_logo === 60 && e.ligado === true && e.longa.length === 100, JSON.stringify(e));
+    assert(JSON.stringify(opcoes.lido) === JSON.stringify(e), JSON.stringify(opcoes.lido));
+    assert(JSON.stringify(opcoes.daRede) === JSON.stringify({ esquema: 'creme' }), JSON.stringify(opcoes.daRede));
+  });
+
   await it('sem erros de página/console', () => assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros })));
   await p.pg.close();
   return R;

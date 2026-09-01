@@ -26,6 +26,28 @@ const SiteJson = (function () {
   }
   function strings(lista, max) { return arr(lista).filter(eStr).map(s => s.slice(0, 100)).slice(0, max); }
 
+  // 24 — `theme.options` chega da REDE (site.json) e de backup: é dado, e passa
+  // por lista branca como tudo o resto (02 G.0). Só escalares, chave com forma
+  // fixa, tamanho limitado — sem isto o campo aceitava objeto de profundidade
+  // e tamanho arbitrários. Quem decide se o VALOR faz sentido é o tema, no
+  // momento de montar o CSS (tema/padrao/tema.js `resolver`); aqui só se
+  // garante que é um objeto plano e pequeno. Chaves ordenadas: a saída é a
+  // mesma forma canónica que `escrever` publica (13 §5.2).
+  const RE_OPCAO = /^[a-z][a-z0-9_]{0,39}$/;
+  function lerOpcoesTema(v) {
+    if (!obj(v)) return {};
+    const o = {};
+    for (const k of Object.keys(v).sort().slice(0, 50)) {
+      if (!RE_OPCAO.test(k)) continue;
+      const x = v[k];
+      if (eStr(x)) o[k] = x.slice(0, 100);
+      else if (typeof x === 'number' && Number.isFinite(x)) o[k] = x;
+      else if (typeof x === 'boolean') o[k] = x;
+    }
+    return o;
+  }
+  function lerTema(t) { return { id: str(t && t.id, 50) || 'padrao', version: inteiro(t && t.version, 1, 1), options: lerOpcoesTema(t && t.options) }; }
+
   function lerItemMenu(m) {
     if (!obj(m)) return null;
     if (m.type === 'blog') return { type: 'blog' };
@@ -41,10 +63,11 @@ const SiteJson = (function () {
     if (eStr(s.description)) o.description = s.description.slice(0, 1000);
     if (eStr(s.language)) o.language = s.language.slice(0, 20);
     if (obj(s.profile)) o.profile = { name: str(s.profile.name, 200), about: str(s.profile.about, 2000), picture_media_id: idOuNulo(s.profile.picture_media_id) };
+    if ('logo_media_id' in s) o.logo_media_id = idOuNulo(s.logo_media_id);
     if (obj(s.home)) o.home = { mode: s.home.mode === 'page' ? 'page' : 'blog', page_id: idOuNulo(s.home.page_id), latest_posts: inteiro(s.home.latest_posts, 5, 0, 100) };
     if (obj(s.blog)) o.blog = { prefix: Modelo.PREFIXO_BLOG, title: str(s.blog.title, 100) || 'Blog' };
     if (Array.isArray(s.menu)) o.menu = s.menu.map(lerItemMenu).filter(Boolean).slice(0, 50);
-    if (obj(s.theme)) o.theme = { id: str(s.theme.id, 50) || 'padrao', version: inteiro(s.theme.version, 1, 1), options: obj(s.theme.options) ? s.theme.options : {} };
+    if (obj(s.theme)) o.theme = lerTema(s.theme);
     if (obj(s.donations)) o.donations = { lightning_address: str(s.donations.lightning_address, 200), support_block: s.donations.support_block === true, footer_credit: s.donations.footer_credit !== false };
     if (obj(s.privacy)) o.privacy = { show_publish_time: s.privacy.show_publish_time === true };
     if (obj(s.discovery)) o.discovery = { canonical_base: eStr(s.discovery.canonical_base) ? s.discovery.canonical_base.slice(0, 300) : null };
@@ -89,27 +112,21 @@ const SiteJson = (function () {
     const media = semDuplicados(brutos.media.map(lerMidia).filter(Boolean));
     const ignorados = (brutos.pages.length - pages.length) + (brutos.posts.length - posts.length) + (brutos.media.length - media.length);
     const site = lerSite(j.site);
-    const theme = obj(j.theme) ? { id: str(j.theme.id, 50) || 'padrao', version: inteiro(j.theme.version, 1, 1), options: obj(j.theme.options) ? j.theme.options : {} } : (site.theme || null);
+    const theme = obj(j.theme) ? lerTema(j.theme) : (site.theme || null);
     return { ok: true, version: j.version, dados: { site: site, pages: pages, posts: posts, media: media, theme: theme }, ignorados: ignorados };
   }
 
   // --- escrita (13 §6.1) --------------------------------------------------
-  function ordenarChaves(v) {
-    if (Array.isArray(v)) return v.map(ordenarChaves);
-    if (!obj(v)) return v;
-    const o = {};
-    for (const k of Object.keys(v).sort()) o[k] = ordenarChaves(v[k]);
-    return o;
-  }
   const s200 = v => str(v, 200), s1000 = v => str(v, 1000);
   function escreverSite(s) {
     const o = {
       pubkey: s.pubkey, npub: s.npub, title: s200(s.title), description: s1000(s.description), language: str(s.language, 20) || 'pt-BR',
       profile: { name: s200(s.profile && s.profile.name), about: str(s.profile && s.profile.about, 2000), picture_media_id: idOuNulo(s.profile && s.profile.picture_media_id) },
+      logo_media_id: idOuNulo(s.logo_media_id),
       home: { mode: s.home && s.home.mode === 'page' ? 'page' : 'blog', page_id: idOuNulo(s.home && s.home.page_id), latest_posts: inteiro(s.home && s.home.latest_posts, 5, 0, 100) },
       blog: { prefix: Modelo.PREFIXO_BLOG, title: str(s.blog && s.blog.title, 100) || 'Blog' },
       menu: arr(s.menu).map(lerItemMenu).filter(Boolean),
-      theme: { id: str(s.theme && s.theme.id, 50) || 'padrao', version: inteiro(s.theme && s.theme.version, 1, 1), options: ordenarChaves(obj(s.theme && s.theme.options) ? s.theme.options : {}) },
+      theme: lerTema(s.theme),
       donations: { lightning_address: s200(s.donations && s.donations.lightning_address), support_block: !!(s.donations && s.donations.support_block === true), footer_credit: !(s.donations && s.donations.footer_credit === false) },
       privacy: { show_publish_time: !!(s.privacy && s.privacy.show_publish_time === true) }
     };
