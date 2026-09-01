@@ -14,9 +14,7 @@
   let secao = 'site';                 // aba escolhida — por sessão, não persiste
   let avancadoAberto = false;
 
-  let urlsAbertas = [];
-  function soltarUrls() { for (const u of urlsAbertas.splice(0)) { try { URL.revokeObjectURL(u); } catch (e) {} } }
-  function desmontar() { if (ctrl) { ctrl.abort(); ctrl = null; } soltarUrls(); }
+  function desmontar() { if (ctrl) { ctrl.abort(); ctrl = null; } Miniaturas.limpar(); }
   function texto(m, mapa) { let s = String(m); for (const k of Object.keys(mapa || {})) s = s.split('{' + k + '}').join(String(mapa[k])); return s; }
   function servidorCurto(u) { try { return new URL(u).hostname; } catch (e) { return String(u); } }
   function relayCurto(u) { return String(u).replace(/^wss:\/\//, ''); }
@@ -49,6 +47,7 @@
     let publicado = (await db.get('published', 'current')) || null;
     let pages = await db.getAll('pages');
     let midias = await db.getAll('media');
+    const servidoresMidia = Modelo.uniao(gravado.network && gravado.network.servers);   // 48: de onde vêm as miniaturas da rede
     const verificarVersao = (await db.getMeta('verificar_versao')) !== false;
     let naoExportadas = (await db.getMeta('alteracoes_nao_exportadas')) || 0;
     let rascunho = clonar(gravado);
@@ -251,16 +250,12 @@
       const imagens = Editor.imagensDe(midias);
       if (!imagens.length) { Shell.modal({ titulo: o.titulo, conteudo: h('p', { class: 'alerta', id: o.idSemImagens }, o.semImagens) }); return; }
       function definir(id) { o.definir(id); Shell.fecharModal(); render(); marcarSujo(); }
-      function miniatura(m) {
-        if (!m.bytes) return null;
-        let u = null; try { u = URL.createObjectURL(m.bytes); } catch (e) { return null; }
-        urlsAbertas.push(u);
-        return h('img', { src: u, alt: m.alt || '' });
-      }
       const grade = h('div', { class: 'grade-capas' },
         h('button', { type: 'button', class: 'capa-opcao' + (!o.atualId ? ' selecionada' : ''), onclick: function () { definir(null); } }, o.nenhuma),
+        // 48: mídia vinda da rede não tem `bytes` locais — a miniatura tem de
+        // baixar, como já faz nas outras três telas (`Miniaturas.elemento`).
         imagens.map(m => h('button', { type: 'button', class: 'capa-opcao' + (o.atualId === m.id ? ' selecionada' : ''), 'data-media-id': m.id, onclick: function () { definir(m.id); } },
-          miniatura(m), h('span', {}, m.path))));
+          Miniaturas.elemento(m, { servidores: servidoresMidia, classe: '', textos: Textos.t6.mini }), h('span', {}, m.path))));
       Shell.modal({ titulo: o.titulo, conteudo: [grade,
         h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.fecharModal(); Shell.ir('t6', { enviar: true }); } }, o.enviar))] });
     }
@@ -291,8 +286,9 @@
       // Campo do SITE (13 §3), não do tema: trocar de tema não pode apagar a
       // marca. O que é opção do tema é a ALTURA, logo abaixo.
       // procurado em `midias` inteira, não em `imagensDe`: um site carregado da
-      // rede tem a mídia com `origin: 'network'` e sem bytes — o logo continua
-      // a existir e o campo tem de o mostrar, mesmo sem miniatura para escolher.
+      // rede tem a mídia com `origin: 'network'` e sem bytes locais — mas
+      // ainda existe, e o rótulo (nome do arquivo) tem de a mostrar mesmo
+      // assim. A miniatura do modal de escolha, logo abaixo, vem da rede.
       const logo = (midias || []).find(m => m && m.id === rascunho.logo_media_id && m.status !== 'removed') || null;
       const spanLogo = h('span', { id: 't7-logo-atual', class: 'cresce' }, logo ? logo.path : C.logoNenhum);
       painel.appendChild(h('div', {},

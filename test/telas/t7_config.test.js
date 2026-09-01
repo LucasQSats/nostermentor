@@ -6,6 +6,7 @@
 // lista padrão) e o único gesto destrutivo do painel, "Tirar o site do ar".
 const { abrir, coletor, assert, entrarCom, semearSite, esperarT2, lerBanco } = require('../util.js');
 const F = require('../fabrica.js');
+const fs = require('fs'), path = require('path');
 
 module.exports = async function (ctx, u) {
   const { R, it, pulado } = coletor();
@@ -272,6 +273,48 @@ module.exports = async function (ctx, u) {
     assert(!/marca-logo/.test(g2.home) && /<a class="marca" href="\/index\.html">Site do teste T7<\/a>/.test(g2.home), 'remover devia devolver o título em texto');
     await p.pg.close();
     return 'logo no cabeçalho de todas as páginas, com o título no alt; aviso de altura visto e apagado';
+  });
+
+  await it('48: os seletores de logo e de avatar mostram miniatura para mídia vinda da REDE, sem bytes locais — achado pelo dono no teste à mão do lote 4', async () => {
+    const PNG = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'limpeza', 'limpo.png'));
+    const sha = f.blobEm('c1', PNG, 'image/png');
+    const { p, ch } = await sessao();
+    await p.pg.evaluate(async ([pubkey, sha, tamanho, servidor]) => {
+      const db = await Db.abrir(pubkey);
+      const daRede = { id: Modelo.novoId(), path: '/img/da-rede.png', mime: 'image/png', size: tamanho,
+        sha256: sha, width: null, height: null, alt: 'veio da rede', caption: '', bytes: null,
+        status: 'published', servers: [servidor], removal: null,
+        metadata: { stripped: null, removed_segments: [], warning: null }, origin: 'network',
+        created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null };
+      await db.escrever([{ op: 'put', store: 'media', valor: daRede }]);
+      db.fechar();
+    }, [ch.pubkey, sha, PNG.length, f.url('c1')]);
+    // reentra em T7 para o mount reler `media` do banco (a lista já foi lida
+    // uma vez, antes do put acima)
+    await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6-tabela');
+    await p.pg.click('#menu .item[data-tela="t7"]'); await p.pg.waitForSelector('#t7-painel');
+    await aba(p.pg, 'aparencia');
+    await p.pg.click('#t7-logo-escolher');
+    await p.pg.waitForSelector('.grade-capas');
+    // antes da correção, `miniatura()` devolvia null para quem não tem
+    // `bytes` locais — nunca aparecia um <img>, só o caminho em texto
+    await p.pg.waitForFunction(() => {
+      const opcao = document.querySelector('.capa-opcao[data-media-id] .mini-caixa img');
+      return !!opcao;
+    }, null, { timeout: 20000 });
+    await p.pg.click('#modal-fechar');
+    await p.pg.waitForSelector('#modal-fundo', { state: 'detached' });
+    // o mesmo modal serve o avatar (aba Site) — mesma função, mesmo achado do
+    // dono não ter visto: o cache por sha256 já tem os bytes, não repete a rede
+    await aba(p.pg, 'site');
+    await p.pg.click('#t7-avatar-escolher');
+    await p.pg.waitForSelector('.grade-capas');
+    await p.pg.waitForFunction(() => {
+      const opcao = document.querySelector('.capa-opcao[data-media-id] .mini-caixa img');
+      return !!opcao;
+    }, null, { timeout: 20000 });
+    await p.pg.close();
+    return 'logo e avatar: miniatura da rede baixada e mostrada nos dois seletores';
   });
 
   await it('Aparência: a pré-visualização abre isolada (iframe sem allow-same-origin) e mostra as opções do rascunho', async () => {
