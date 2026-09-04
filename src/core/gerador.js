@@ -215,6 +215,100 @@ const Gerador = (function () {
     return ex.blocos.length ? aplicarBlocos(limpo, ex, ctx || null) : limpo;
   }
 
+  // 51 — HTML COLADO PELO DONO (botão "HTML" da barra do editor). Não abre
+  // exceção nenhuma na segurança: é o MESMO `PURIFY` de `renderizarCorpo`, e
+  // é de propósito — um segundo juiz de HTML divergiria do primeiro com o
+  // tempo, que é a lição de `hrefSeguro` (00 §6.2 item 50). O que esta função
+  // acrescenta são as duas coisas que faltavam, ambas MEDIDAS em 2026-09-04
+  // contra o dist de 648 994 B:
+  //
+  //  1. O FORMATO. HTML dentro de Markdown já funcionava, mas partia-se de
+  //     três maneiras que o dono não tinha como adivinhar: primeira linha com
+  //     4+ espaços vira BLOCO DE CÓDIGO (o leitor lê a tag em vez de a ver);
+  //     uma linha em branco no meio TERMINA o bloco HTML (regra do CommonMark
+  //     para `<div>` e companhia) e o resto sai remendado — medido, um `<pre>`
+  //     dentro de um `<div>` saía `<pre>um<p>dois</p></pre><p></p>`; e sem
+  //     linha em branco à volta os parágrafos vizinhos saem irregulares (esse
+  //     último é do `inserirBloco`, na tela). Daí tirar as linhas em branco e
+  //     a indentação comum ANTES de tudo.
+  //  2. O QUE O FILTRO TIROU. Hoje um `script` some em silêncio e o dono só
+  //     descobre no site publicado. Isto devolve a lista.
+  //
+  // ⚠️ Por que NÃO usar `DOMPurify.removed`, que existe para isto: medido na
+  // 3.4.14, ele **não reporta a tag `script`** quando o HTML começa por ela nem
+  // quando há vários — o aviso mentiria por omissão, que é pior do que não
+  // haver aviso. O inventário antes/depois apanha os dois casos, apanha ainda
+  // o `href="javascript:"` que o sanitizador esvazia calado, e não acusa o
+  // `<tbody>` que ele ACRESCENTA a uma `<table>` (comparar só o que sumiu).
+  //
+  // Devolve o HTML já limpo, porque é ele que entra no texto: o que se vê no
+  // editor tem de ser o que o leitor vê (decisão do usuário, 2026-09-04).
+  // Idempotente — medido: `sanitize(sanitize(x)) === sanitize(x)` e o corpo
+  // gravado atravessa `renderizarCorpo` sem mudar mais nada, logo o
+  // determinismo de 13 §5.2 fica intacto.
+  const RE_PRE = /<(\/?)(?:pre|textarea)\b/gi;
+  const ATTR_ENDERECO = Object.freeze(['href', 'src', 'action', 'formaction', 'xlink:href', 'data', 'poster']);
+  // `DOMParser` cria documento INERTE (sem browsing context): nada carrega,
+  // nada executa — é o mesmo que o DOMPurify faz por dentro, e o mesmo padrão
+  // que `primeiroParagrafo` já usa aqui. O documento nunca entra na página.
+  function inventario(html) {
+    const tags = new Set(), attrs = new Set();
+    let doc;
+    try { doc = new DOMParser().parseFromString('<body>' + String(html == null ? '' : html), 'text/html'); } catch (e) { return { tags, attrs }; }
+    for (const el of (doc.body ? doc.body.querySelectorAll('*') : [])) {
+      const nome = el.nodeName.toLowerCase();
+      tags.add(nome);
+      for (const a of el.attributes) attrs.add(nome + '/' + a.name.toLowerCase());
+    }
+    return { tags, attrs };
+  }
+  function limparHtmlColado(bruto) {
+    const cru = String(bruto == null ? '' : bruto).replace(/\r\n?/g, '\n');
+    // Uma linha em branco dentro de `<pre>` é CONTEÚDO, não formatação: sai
+    // com as outras e o dono tem de saber. Contagem de tags abertas, que
+    // chega para o aviso (não é um parser, e não precisa de ser).
+    let abertos = 0, perdeuEmPre = false;
+    const linhas = [];
+    for (const linha of cru.split('\n')) {
+      if (linha.trim() === '') { if (abertos > 0) perdeuEmPre = true; }
+      else linhas.push(linha);
+      RE_PRE.lastIndex = 0;
+      let m;
+      while ((m = RE_PRE.exec(linha)) !== null) abertos = Math.max(0, abertos + (m[1] ? -1 : 1));
+    }
+    // Dedent pela indentação comum; e a primeira linha sem espaço nenhum,
+    // que é a única que o CommonMark olha para decidir se aquilo é código.
+    let min = Infinity;
+    for (const l of linhas) { const n = /^[ \t]*/.exec(l)[0].length; if (n < min) min = n; }
+    const preparado = (min > 0 && min !== Infinity ? linhas.map(l => l.slice(min)) : linhas)
+      .join('\n').replace(/^[ \t]+/, '');
+    if (!preparado) return { html: '', removidos: [], perdeuEmPre, vazio: true };
+
+    const html = DOMPurify.sanitize(preparado, PURIFY);
+    const antes = inventario(preparado), depois = inventario(html);
+    const removidos = [];
+    for (const t of antes.tags) if (!depois.tags.has(t)) removidos.push({ tipo: 'tag', nome: t });
+    for (const par of antes.attrs) {
+      const i = par.indexOf('/'), tag = par.slice(0, i), nome = par.slice(i + 1);
+      // Atributo de tag que também sumiu não é achado próprio: seria dizer
+      // "tirei o href" a quem colou um <link> inteiro.
+      if (!depois.tags.has(tag) || depois.attrs.has(par)) continue;
+      removidos.push({ tipo: 'atributo', nome, em: tag });
+    }
+    return { html, removidos, perdeuEmPre, vazio: html.trim() === '' };
+  }
+  // Em que grupo de explicação cai o que foi removido (a tela tem um texto por
+  // grupo, e não um por tag — "svg, circle" em duas linhas seria ruído).
+  function grupoRemovido(r) {
+    if (r.tipo === 'atributo') {
+      if (/^on/.test(r.nome) || r.nome === 'srcdoc') return 'programa';
+      return ATTR_ENDERECO.indexOf(r.nome) === -1 ? 'outro' : 'endereco';
+    }
+    if (r.nome === 'script') return 'programa';
+    if (['iframe', 'object', 'embed', 'link', 'style', 'meta', 'base'].indexOf(r.nome) !== -1) return 'defora';
+    return 'outro';
+  }
+
   // Primeiro parágrafo em texto simples (para excerpt/description derivados)
   function primeiroParagrafo(html) {
     let doc;
@@ -425,5 +519,5 @@ const Gerador = (function () {
   }
 
   return Object.freeze({ caminhoCss, PURIFY, escapar, imagensClicaveis, renderizarCorpo, primeiroParagrafo, sha256Hex, contexto, opcoesDe, htmlDe, gerarSite, previa, previaCorpo,
-    extrairBlocos, hrefSeguro, opcoesArtigos, temGaleria, BLOCOS });
+    extrairBlocos, hrefSeguro, opcoesArtigos, temGaleria, BLOCOS, limparHtmlColado, grupoRemovido });
 })();

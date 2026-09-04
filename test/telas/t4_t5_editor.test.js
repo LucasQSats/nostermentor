@@ -615,6 +615,66 @@ module.exports = async function (ctx, u) {
     await p.pg.close();
   });
 
+  await it('51: o botão "HTML" avisa do que o filtro tira ANTES de inserir, insere o já limpo e em linha própria, e a prévia mostra a caixa', async () => {
+    const { p, ch: chI } = await sessaoIsolada();
+    await p.pg.click('#menu .item[data-tela="t4"]'); await p.pg.waitForSelector('#t4');
+    await p.pg.click('#novo-registro');
+    await p.pg.waitForSelector('#editor[data-tipo="page"]');
+    await p.pg.fill('#ed-titulo', 'Com HTML');
+    await p.pg.fill('#ed-corpo', 'Antes.');
+    await p.pg.evaluate(() => { const t = document.getElementById('ed-corpo'); t.focus(); t.setSelectionRange(6, 6); });
+    await p.pg.click('.ferramenta[data-acao="html"]');
+    await p.pg.waitForSelector('#html-confirmar');
+    assert(await p.pg.isDisabled('#html-confirmar'), 'com a caixa vazia o botão tinha de estar desligado');
+
+    // 1) o que o filtro tira aparece, com o motivo, e o dono ainda não inseriu nada
+    await p.pg.fill('#html-fonte', '    <div class="caixa-html-51">\n        <p>Uma caixa</p>\n        <button onclick="alert(1)">b</button>\n    </div>\n    <scr' + 'ipt>alert(2)</scr' + 'ipt>');
+    await p.pg.waitForSelector('#html-removidos-lista li');
+    const listado = await p.pg.textContent('#html-removidos-lista');
+    assert(/<script>/.test(listado) && /onclick=/.test(listado), 'o aviso tinha de nomear os dois: ' + listado);
+    assert(/não roda programas/.test(listado), 'o aviso tinha de dizer porquê: ' + listado);
+    assert((await p.pg.inputValue('#ed-corpo')) === 'Antes.', 'nada podia ter sido escrito antes do clique');
+
+    // 2) insere o JÁ LIMPO, sem indentação e em linha própria
+    await p.pg.click('#html-confirmar');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+    const corpo = await p.pg.inputValue('#ed-corpo');
+    assert(!/<script/i.test(corpo) && !/onclick/i.test(corpo), 'o que o filtro tirou entrou no texto: ' + corpo);
+    assert(corpo.indexOf('\n\n<div class="caixa-html-51">') !== -1, 'tinha de entrar em linha própria, com linha em branco antes: ' + JSON.stringify(corpo));
+    // Dedent é da indentação COMUM: entrou com 4 na linha de fora e 8 na de
+    // dentro, sai com 0 e 4. É a primeira linha que decide se aquilo vira
+    // bloco de código — as de dentro ficam recuadas para ele poder reler.
+    assert(/\n {4}<p>Uma caixa<\/p>\n/.test(corpo), 'o recuo devia ter descido 4 de cada linha: ' + JSON.stringify(corpo));
+
+    // 3) a prévia lateral mostra a caixa (e não o código dela). Lê-se pelo
+    // `srcdoc`: o iframe é de origem OPACA (02 G.2.2, sem allow-same-origin),
+    // logo `contentDocument` não se alcança daqui — e é para não se alcançar.
+    await p.pg.waitForFunction(() => /class="caixa-html-51"/.test((document.getElementById('ed-previa') || {}).srcdoc || ''), null, { timeout: 8000 });
+    const previa = await p.pg.evaluate(() => document.getElementById('ed-previa').srcdoc);
+    assert(/<div class="caixa-html-51">/.test(previa), 'a caixa não entrou como elemento');
+    assert(!/&lt;div class="caixa-html-51"/.test(previa), 'a caixa entrou ESCAPADA — o leitor ia ver a tag em vez da caixa');
+    assert(!/<pre><code>/.test(previa), 'saiu como bloco de código: ' + previa.slice(previa.indexOf('<article'), previa.indexOf('<article') + 300));
+    assert(!/alert\(/.test(previa) && !/onclick/i.test(previa), 'o que o filtro tirou chegou à prévia');
+
+    // 4) colar SÓ o que não entra: não insere nada e diz porquê
+    await p.pg.click('.ferramenta[data-acao="html"]');
+    await p.pg.waitForSelector('#html-fonte');
+    await p.pg.fill('#html-fonte', '<scr' + 'ipt>alert(3)</scr' + 'ipt>');
+    await p.pg.waitForSelector('#html-nada');
+    assert(await p.pg.isDisabled('#html-confirmar'), 'não havia nada para inserir');
+    // "não sobrou nada" sem dizer o quê deixaria quem colou um <iframe> do
+    // YouTube sem saber porquê: a lista de motivos tem de continuar lá
+    const nada = await p.pg.textContent('#html-removidos-lista');
+    assert(/<script>/.test(nada) && /não roda programas/.test(nada), 'com tudo removido o motivo tem de aparecer na mesma: ' + nada);
+    await p.pg.click('#html-cancelar');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+    assert((await p.pg.inputValue('#ed-corpo')) === corpo, 'o texto mudou depois de cancelar');
+
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.evaluate(async (pk) => { await Db.apagar(pk); }, chI.pubkey);
+    await p.pg.close();
+  });
+
   await it('32(c): escolher uma imagem grande como capa cria a miniatura guardada, liga-a à original, conta como alteração a publicar — e a miniatura NÃO volta a aparecer no seletor de capa', async () => {
     const { p, ch: chI } = await sessaoIsolada();
     // uma imagem de verdade, grande o bastante para compensar reduzir

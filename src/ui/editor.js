@@ -471,6 +471,71 @@ const Editor = (function () {
       inN.focus();
     }
 
+    // 51 — o HTML colado. O que este botão resolve NÃO é "deixar colar HTML":
+    // isso já funcionava (o Markdown aceita HTML inline e o DOMPurify limpa-o).
+    // É as duas coisas que falhavam em silêncio, medidas em 2026-09-04:
+    // a formatação, que partia o bloco de três maneiras, e o filtro, que
+    // apagava sem dizer. O juiz é `Gerador.limparHtmlColado` — o MESMO
+    // sanitizador da geração, para não haver duas regras a divergir.
+    // A conferência corre enquanto ele escreve, para o aviso chegar ANTES de
+    // inserir; e o que entra no texto é o já limpo (decisão do usuário): o que
+    // se vê no editor tem de ser o que o leitor vê.
+    function inserirHtml() {
+      const H = T.html;
+      const inFonte = h('textarea', { id: 'html-fonte', rows: '14', spellcheck: 'false', autocomplete: 'off', placeholder: H.placeholder });
+      const divAviso = h('div', { id: 'html-aviso' });
+      const btnOk = h('button', { type: 'button', id: 'html-confirmar', disabled: true, onclick: confirmar }, H.inserir);
+      let ultimo = null, prazo = null;
+      function conferir() {
+        const r = Gerador.limparHtmlColado(inFonte.value);
+        ultimo = r;
+        divAviso.textContent = '';
+        if (!inFonte.value.trim()) { btnOk.disabled = true; return; }
+        btnOk.disabled = r.vazio;
+        // ⚠️ Quando NADA sobra, a lista de motivos é ainda mais necessária, não
+        // menos: quem cola um <iframe> do YouTube receberia só "não sobrou
+        // nada" e ficaria sem saber o quê nem porquê. (Achado na bancada,
+        // 2026-09-04 — a primeira coisa que ela apanhou.)
+        if (r.vazio) divAviso.appendChild(h('p', { class: 'erro', id: 'html-nada' }, H.tudoRemovido));
+        if (r.removidos.length) {
+          // Um item por GRUPO de explicação, com as tags daquele grupo juntas
+          // e na ordem em que apareceram — ver `Gerador.grupoRemovido`.
+          const porGrupo = new Map();
+          for (const x of r.removidos) {
+            const g = Gerador.grupoRemovido(x);
+            if (!porGrupo.has(g)) porGrupo.set(g, []);
+            porGrupo.get(g).push(x.tipo === 'atributo' ? x.nome + '=' : '<' + x.nome + '>');
+          }
+          divAviso.appendChild(h('p', { class: 'alerta', id: 'html-removidos' }, H.removidosTitulo));
+          divAviso.appendChild(h('ul', { class: 'lista-copias', id: 'html-removidos-lista' },
+            Array.from(porGrupo.keys()).map(g => h('li', {}, h('code', {}, porGrupo.get(g).join(' ')), ' — ' + (H.motivos[g] || H.motivos.outro)))));
+        }
+        if (r.perdeuEmPre) divAviso.appendChild(h('p', { class: 'alerta', id: 'html-pre' }, H.linhaEmPre));
+      }
+      function confirmar() {
+        if (prazo) { clearTimeout(prazo); prazo = null; }
+        conferir();
+        if (!ultimo || ultimo.vazio) return;
+        Shell.fecharModal();
+        inserirBloco(ultimo.html);
+      }
+      inFonte.addEventListener('input', function () {
+        // Mesma espera da pré-visualização: sanitizar a cada tecla num bloco
+        // grande é trabalho jogado fora.
+        if (prazo) clearTimeout(prazo);
+        prazo = setTimeout(function () { prazo = null; conferir(); }, PREVIA_MS);
+      });
+      Shell.modal({ titulo: H.titulo, largo: true, conteudo: h('div', { class: 'html-modal' },
+        h('label', { for: 'html-fonte' }, H.rotulo), inFonte,
+        h('p', { class: 'apoio' }, H.apoio),
+        h('p', { class: 'apoio' }, H.passa),
+        divAviso,
+        h('div', { class: 'acoes' },
+          btnOk,
+          h('button', { type: 'button', class: 'secundario', id: 'html-cancelar', onclick: function () { Shell.fecharModal(); } }, H.cancelar))) });
+      inFonte.focus();
+    }
+
     // 32(c) — a miniatura GUARDADA da capa. Nasce aqui porque é aqui que a
     // imagem passa a ser capa, e a galeria (30) não pode servir a foto inteira
     // a quem lê por Tor: 7 MB por cartão. Regras que a governam:
@@ -532,7 +597,7 @@ const Editor = (function () {
       negrito: () => envolver('**', '**', M.negrito), italico: () => envolver('*', '*', M.italico), titulo: () => prefixarLinhas('## ', M.titulo),
       link: () => envolver('[', '](https://)', M.link), imagem: inserirImagem, video: inserirVideo, lista: () => prefixarLinhas('- ', M.lista), citacao: () => prefixarLinhas('> ', M.citacao),
       codigo: () => { const sel = taCorpo.value.slice(taCorpo.selectionStart, taCorpo.selectionEnd); if (sel.indexOf('\n') !== -1) envolver('```\n', '\n```', sel); else envolver('`', '`', M.codigo); },
-      botao: inserirBotao, artigos: inserirArtigos
+      botao: inserirBotao, artigos: inserirArtigos, html: inserirHtml
     };
     const ferramentas = h('div', { class: 'ferramentas', role: 'toolbar', 'aria-label': C.conteudo }, Object.keys(T.ferramentas).map(k =>
       h('button', { type: 'button', class: 'secundario ferramenta', 'data-acao': k, title: T.ferramentas[k], disabled: removido, onclick: function () { acoes[k](); } }, T.ferramentas[k])));

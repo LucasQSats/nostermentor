@@ -72,6 +72,10 @@
       painel.appendChild(h('p', {}, B.custo));
       painel.appendChild(h('h3', {}, B.miniaturaTitulo));
       painel.appendChild(h('p', {}, B.miniatura));
+      // 51 — o botão HTML mora na mesma barra e tem a mesma natureza: código
+      // que o dono escreve e o app trata. Explicar aqui, ao lado dos outros.
+      painel.appendChild(h('h3', {}, B.htmlTitulo));
+      for (const t of B.html) painel.appendChild(h('p', {}, t));
     }
     // A1 de 03 §3.5. Enquanto os endereços do projeto não existirem, a tela
     // diz isso — em vez de mostrar um placeholder que parece endereço.

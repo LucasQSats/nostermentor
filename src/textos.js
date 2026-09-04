@@ -233,7 +233,7 @@ const Textos = Object.freeze({
       confirmar: 'Remover',
       cancelar: 'Cancelar'
     },
-    ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', video: 'Vídeo', lista: 'Lista', citacao: 'Citação', codigo: 'Código', botao: 'Botão', artigos: 'Artigos' },
+    ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', video: 'Vídeo', lista: 'Lista', citacao: 'Citação', codigo: 'Código', botao: 'Botão', artigos: 'Artigos', html: 'HTML' },
     modelos: { negrito: 'texto em negrito', italico: 'texto em itálico', titulo: 'Título', link: 'texto do link', lista: 'item', citacao: 'citação', codigo: 'código' },
     // 37 — o CTA. O que fica escrito no texto é um marcador; o site publicado
     // recebe um link com aparência de botão, sem uma linha de script.
@@ -268,6 +268,29 @@ const Textos = Object.freeze({
       baixando: 'Buscando a imagem para preparar a versão pequena…',
       feita: 'Criada uma versão pequena desta imagem ({t}), para a galeria de artigos não servir a foto inteira. Ela sobe junto na próxima publicação.',
       naoDeu: 'Não consegui criar a versão pequena desta imagem. A galeria vai usar a imagem original — o que funciona, mas é mais pesado para quem lê.'
+    },
+    // 51 — o HTML colado. Os textos dizem o que o filtro tira E POR QUÊ: o
+    // motivo dos dois primeiros grupos não é purismo, é o leitor — script no
+    // site pede assinatura à extensão Nostr de quem visita (02 G.2.5) e
+    // recurso de fora entrega ao servidor de terceiro a lista de quem leu
+    // (02 G.2.4). Um grupo por explicação, e não uma linha por tag: quem cola
+    // um <svg> receberia "svg" e "circle" em duas linhas, o que é ruído.
+    html: {
+      titulo: 'Inserir HTML',
+      rotulo: 'Cole aqui o HTML',
+      placeholder: '<div class="destaque">\n  <p>O seu conteúdo.</p>\n</div>',
+      apoio: 'Serve para o que os outros botões não fazem: caixas, colunas, tabelas montadas à mão. O app arruma a formatação sozinho — indentação e linhas em branco no meio partem o texto publicado, e é o erro mais comum de quem cola HTML aqui.',
+      passa: 'Passam as tags de conteúdo e aparência (div, span, table, details, video, e o atributo style="…"). O que for programa ou buscar arquivo de outro servidor é removido — a lista aparece aqui em baixo antes de você inserir.',
+      removidosTitulo: 'Isto vai ser removido:',
+      motivos: {
+        programa: 'o site publicado não roda programas. Não é só regra: quem lê pelo Tor no nível mais alto tem o JavaScript desligado, e um programa no seu site pode pedir assinatura à extensão Nostr de quem visita — inclusive à sua.',
+        defora: 'isto faria o navegador de quem lê buscar um arquivo noutro servidor, que ficaria sabendo quem visitou você. Para mudar a aparência, use style="…" na própria tag.',
+        endereco: 'endereço recusado. Valem caminhos deste site (que começam com /) e endereços http:// ou https:// — mais nada.',
+        outro: 'esta tag não é aceita dentro do conteúdo.'
+      },
+      linhaEmPre: 'Havia linha em branco dentro de um bloco pré-formatado (<pre>). Ela foi tirada: se ficasse, o texto publicado sairia partido ao meio.',
+      tudoRemovido: 'Não sobrou nada depois do filtro — tudo o que você colou é do que não entra. Nada foi inserido.',
+      inserir: 'Inserir HTML', cancelar: 'Cancelar'
     },
     imagem: {
       titulo: 'Inserir imagem da biblioteca',
@@ -763,6 +786,12 @@ const Textos = Object.freeze({
       ],
       custoTitulo: 'O que isto custa ao publicar',
       custo: 'Uma página com galeria muda sozinha sempre que você publica um artigo novo, mesmo que você não tenha tocado nela — e o mesmo vale para as páginas das etiquetas daquele artigo. A tela Publicar diz sempre, ao lado de cada arquivo, por que ele está subindo.',
+      htmlTitulo: 'O botão HTML',
+      html: [
+        'O botão "HTML" serve para o que os outros não fazem: uma caixa de destaque, duas colunas, uma tabela montada à mão. Você cola o HTML e o app arruma a formatação — sem isso, um HTML indentado aparece no site como código à vista, e uma linha em branco no meio parte o bloco em dois.',
+        'O filtro é o mesmo de sempre e continua ligado: o que for programa (script, onclick) ou for buscar arquivo noutro servidor (iframe, style, link) é removido. A diferença é que agora o app diz o que tirou, antes de inserir — antes disso, sumia calado.',
+        'O que entra no seu texto é o HTML já limpo. É de propósito: assim o que você vê no editor é exatamente o que o leitor vai ver.'
+      ],
       miniaturaTitulo: 'As versões pequenas das imagens',
       miniatura: 'Quando você escolhe uma imagem grande como capa, o app cria automaticamente uma cópia pequena dela. É essa cópia que a galeria mostra: servir a foto inteira faria a página levar minutos a abrir para quem lê pelo Tor. A cópia aparece na sua biblioteca de Mídia como um arquivo à parte, com "-mini" no nome.'
     },

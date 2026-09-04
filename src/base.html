@@ -114,6 +114,11 @@ table.lista td.data{font-family:ui-monospace,Menlo,Consolas,monospace;white-spac
 .editor-campos label.inline{font-weight:400}
 .editor-campos .apoio{margin:2px 0 0}
 .editor-campos textarea{width:100%;padding:7px 9px;border:1px solid #8c8f94;border-radius:3px;font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:14px;line-height:1.45}
+/* 51 — a caixa do HTML colado: monoespaçada como a do corpo, e a crescer com
+   o modal largo, porque HTML de layout chega em blocos, não em linhas. */
+.html-modal{display:flex;flex-direction:column;min-height:0}
+#html-fonte{width:100%;padding:7px 9px;border:1px solid #8c8f94;border-radius:3px;font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;line-height:1.45;resize:vertical}
+#html-aviso code{word-break:break-all}
 .editor-campos select{width:100%;padding:6px 9px;border:1px solid #8c8f94;border-radius:3px;background:#fff}
 .editor-campos input[type=date]{padding:6px 9px;border:1px solid #8c8f94;border-radius:3px;width:100%}
 .linha-caminho{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
