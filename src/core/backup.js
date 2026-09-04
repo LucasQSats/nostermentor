@@ -142,6 +142,16 @@ const Backup = (function () {
       origin: m.origin === 'network' ? 'network' : 'upload', created_at: iso(m.created_at, agora), updated_at: iso(m.updated_at, agora),
       previous_status: status === 'removed' && (m.previous_status === 'published' || m.previous_status === 'modified') ? m.previous_status : null };
   }
+  // 32(c) — a miniatura guardada sobrevive à importação, mas a chave só entra
+  // quando aponta mesmo para alguma coisa. ⚠️ Escrevê-la como `null` fazia a
+  // importação devolver um registro DIFERENTE do que foi exportado — apanhado
+  // pelo aceite 5 de `telas/t9_backup`, que compara os dois lado a lado. Para
+  // todo o app, `thumb_media_id` ausente e `null` são a mesma coisa, e nada
+  // deve inventar a chave: é a lição do `logo_media_id` por outro caminho.
+  function comMiniatura(saida, bruto) {
+    if (saida && idValido(bruto && bruto.thumb_media_id)) saida.thumb_media_id = bruto.thumb_media_id;
+    return saida;
+  }
   function lerPublicado(p, pubkey) {
     if (!obj(p) || !obj(p.manifest_event)) return null;
     const ev = p.manifest_event;
@@ -176,7 +186,7 @@ const Backup = (function () {
     const dados = {
       site: s, pages: semDuplicados(arr(j.pages).map(p => lerPagina(p, agora)).filter(Boolean)),
       posts: semDuplicados(arr(j.posts).map(p => lerArtigo(p, agora)).filter(Boolean)),
-      media: semDuplicados(arr(j.media).map(m => lerMidia(m, agora)).filter(Boolean)),
+      media: semDuplicados(arr(j.media).map(m => comMiniatura(lerMidia(m, agora), m)).filter(Boolean)),
       published: pubkey ? lerPublicado(j.published, pubkey) : null
     };
     const mesmaChave = !!(sessao && pubkey && sessao.pubkey === pubkey);

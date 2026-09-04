@@ -541,6 +541,132 @@ module.exports = async function (ctx, u) {
     await p.pg.close();
   });
 
+  // ---- lote 30 + 37 + 40 + 32(c) --------------------------------------------
+  await it('37/30: os dois botões novos da barra escrevem o marcador em LINHA PRÓPRIA (que é a única forma de ele valer), e a prévia lateral já mostra o botão e a galeria', async () => {
+    const { p, ch: chI } = await sessaoIsolada();
+    // dois artigos publicados, para a galeria ter o que mostrar
+    await p.pg.evaluate(async (pk) => {
+      const db = await Db.abrir(pk);
+      for (const [t, d, tag] of [['Bolo', '2026-08-01T00:00:00Z', 'receitas'], ['Pão', '2026-08-10T00:00:00Z', 'receitas']]) {
+        const a = Modelo.novoArtigo(t); a.date = d; a.body = 'x'; a.tags = [tag]; a.status = 'published';
+        await db.put('posts', a);
+      }
+      db.fechar();
+    }, chI.pubkey);
+    await p.pg.click('#menu .item[data-tela="t4"]'); await p.pg.waitForSelector('#t4');
+    await p.pg.click('#novo-registro');
+    await p.pg.waitForSelector('#editor[data-tipo="page"]');
+    await p.pg.fill('#ed-titulo', 'Com blocos');
+    // o cursor no meio de uma linha com texto: o marcador tem de saltar para baixo
+    await p.pg.fill('#ed-corpo', 'Olá mundo');
+    await p.pg.evaluate(() => { const t = document.getElementById('ed-corpo'); t.setSelectionRange(3, 3); t.focus(); });
+    await p.pg.click('.ferramenta[data-acao="botao"]');
+    await p.pg.waitForSelector('#botao-confirmar');
+    await p.pg.fill('#botao-texto', 'Fale comigo');
+    await p.pg.fill('#botao-destino', '/contato');
+    await p.pg.click('#botao-confirmar');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+    await p.pg.click('.ferramenta[data-acao="artigos"]');
+    await p.pg.waitForSelector('#artigos-confirmar');
+    await p.pg.fill('#artigos-n', '2');
+    await p.pg.selectOption('#artigos-etiqueta', 'receitas');
+    await p.pg.click('#artigos-confirmar');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+    const corpo = await p.pg.inputValue('#ed-corpo');
+    assert(/^Olá mundo\n\n\[\[botao: Fale comigo -> \/contato\]\]\n\n\[\[artigos: 2, com-capa, etiqueta=receitas\]\]$/.test(corpo), JSON.stringify(corpo));
+    // a prévia lateral desenha os dois blocos com os artigos REAIS
+    await p.pg.waitForFunction(() => {
+      const f = document.getElementById('ed-previa');
+      return f && /class="botao"/.test(f.srcdoc || '') && /class="cartoes"/.test(f.srcdoc || '');
+    }, null, { timeout: 8000 });
+    const previa = await p.pg.evaluate(() => document.getElementById('ed-previa').srcdoc);
+    assert(/<a class="botao" href="\/contato">Fale comigo<\/a>/.test(previa), previa.slice(previa.indexOf('<article'), previa.indexOf('</article>')));
+    // contar a TAG, não a classe: o CSS do tema vai embutido na prévia e tem
+    // duas regras `.cartao-titulo` (ver a nota em core/blocos).
+    assert((previa.match(/<h3 class="cartao-titulo">/g) || []).length === 2, 'a prévia devia mostrar os 2 artigos da etiqueta');
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.evaluate(async (pk) => { await Db.apagar(pk); }, chI.pubkey);
+    await p.pg.close();
+  });
+
+  await it('37: o modal do botão recusa endereço que não é do site nem http(s) ANTES de escrever no texto — o mesmo juiz que o gerador usa', async () => {
+    const { p, ch: chI } = await sessaoIsolada();
+    await p.pg.click('#menu .item[data-tela="t4"]'); await p.pg.waitForSelector('#t4');
+    await p.pg.click('#novo-registro');
+    await p.pg.waitForSelector('#editor[data-tipo="page"]');
+    await p.pg.click('.ferramenta[data-acao="botao"]');
+    await p.pg.waitForSelector('#botao-confirmar');
+    // sem texto: recusa e diz porquê
+    await p.pg.fill('#botao-destino', '/ok');
+    await p.pg.click('#botao-confirmar');
+    assert(await p.pg.isVisible('#botao-erro'), 'devia recusar botão sem rótulo');
+    // esquema perigoso: recusa e o modal fica aberto
+    await p.pg.fill('#botao-texto', 'Clique');
+    await p.pg.fill('#botao-destino', 'javascript:alert(1)');
+    await p.pg.click('#botao-confirmar');
+    assert(await p.pg.$('#botao-confirmar'), 'o modal não podia fechar com endereço inválido');
+    const erro = await p.pg.textContent('#botao-erro');
+    assert(/Endereço inválido/.test(erro), erro);
+    assert((await p.pg.inputValue('#ed-corpo')) === '', 'nada podia ter sido escrito no texto');
+    await p.pg.click('#botao-cancelar');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.evaluate(async (pk) => { await Db.apagar(pk); }, chI.pubkey);
+    await p.pg.close();
+  });
+
+  await it('32(c): escolher uma imagem grande como capa cria a miniatura guardada, liga-a à original, conta como alteração a publicar — e a miniatura NÃO volta a aparecer no seletor de capa', async () => {
+    const { p, ch: chI } = await sessaoIsolada();
+    // uma imagem de verdade, grande o bastante para compensar reduzir
+    await p.pg.evaluate(async (pk) => {
+      const c = document.createElement('canvas'); c.width = 1600; c.height = 1200;
+      const cx = c.getContext('2d');
+      cx.fillStyle = '#2271b1'; cx.fillRect(0, 0, 1600, 1200);
+      cx.fillStyle = '#ffffff'; cx.fillRect(120, 120, 900, 700);
+      cx.fillStyle = '#b32d2e'; cx.fillRect(300, 300, 400, 200);
+      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      const brutos = new Uint8Array(await blob.arrayBuffer());
+      const db = await Db.abrir(pk);
+      await db.put('media', { id: 'm-grande', path: '/img/praia.png', mime: 'image/png', size: brutos.length,
+        sha256: await Blossom.sha256Hex(brutos), width: 1600, height: 1200, alt: 'A praia', caption: '',
+        bytes: new Blob([brutos], { type: 'image/png' }), status: 'draft', servers: [], removal: null,
+        metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload',
+        created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null });
+      db.fechar();
+    }, chI.pubkey);
+    await p.pg.click('#menu .item[data-tela="t5"]'); await p.pg.waitForSelector('#t5');
+    await p.pg.click('#novo-registro');
+    await p.pg.waitForSelector('#editor[data-tipo="post"]');
+    await p.pg.fill('#ed-titulo', 'Com capa grande');
+    await p.pg.click('#ed-capa-escolher');
+    await p.pg.waitForSelector('.grade-capas .capa-opcao[data-media-id="m-grande"]');
+    await p.pg.click('.grade-capas .capa-opcao[data-media-id="m-grande"]');
+    await p.pg.waitForFunction(() => !document.getElementById('modal'), null, { timeout: 5000 });
+    // a miniatura nasce em segundo plano; o dono vê a linha de estado
+    // esperar o RESULTADO, não o "preparando" — que também contém a frase
+    await p.pg.waitForFunction(() => /Criada uma versão pequena|Não consegui criar/.test((document.getElementById('ed-mini') || {}).textContent || ''), null, { timeout: 30000 });
+    const aviso = await p.pg.textContent('#ed-mini');
+    assert(/Criada uma versão pequena/.test(aviso), 'estado da miniatura: ' + aviso);
+    const b = await lerBanco(p.pg, chI.pubkey);
+    const original = b.media.find(m => m.id === 'm-grande');
+    const mini = b.media.find(m => m.id !== 'm-grande');
+    assert(mini, 'a miniatura não foi gravada: ' + JSON.stringify(b.media.map(m => m.path)));
+    assert(original.thumb_media_id === mini.id, 'a original não ficou ligada à miniatura: ' + original.thumb_media_id);
+    assert(mini.path === '/img/praia-mini.webp' || mini.path === '/img/praia-mini.png', 'caminho da miniatura: ' + mini.path);
+    assert(mini.width === 480 && mini.height === 360, JSON.stringify([mini.width, mini.height]));
+    assert(mini.size < original.size, 'a miniatura tem de ser menor: ' + mini.size + ' vs ' + original.size);
+    assert(original.status === 'draft', 'a original não muda de estado: os bytes dela são os mesmos');
+    // e não volta a aparecer como imagem escolhível
+    await p.pg.click('#ed-capa-escolher');
+    await p.pg.waitForSelector('.grade-capas');
+    const opcoes = await p.pg.$$eval('.grade-capas .capa-opcao[data-media-id]', els => els.map(e => e.getAttribute('data-media-id')));
+    assert(JSON.stringify(opcoes) === JSON.stringify(['m-grande']), 'a miniatura apareceu no seletor: ' + JSON.stringify(opcoes));
+    await p.pg.keyboard.press('Escape');
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.evaluate(async (pk) => { await Db.apagar(pk); }, chI.pubkey);
+    await p.pg.close();
+  });
+
   await it('cabe em 1200×600: editor sem rolagem horizontal, "Salvar" visível sem rolar; lista idem', async () => {
     const p = await sessao();
     await p.pg.click('#menu .item[data-tela="t5"]'); await p.pg.waitForSelector('#t5');

@@ -8,11 +8,12 @@ O que é
 
 Como abrir
   Tails (o caso mais restrito — vale para todos):
-    1. Copie a pasta do Nostermentor para a pasta Documents. Faça isso a
-       cada sessão: o Tor Browser não abre o painel a partir do pendrive
-       nem do Persistent Storage.
-    2. Abra o Tor Browser e, nele, abra o arquivo nostermentor.html
-       (Ctrl+O, ou arraste o arquivo para a janela).
+    1. Abra o nostermentor.html com dois cliques, ou arraste-o para a
+       janela do Tor Browser — funciona também a partir de um pendrive.
+       Só digitar o endereço file:// na barra é que o navegador recusa;
+       nesse caso copie a pasta para Documents antes.
+    2. O Tails esquece tudo ao desligar: guarde a pasta no Persistent
+       Storage, ou recopie-a a cada sessão.
     3. Nível de segurança: Standard ou Safer. Em Safest o painel não
        arranca (o próprio painel explica isso na tela).
     4. Se o painel abrir e ficar parado no aviso inicial, recarregue (F5).

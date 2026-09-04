@@ -104,8 +104,10 @@ module.exports = async function (ctx, u) {
     out.shaTotal = await Gerador.sha256Hex(new TextEncoder().encode(g1.arquivos.map(a => a.path + ':' + a.sha256).join('\n')));
     return out;
   });
-  const esperados = ['/blog/antigo-segundo.html', '/blog/index.html', '/blog/primeiro-artigo.html', '/blog/segundo-artigo.html', '/blog/terceiro.html', '/index.html', '/nostermentor/site.json', '/oculta.html', '/quem-somos.html', '/sobre-nos.html', '/tema/estilo.css'];
-  await it('caminhos de 13 §5.1: home, páginas (a Home só em /index.html), aliases, /blog/index.html, artigos, alias de artigo, CSS do tema, site.json; removida fora', () => assert(JSON.stringify(r.caminhos) === JSON.stringify(esperados), JSON.stringify(r.caminhos)));
+  // 40 — as duas páginas de etiqueta entram nesta lista de propósito: a partir
+  // desta versão cada etiqueta usada por um artigo publicável é um arquivo.
+  const esperados = ['/blog/antigo-segundo.html', '/blog/etiqueta/nostr.html', '/blog/etiqueta/teste.html', '/blog/index.html', '/blog/primeiro-artigo.html', '/blog/segundo-artigo.html', '/blog/terceiro.html', '/index.html', '/nostermentor/site.json', '/oculta.html', '/quem-somos.html', '/sobre-nos.html', '/tema/estilo.css'];
+  await it('caminhos de 13 §5.1: home, páginas (a Home só em /index.html), aliases, /blog/index.html, artigos, alias de artigo, página por etiqueta (40), CSS do tema, site.json; removida fora', () => assert(JSON.stringify(r.caminhos) === JSON.stringify(esperados), JSON.stringify(r.caminhos)));
   await it('aceite 4: gerar duas vezes → bytes idênticos; UTF-8 sem BOM; só \\n', () => assert(r.identico && r.bom && !r.crlf, JSON.stringify([r.identico, r.bom, r.crlf])));
   await it('published_hash por id: 3 páginas + 3 artigos; o da Home é o hash de /index.html', () => assert(r.porId === 6 && r.hashHome, r.porId + ' ' + r.hashHome));
   await it('aceite 4 (13 §5.3): corpo de uma página → só ela + site.json', () => assert(JSON.stringify(r.mudouPagina) === JSON.stringify(['/nostermentor/site.json', '/sobre-nos.html']), JSON.stringify(r.mudouPagina)));
@@ -131,7 +133,8 @@ module.exports = async function (ctx, u) {
   });
   await it('artigo: data só AAAA-MM-DD no texto E no datetime (T-10), etiquetas, capa com alt/legenda/dimensões; com show_publish_time a hora aparece', () => {
     assert(/<time datetime="2026-08-01">2026-08-01<\/time>/.test(r.a1) && !/10:20/.test(r.a1), 'hora vazou: ' + r.a1.slice(r.a1.indexOf('<p class="meta"'), r.a1.indexOf('<p class="meta"') + 200));
-    assert(/<span class="etiqueta">nostr<\/span>/.test(r.a1) && /<img src="\/img\/capa\.png" alt="A capa" width="10" height="5">/.test(r.a1) && /<figcaption>Legenda<\/figcaption>/.test(r.a1), 'etiquetas/capa');
+    // 40 — a etiqueta passou de <span> a <a> para a página dela.
+    assert(/<a class="etiqueta" href="\/blog\/etiqueta\/nostr\.html">nostr<\/a>/.test(r.a1) && /<img src="\/img\/capa\.png" alt="A capa" width="10" height="5">/.test(r.a1) && /<figcaption>Legenda<\/figcaption>/.test(r.a1), 'etiquetas/capa');
     assert(/<time datetime="2026-08-01T10:20:30Z">2026-08-01 10:20 UTC<\/time>/.test(r.a1ComHora), 'com hora: ' + r.a1ComHora.slice(r.a1ComHora.indexOf('<time'), r.a1ComHora.indexOf('<time') + 80));
   });
   await it('blog: artigos por data decrescente, resumo explícito ou derivado do primeiro parágrafo; home em modo blog é a listagem', () => {

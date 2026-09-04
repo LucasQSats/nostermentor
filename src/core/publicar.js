@@ -62,8 +62,15 @@ const Publicar = (function () {
     }
     return s;
   }
+  // 40 — `/blog/etiqueta/` entra por PREFIXO, como `/tema/`, e não por lista:
+  // a etiqueta que o dono acabou de tirar do último artigo já não está em
+  // `dados.posts`, e sem esta linha o caminho dela ficaria preservado como
+  // "herdado de outra ferramenta" — para sempre, sem botão de apagar. Custo
+  // aceite: um nsite de outra ferramenta que use este prefixo perde-o para o
+  // app, exatamente como já acontece com `/tema/`.
   function ehDoApp(path, gerado, doApp) {
-    return !!gerado.hashes[path] || path.indexOf('/tema/') === 0 || path === Modelo.CAMINHO_SITE_JSON || doApp.has(path);
+    return !!gerado.hashes[path] || path.indexOf('/tema/') === 0 || path.indexOf(Modelo.PREFIXO_ETIQUETA + '/') === 0 ||
+      path === Modelo.CAMINHO_SITE_JSON || doApp.has(path);
   }
 
   // Mídia que entra no mapa: tudo que não foi removido e tem hash.
@@ -133,6 +140,7 @@ const Publicar = (function () {
     for (const path of Object.keys(mapa).sort()) {
       const sha = mapa[path], a = arquivoDe[path];
       const item = { path: path, sha256: sha, tipo: a ? a.tipo : 'herdado', id: a ? a.id : null,
+        dinamico: !!(a && a.dinamico),
         tamanho: a && a.bytes ? (a.bytes.size != null ? a.bytes.size : a.bytes.length) : (a && a.tamanho) || null };
       if (!antes[path]) { if (a) sobe.push(item); }
       else if (antes[path] !== sha) atualiza.push(item);

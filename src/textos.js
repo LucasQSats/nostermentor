@@ -29,7 +29,7 @@ const Textos = Object.freeze({
     entrandoComo: 'Entrando como ',
     gerar: {
       titulo: 'Sua chave nova',
-      alerta: 'Quem tem esta chave é o dono do site; não existe recuperação. Ela é mostrada uma única vez — guarde-a agora.',
+      alerta: 'Quem tem esta chave é o dono do site; não existe recuperação. Ela é mostrada uma única vez — guarde-a agora: no Tails, no Armazenamento Persistente, senão ela some quando desligar; noutros sistemas, num gerenciador de senhas.',
       rotuloNsec: 'Chave privada (nsec):',
       rotuloNpub: 'Endereço público do site (npub):',
       baixar: 'Baixar o arquivo ',
@@ -41,7 +41,7 @@ const Textos = Object.freeze({
     tails: {
       titulo: 'Primeira vez no Tails',
       paragrafos: [
-        'Copie a pasta do Nostermentor para a pasta Documents a cada sessão. O Tor Browser não abre o painel a partir do pendrive nem do Persistent Storage — só de Documents, Downloads, Pictures, Music e Videos.',
+        'Abra o painel com dois cliques, ou arraste o arquivo para a janela do Tor Browser — funciona também a partir de um pendrive. Se em vez disso você digitar o endereço file:// na barra, o navegador recusa: aí copie a pasta para Documents primeiro. O Tails esquece tudo ao desligar, então a cópia é a cada sessão.',
         'Os seus dados (chave, backup, imagens) ficam no Persistent Storage: o painel os alcança pelo seletor de arquivos, e grava o backup pelo diálogo de download. Nada do seu trabalho se perde com isso.',
         'Nível de segurança do Tor Browser: Standard ou Safer. Em Safest o JavaScript é desligado em páginas locais e o painel não arranca.',
         'Se o painel abrir e ficar parado no aviso inicial, recarregue (F5).',
@@ -233,8 +233,42 @@ const Textos = Object.freeze({
       confirmar: 'Remover',
       cancelar: 'Cancelar'
     },
-    ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', video: 'Vídeo', lista: 'Lista', citacao: 'Citação', codigo: 'Código' },
+    ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', video: 'Vídeo', lista: 'Lista', citacao: 'Citação', codigo: 'Código', botao: 'Botão', artigos: 'Artigos' },
     modelos: { negrito: 'texto em negrito', italico: 'texto em itálico', titulo: 'Título', link: 'texto do link', lista: 'item', citacao: 'citação', codigo: 'código' },
+    // 37 — o CTA. O que fica escrito no texto é um marcador; o site publicado
+    // recebe um link com aparência de botão, sem uma linha de script.
+    botao: {
+      titulo: 'Inserir botão',
+      rotulo: 'O que o botão diz',
+      rotuloPlaceholder: 'Fale comigo',
+      destino: 'Para onde leva',
+      destinoPlaceholder: '/contato',
+      apoio: 'Uma página deste site (comece com uma barra: /contato) ou um endereço completo de outro site (https://…).',
+      invalido: 'Endereço inválido. Use /alguma-pagina deste site, ou https://outro-site.',
+      semTexto: 'Escreva o que o botão deve dizer.',
+      inserir: 'Inserir botão', cancelar: 'Cancelar'
+    },
+    // 30 — a galeria de artigos. O marcador fica no texto e o app troca-o por
+    // uma grade de cartões na hora de gerar o site.
+    artigos: {
+      titulo: 'Inserir galeria de artigos',
+      quantos: 'Quantos artigos mostrar',
+      capa: 'Mostrar a imagem de capa de cada artigo',
+      resumo: 'Mostrar o resumo de cada artigo',
+      etiqueta: 'Só os de uma etiqueta',
+      etiquetaTodas: '(todas)',
+      apoio: 'A galeria mostra sempre os mais recentes. Quando você publicar um artigo novo, esta página muda sozinha — e a próxima publicação vai subi-la de novo.',
+      semCapaAviso: 'Nenhum dos artigos tem imagem de capa ainda. A galeria vai ficar só com títulos até você definir capas.',
+      inserir: 'Inserir galeria', cancelar: 'Cancelar'
+    },
+    // 32(c) — a miniatura da capa. Nasce aqui porque é aqui que a imagem passa
+    // a ser capa, e a galeria não pode servir a foto inteira a quem lê por Tor.
+    mini: {
+      preparando: 'Preparando a versão pequena da imagem…',
+      baixando: 'Buscando a imagem para preparar a versão pequena…',
+      feita: 'Criada uma versão pequena desta imagem ({t}), para a galeria de artigos não servir a foto inteira. Ela sobe junto na próxima publicação.',
+      naoDeu: 'Não consegui criar a versão pequena desta imagem. A galeria vai usar a imagem original — o que funciona, mas é mais pesado para quem lê.'
+    },
     imagem: {
       titulo: 'Inserir imagem da biblioteca',
       nenhuma: 'Ainda não há imagens na biblioteca. Envie uma em Mídia.',
@@ -407,6 +441,8 @@ const Textos = Object.freeze({
     porques: {
       blog: 'porque um artigo mudou',
       home: 'porque a inicial mostra artigos recentes',
+      etiqueta: 'porque um artigo com esta etiqueta mudou',
+      galeria: 'porque esta página mostra uma galeria de artigos',
       site_json: 'sempre que algo muda',
       tema: 'porque o tema mudou',
       alias: 'redirecionamento',
@@ -705,14 +741,38 @@ const Textos = Object.freeze({
   t11: {
     titulo: 'Ajuda e Sobre',
     abas: [['abrir', 'Como abrir'], ['chave', 'A sua chave'], ['copias', 'Onde ficam as suas coisas'],
-      ['remover', 'Remover não é apagar'], ['apoio', 'Apoiar'], ['sobre', 'Sobre']],
+      ['remover', 'Remover não é apagar'], ['blocos', 'Botões e galerias'], ['apoio', 'Apoiar'], ['sobre', 'Sobre']],
+    // 30/37/40 — os botões da barra escrevem isto sozinhos, mas o que fica no
+    // texto é código à vista, e mais cedo ou mais tarde ele vai querer mexer
+    // à mão. Explicar aqui é mais barato do que ele descobrir por tentativa.
+    blocos: {
+      titulo: 'Botões e galerias de artigos',
+      intro: 'No editor de páginas e artigos, os botões "Botão" e "Artigos" escrevem no seu texto um código curto entre colchetes duplos. Na página publicada, esse código vira um botão ou uma grade de artigos.',
+      regra: 'Uma regra só, e é a que mais dá erro: o código tem de ficar sozinho na sua linha. No meio de uma frase ele fica como está, à vista do leitor.',
+      exemplos: [
+        ['[[botao: Fale comigo -> /contato]]', 'Um botão com o texto "Fale comigo", que leva à página /contato deste site. Também aceita endereço de outro site (https://…). Qualquer outra coisa é recusada — é a mesma proteção que impede um link de executar código na máquina de quem lê.'],
+        ['[[artigos: 6, com-capa]]', 'Os 6 artigos mais recentes, em cartões com a imagem de capa.'],
+        ['[[artigos: 3, sem-capa, com-resumo]]', 'Os 3 mais recentes, sem imagem e com o resumo de cada um.'],
+        ['[[artigos: 4, com-capa, etiqueta=receitas]]', 'Os 4 mais recentes que tenham a etiqueta "receitas".']
+      ],
+      etiquetasTitulo: 'As etiquetas dos artigos',
+      etiquetas: [
+        'Cada etiqueta que você usa num artigo ganha uma página própria no site, com o endereço /blog/etiqueta/nome-da-etiqueta.html, e a etiqueta mostrada no artigo passa a levar até lá.',
+        'Se você tirar uma etiqueta do último artigo que a usava, a página dela sai do ar na próxima publicação — e quem tiver guardado aquele endereço passa a não achar nada. Renomear uma etiqueta tem o mesmo efeito: é um endereço novo, e o antigo morre.',
+        'Duas etiquetas escritas de forma diferente mas que dão o mesmo endereço (por exemplo "São Paulo" e "sao paulo") ficam na mesma página, juntas.'
+      ],
+      custoTitulo: 'O que isto custa ao publicar',
+      custo: 'Uma página com galeria muda sozinha sempre que você publica um artigo novo, mesmo que você não tenha tocado nela — e o mesmo vale para as páginas das etiquetas daquele artigo. A tela Publicar diz sempre, ao lado de cada arquivo, por que ele está subindo.',
+      miniaturaTitulo: 'As versões pequenas das imagens',
+      miniatura: 'Quando você escolhe uma imagem grande como capa, o app cria automaticamente uma cópia pequena dela. É essa cópia que a galeria mostra: servir a foto inteira faria a página levar minutos a abrir para quem lê pelo Tor. A cópia aparece na sua biblioteca de Mídia como um arquivo à parte, com "-mini" no nome.'
+    },
     abrir: {
       titulo: 'Como abrir o Nostermentor',
       intro: 'O Nostermentor é um arquivo só — nostermentor.html. Não instala nada: o navegador é o programa. Guarde-o numa pasta sua e abra-o com dois cliques.',
       tails: 'No Tails (o caso mais restrito — se funciona aqui, funciona em todo lado)',
       tailsPassos: [
-        'Copie a pasta do Nostermentor para a pasta Documentos, e faça isso a cada sessão: o Tor Browser do Tails não abre o app a partir do pendrive nem do Persistent Storage.',
-        'Abra o arquivo nostermentor.html no Tor Browser (Ctrl+O, ou arraste o arquivo para a janela).',
+        'Abra o nostermentor.html com dois cliques, ou arraste-o para a janela do Tor Browser — funciona também a partir de um pendrive. Só digitar o endereço file:// na barra é que o navegador recusa; nesse caso copie a pasta para Documentos antes.',
+        'Como o Tails esquece tudo ao desligar, refaça isso a cada sessão — ou guarde a pasta no Persistent Storage e abra de lá.',
         'Nível de segurança Standard ou Safer. Em Safest o navegador desliga o JavaScript e o painel não arranca — se isso acontecer, a própria tela explica.',
         'Se a página abrir e ficar parada no aviso inicial, recarregue (F5). Acontece de vez em quando quando o navegador é aberto já com o arquivo.',
         'Os seus dados — chave, backup, imagens — ficam no Persistent Storage. O painel os alcança pelo seletor de arquivos, sempre que você mandar.',

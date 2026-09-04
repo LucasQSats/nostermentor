@@ -24,6 +24,7 @@ const SUITES = [
   ['core/rede', require('./core/rede.test.js')],
   ['core/limpeza', require('./core/limpeza.test.js')],
   ['core/gerador', require('./core/gerador.test.js')],
+  ['core/blocos', require('./core/blocos.test.js')],
   ['core/backup', require('./core/backup.test.js')],
   ['telas/t1_entrar', require('./telas/t1_entrar.test.js')],
   ['telas/t2_t3', require('./telas/t2_t3.test.js')],

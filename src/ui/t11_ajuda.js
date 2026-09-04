@@ -55,6 +55,24 @@
       painel.appendChild(h('h2', {}, T.remover.titulo));
       for (const p of paragrafos(T.remover.paragrafos)) painel.appendChild(p);
     }
+    // 30/37/40/32(c) — o que o dono precisa de saber sobre os blocos: a regra
+    // da linha própria (a que mais dá erro), o que cada código faz, o que as
+    // etiquetas custam quando mudam, e por que existe um "-mini" na biblioteca.
+    function painelBlocos() {
+      const B = T.blocos;
+      painel.appendChild(h('h2', {}, B.titulo));
+      painel.appendChild(h('p', {}, B.intro));
+      painel.appendChild(h('p', { class: 'destaque' }, B.regra));
+      painel.appendChild(h('ul', { class: 'lista-copias', id: 't11-blocos-exemplos' }, B.exemplos.map(function (par) {
+        return h('li', {}, h('code', {}, par[0]), ' — ' + par[1]);
+      })));
+      painel.appendChild(h('h3', {}, B.etiquetasTitulo));
+      for (const t of B.etiquetas) painel.appendChild(h('p', {}, t));
+      painel.appendChild(h('h3', {}, B.custoTitulo));
+      painel.appendChild(h('p', {}, B.custo));
+      painel.appendChild(h('h3', {}, B.miniaturaTitulo));
+      painel.appendChild(h('p', {}, B.miniatura));
+    }
     // A1 de 03 §3.5. Enquanto os endereços do projeto não existirem, a tela
     // diz isso — em vez de mostrar um placeholder que parece endereço.
     function painelApoio() {
@@ -90,6 +108,7 @@
       else if (secao === 'chave') painelChave();
       else if (secao === 'copias') painelCopias();
       else if (secao === 'remover') painelRemover();
+      else if (secao === 'blocos') painelBlocos();
       else if (secao === 'apoio') painelApoio();
       else painelSobre();
     }

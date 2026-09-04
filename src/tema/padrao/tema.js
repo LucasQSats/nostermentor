@@ -57,7 +57,7 @@ const TemaPadrao = (function () {
   });
 
   const manifesto = Object.freeze({
-    id: 'padrao', version: 2, nome: 'Padrão', autor: 'Nostermentor', engine_min: 1,
+    id: 'padrao', version: 3, nome: 'Padrão', autor: 'Nostermentor', engine_min: 1,
     options: options
   });
 
@@ -122,7 +122,7 @@ const TemaPadrao = (function () {
   const artigo = [
     '<article class="artigo">',
     '<h1>{{titulo}}</h1>',
-    '<p class="meta"><time datetime="{{data_iso}}">{{data}}</time>{{#tem_tags}} · {{#tags}}<span class="etiqueta">{{nome}}</span> {{/tags}}{{/tem_tags}}</p>',
+    '<p class="meta"><time datetime="{{data_iso}}">{{data}}</time>{{#tem_tags}} · {{#tags}}{{#href}}<a class="etiqueta" href="{{href}}">{{nome}}</a>{{/href}}{{^href}}<span class="etiqueta">{{nome}}</span>{{/href}} {{/tags}}{{/tem_tags}}</p>',
     '{{#capa}}<figure class="capa"><a class="ampliar" href="{{src}}" target="_blank" rel="noopener"><img src="{{src}}" alt="{{alt}}"{{#largura}} width="{{largura}}" height="{{altura}}"{{/largura}}></a>{{#legenda}}<figcaption>{{legenda}}</figcaption>{{/legenda}}</figure>',
     '{{/capa}}{{{corpo}}}',
     '</article>',
@@ -136,6 +136,44 @@ const TemaPadrao = (function () {
     '<h1>{{blog_titulo}}</h1>',
     '{{^tem_artigos}}<p class="vazio">Nenhum artigo ainda.</p>',
     '{{/tem_artigos}}<ul class="lista-artigos">{{#artigos}}<li><h2><a href="{{href}}">{{titulo}}</a></h2><p class="meta"><time datetime="{{data_iso}}">{{data}}</time></p>{{#resumo}}<p class="resumo">{{resumo}}</p>{{/resumo}}</li>',
+    '{{/artigos}}</ul>',
+    '</section>',
+    ''
+  ].join('\n');
+
+  // 40 — a página de uma etiqueta: `/blog/etiqueta/<slug>.html`. Contexto:
+  // etiqueta (o nome a mostrar), blog_titulo, blog_href, tem_artigos,
+  // artigos[] {href, titulo, data, data_iso, resumo}. É a listagem do blog
+  // filtrada — de propósito com a mesma classe `.blog`, para um tema que
+  // desenhe a listagem receber esta de graça.
+  const etiqueta = [
+    '<section class="blog etiqueta-pagina">',
+    '<h1>Etiqueta: {{etiqueta}}</h1>',
+    '{{^tem_artigos}}<p class="vazio">Nenhum artigo com esta etiqueta.</p>',
+    '{{/tem_artigos}}<ul class="lista-artigos">{{#artigos}}<li><h2><a href="{{href}}">{{titulo}}</a></h2><p class="meta"><time datetime="{{data_iso}}">{{data}}</time></p>{{#resumo}}<p class="resumo">{{resumo}}</p>{{/resumo}}</li>',
+    '{{/artigos}}</ul>',
+    '<p><a href="{{blog_href}}">{{blog_titulo}}</a></p>',
+    '</section>',
+    ''
+  ].join('\n');
+
+  // 37 — o CTA. Contexto: texto, href, externo. É LINK com aparência de botão:
+  // o gerador já validou que o href é do próprio site ou http(s) (nada aqui
+  // passa pelo DOMPurify, porque molde de tema é dado do app, não do dono).
+  const botao = [
+    '<p class="cta"><a class="botao" href="{{href}}"{{#externo}} rel="external noopener noreferrer"{{/externo}}>{{texto}}</a></p>',
+    ''
+  ].join('\n');
+
+  // 30 — a galeria de artigos, o bloco que o marcador `[[artigos: …]]` produz.
+  // Contexto: tem_artigos, artigos[] {href, titulo, data, data_iso, resumo,
+  // capa {src, alt, largura, altura, href} | null}. Sem JS: é grelha CSS e
+  // links (clicável sim, carrossel não — 06 §5.3.2 (c)).
+  const galeria = [
+    '<section class="galeria">',
+    '{{^tem_artigos}}<p class="vazio">Nenhum artigo ainda.</p>',
+    '{{/tem_artigos}}<ul class="cartoes">{{#artigos}}<li class="cartao">{{#capa}}<a class="cartao-capa" href="{{href}}"><img src="{{src}}" alt="{{alt}}"{{#largura}} width="{{largura}}" height="{{altura}}"{{/largura}} loading="lazy"></a>',
+    '{{/capa}}<h3 class="cartao-titulo"><a href="{{href}}">{{titulo}}</a></h3><p class="meta"><time datetime="{{data_iso}}">{{data}}</time></p>{{#resumo}}<p class="resumo">{{resumo}}</p>{{/resumo}}</li>',
     '{{/artigos}}</ul>',
     '</section>',
     ''
@@ -272,6 +310,24 @@ const TemaPadrao = (function () {
       // uma linha de script. O molde que o vai produzir ainda não existe (falta
       // a 30, o marcador); a aparência, que é o que a 24 devia entregar, existe.
       '.botao{display:inline-block;padding:.6em 1.2em;border-radius:var(--canto);background:var(--acento);color:var(--acento-texto);text-decoration:none;font-family:var(--fonte-titulos);font-weight:700}',
+      // 30 — a galeria: grelha que se adapta sozinha, sem media query e sem JS.
+      // `auto-fill` com mínimo de 220px dá 2 colunas na largura estreita e 3 na
+      // larga; num telemóvel cai para 1 sem regra nenhuma a mais.
+      '.cta{margin:1.5em 0}',
+      '.galeria{margin:2em 0}',
+      '.cartoes{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px}',
+      '.cartao{margin:0}',
+      '.cartao-capa{display:block;line-height:0;margin:0 0 .5em;border-radius:var(--canto);overflow:hidden}',
+      '.cartao-capa img{width:100%;height:auto;display:block}',
+      '.cartao-titulo{font-size:1.05em;margin:0 0 .2em}',
+      '.cartao-titulo a{text-decoration:none}',
+      '.cartao .meta{margin:0 0 .4em}',
+      '.cartao .resumo{margin:0;font-size:.92em}',
+      // 40 — a etiqueta virou link e tem de continuar a PARECER etiqueta: a cor
+      // de link por cima da pílula fazia-a saltar do resto de `.meta`.
+      'a.etiqueta{text-decoration:none;color:inherit}',
+      'a.etiqueta:hover{border-color:var(--acento-legivel);color:var(--acento-legivel)}',
+      '.etiqueta-pagina .lista-artigos{margin-top:1em}',
       '.capa{margin:0 0 1.5em}',
       '.capa figcaption{color:var(--suave);font-size:.82em}',
       /* imagem clicável (06 §4): abre o arquivo em tamanho real, sem script */
@@ -290,5 +346,5 @@ const TemaPadrao = (function () {
     ].join('\n');
   }
 
-  return Object.freeze({ manifesto, templates: Object.freeze({ layout, pagina, artigo, blog, alias }), css, resolver });
+  return Object.freeze({ manifesto, templates: Object.freeze({ layout, pagina, artigo, blog, etiqueta, alias, botao, galeria }), css, resolver });
 })();

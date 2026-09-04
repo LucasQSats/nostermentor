@@ -32,7 +32,22 @@ const Editor = (function () {
   // caminho inteiro: o prefixo é igual em todos e só rouba espaço ao nome.
   // O caminho completo continua acessível, no `title` de cada cartão.
   function nomeDe(path) { const s = String(path || ''); const i = s.lastIndexOf('/'); return i === -1 ? s : s.slice(i + 1); }
-  function imagensDe(media) { return (media || []).filter(r => r && r.status !== 'removed' && /^image\//.test(r.mime || '') && r.origin !== 'network'); }
+  // 32(c) — a miniatura de uma capa é `media` como qualquer outra (tem de o
+  // ser: sobe, tem sha256 e sai do ar como as outras), mas NÃO é conteúdo que
+  // se escolha. Fica de fora dos seletores; na biblioteca (T6) continua à
+  // vista, porque lá o dono está a ver o que está publicado, não a escolher.
+  function idsDeMiniatura(media) {
+    const s = new Set();
+    for (const m of media || []) if (m && m.thumb_media_id) s.add(m.thumb_media_id);
+    return s;
+  }
+  function imagensDe(media) {
+    const minis = idsDeMiniatura(media);
+    return (media || []).filter(r => r && r.status !== 'removed' && /^image\//.test(r.mime || '') && r.origin !== 'network' && !minis.has(r.id));
+  }
+  function extDeMime(mime) { for (const k of Object.keys(Modelo.MIME)) if (Modelo.MIME[k] === mime) return k; return 'bin'; }
+  function semExtensao(path) { const n = String(path || '').replace(/^.*\//, ''); const i = n.lastIndexOf('.'); return i > 0 ? n.slice(0, i) : n; }
+  function kb(n) { return Math.max(1, Math.round(n / 1024)) + ' KB'; }
   // 39 — o botão "Imagem" com um mp4 gerava `<img src="…mp4">`, que não mostra
   // NADA. Vídeo tem de ter caminho próprio; foi o que a medição da varredura
   // de 2026-08-31 apanhou.
@@ -75,6 +90,13 @@ const Editor = (function () {
     const media = await db.getAll('media');
     const imagens = imagensDe(media);
     const videos = videosDe(media);
+    // 30 — a prévia lateral desenha a galeria com os artigos REAIS. Sem isto o
+    // marcador aparecia vazio ali e cheio em "Ver como ficará", que é a pior
+    // combinação possível: o dono deixaria de confiar na prévia.
+    const paginasTodas = await db.getAll('pages');
+    const artigosTodos = await db.getAll('posts');
+    let ctxPrevia = Gerador.contexto({ site: site, pages: paginasTodas, posts: artigosTodos, media: media });
+    function refazerContexto() { ctxPrevia = Gerador.contexto({ site: site, pages: paginasTodas, posts: artigosTodos, media: media }); }
     const novo = !o.id;
     const removido = reg.status === 'removed';
     const travado = !novo && reg.status !== 'draft';   // 13 §4.0: slug imutável após a primeira publicação
@@ -155,8 +177,10 @@ const Editor = (function () {
     // 35 — capa nos dois tipos, com o mesmo modal. Na página o texto de apoio
     // avisa que o tema padrão não a mostra: sem isso pareceria avariado.
     spanCapaAtual = h('span', { id: 'ed-capa-atual' }, rotuloCapa());
+    const pMini = h('p', { id: 'ed-mini', class: 'apoio', hidden: true, 'aria-live': 'polite' });
     capaBloco = h('div', { class: 'linha-capa' }, spanCapaAtual, ' ',
-      h('button', { type: 'button', id: 'ed-capa-escolher', class: 'secundario', disabled: removido, onclick: function () { escolherCapa(); } }, C.capaEscolher));
+      h('button', { type: 'button', id: 'ed-capa-escolher', class: 'secundario', disabled: removido, onclick: function () { escolherCapa(); } }, C.capaEscolher),
+      pMini);
 
     function coletar() {
       const c = { title: inTitulo.value.trim(), slug: inSlug.value.trim().toLowerCase(), description: inDescricao.value.trim(), body: taCorpo.value };
@@ -183,6 +207,8 @@ const Editor = (function () {
         capaId = id; spanCapaAtual.textContent = rotuloCapa(); Shell.fecharModal();
         e.sujo = JSON.stringify(coletar()) !== e.instantaneo;
         salvar(e, { silencioso: true, motivo: 'auto' });
+        const escolhida = id ? imagens.find(x => x.id === id) : null;
+        if (escolhida) garantirMiniatura(escolhida).catch(function () {});
       }
       const estC = Colecao.novoEstado();
       const caixaC = h('div', {});
@@ -362,11 +388,151 @@ const Editor = (function () {
       Shell.modal({ titulo: V.titulo, conteudo: caixaV, largo: true });
     }
 
+    // 30 — um marcador só vale SOZINHO na linha (é assim que o gerador o
+    // reconhece). Inserir no meio de um parágrafo daria o texto cru na página
+    // publicada, e o dono nunca perceberia porquê. Daí esta função, e não o
+    // `envolver` das outras ferramentas: ela empurra o marcador para uma linha
+    // própria, com linha em branco de cada lado (o que o Markdown pede para
+    // ele ser um parágrafo dele mesmo).
+    function inserirBloco(marcador) {
+      const ta = taCorpo, v = ta.value;
+      const pos = ta.selectionEnd;
+      const p = v.indexOf('\n', pos);
+      const fim = p === -1 ? v.length : p;
+      const antes = v.slice(0, fim), depois = v.slice(fim);
+      const prefixo = (antes === '' || /\n[ \t]*\n$/.test(antes)) ? '' : (/\n$/.test(antes) ? '\n' : '\n\n');
+      const sufixo = (depois === '' || /^\n[ \t]*\n/.test(depois)) ? '' : (/^\n/.test(depois) ? '\n' : '\n\n');
+      ta.setRangeText(prefixo + marcador + sufixo, fim, fim, 'preserve');
+      const p0 = fim + prefixo.length;
+      ta.setSelectionRange(p0, p0 + marcador.length);
+      ta.focus(); ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // 37 — o CTA. O endereço passa pelo MESMO juiz que o gerador usa
+    // (`Gerador.hrefSeguro`): recusar aqui e aceitar lá, ou o contrário, seria
+    // duas regras a divergir com o tempo.
+    function inserirBotao() {
+      const B = T.botao;
+      const inTexto = h('input', { type: 'text', id: 'botao-texto', placeholder: B.rotuloPlaceholder, autocomplete: 'off' });
+      const inDestino = h('input', { type: 'text', id: 'botao-destino', placeholder: B.destinoPlaceholder, autocomplete: 'off', spellcheck: 'false' });
+      const pErro = h('p', { class: 'erro', id: 'botao-erro', role: 'alert', hidden: true });
+      function confirmar() {
+        // `]]` e `->` no rótulo partiriam o próprio marcador: trocar por algo
+        // parecido é melhor que recusar o que ele escreveu.
+        const rotulo = inTexto.value.trim().replace(/\]\]/g, ']').replace(/\[\[/g, '[').replace(/->/g, '→');
+        const destino = inDestino.value.trim();
+        if (!rotulo) { pErro.hidden = false; pErro.textContent = B.semTexto; return; }
+        if (!Gerador.hrefSeguro(destino)) { pErro.hidden = false; pErro.textContent = B.invalido; return; }
+        Shell.fecharModal();
+        inserirBloco('[[botao: ' + rotulo + ' -> ' + destino + ']]');
+      }
+      Shell.modal({ titulo: B.titulo, conteudo: h('div', {},
+        h('label', { for: 'botao-texto' }, B.rotulo), inTexto,
+        h('label', { for: 'botao-destino' }, B.destino), inDestino,
+        h('p', { class: 'apoio' }, B.apoio), pErro,
+        h('div', { class: 'acoes' },
+          h('button', { type: 'button', id: 'botao-confirmar', onclick: confirmar }, B.inserir),
+          h('button', { type: 'button', class: 'secundario', id: 'botao-cancelar', onclick: function () { Shell.fecharModal(); } }, B.cancelar))) });
+      inTexto.focus();
+    }
+
+    // 30 — a galeria de artigos. As etiquetas oferecidas são as que EXISTEM
+    // (Modelo.etiquetasDe, o mesmo agrupamento por slug que gera as páginas):
+    // oferecer uma etiqueta que ninguém usa daria uma galeria vazia.
+    function inserirArtigos() {
+      const A = T.artigos;
+      const ets = Modelo.etiquetasDe(artigosTodos);
+      const vivos = artigosTodos.filter(x => x && x.status !== 'removed');
+      const inN = h('input', { type: 'number', id: 'artigos-n', min: '1', max: '50', step: '1', value: '6' });
+      const cbCapa = h('input', { type: 'checkbox', id: 'artigos-capa', checked: true });
+      const cbResumo = h('input', { type: 'checkbox', id: 'artigos-resumo' });
+      const selEt = h('select', { id: 'artigos-etiqueta' },
+        h('option', { value: '' }, A.etiquetaTodas),
+        ets.map(x => h('option', { value: x.slug }, x.nome)));
+      const semCapa = vivos.length > 0 && !vivos.some(x => x.cover_media_id);
+      function confirmar() {
+        const n = Math.min(50, Math.max(1, parseInt(inN.value, 10) || 6));
+        const partes = [String(n), cbCapa.checked ? 'com-capa' : 'sem-capa'];
+        if (cbResumo.checked) partes.push('com-resumo');
+        if (selEt.value) partes.push('etiqueta=' + selEt.value);
+        Shell.fecharModal();
+        inserirBloco('[[artigos: ' + partes.join(', ') + ']]');
+      }
+      Shell.modal({ titulo: A.titulo, conteudo: h('div', {},
+        h('label', { for: 'artigos-n' }, A.quantos), inN,
+        h('label', { class: 'inline', for: 'artigos-capa' }, cbCapa, A.capa),
+        h('label', { class: 'inline', for: 'artigos-resumo' }, cbResumo, A.resumo),
+        ets.length ? [h('label', { for: 'artigos-etiqueta' }, A.etiqueta), selEt] : null,
+        semCapa ? h('p', { class: 'alerta', id: 'artigos-sem-capa' }, A.semCapaAviso) : null,
+        h('p', { class: 'apoio' }, A.apoio),
+        h('div', { class: 'acoes' },
+          h('button', { type: 'button', id: 'artigos-confirmar', onclick: confirmar }, A.inserir),
+          h('button', { type: 'button', class: 'secundario', id: 'artigos-cancelar', onclick: function () { Shell.fecharModal(); } }, A.cancelar))) });
+      inN.focus();
+    }
+
+    // 32(c) — a miniatura GUARDADA da capa. Nasce aqui porque é aqui que a
+    // imagem passa a ser capa, e a galeria (30) não pode servir a foto inteira
+    // a quem lê por Tor: 7 MB por cartão. Regras que a governam:
+    //  - só quando compensa (`Miniaturas.valeAPena`): imagem já pequena não
+    //    ganha cópia — seria um arquivo a mais pelo Tor para poupar nada;
+    //  - os bytes podem não estar aqui (site recarregado da rede): baixa-se,
+    //    e SEM o teto de 1 MiB de 32(a), porque aqui foi o dono que clicou;
+    //  - falhar é aceitável e não bloqueia: a galeria cai na original;
+    //  - a original NÃO muda de estado — os bytes dela são os mesmos. O que
+    //    muda é o `site.json`, que passa a descrever a ligação.
+    // Duas escolhas seguidas da MESMA imagem gerariam duas miniaturas — a
+    // primeira ficaria órfã e, pior, já contada para publicar. Um arquivo a
+    // mais na rede por um clique repetido é lixo que não se apaga sozinho.
+    const miniEmCurso = new Set();
+    async function garantirMiniatura(m) {
+      const TMini = T.mini;
+      if (!m || removido || !Miniaturas.valeAPena(m)) return;
+      if (m.thumb_media_id && media.some(x => x.id === m.thumb_media_id && x.status !== 'removed')) return;
+      if (miniEmCurso.has(m.id)) return;
+      miniEmCurso.add(m.id);
+      try { await criarMiniatura(m, TMini); } finally { miniEmCurso.delete(m.id); }
+    }
+    async function criarMiniatura(m, TMini) {
+      pMini.hidden = false; pMini.className = 'apoio';
+      pMini.textContent = m.bytes ? TMini.preparando : TMini.baixando;
+      let brutos = null;
+      try {
+        const blob = m.bytes || await Miniaturas.obter(m, servidoresMidia);
+        if (blob) brutos = new Uint8Array(await blob.arrayBuffer());
+      } catch (x) { brutos = null; }
+      const r = brutos ? await Miniaturas.gerar(brutos, m.mime) : null;
+      if (!r) { pMini.className = 'alerta'; pMini.textContent = TMini.naoDeu; return; }
+      const usados = new Set(media.filter(x => x.status !== 'removed').map(x => x.path));
+      const base = semExtensao(m.path) + '-mini', ext = extDeMime(r.mime);
+      let caminho = Modelo.caminhoDe('img', base + '.' + ext);
+      for (let i = 2; usados.has(caminho); i++) caminho = Modelo.caminhoDe('img', base + '-' + i + '.' + ext);
+      const sha = await Blossom.sha256Hex(r.bytes);
+      const t = Modelo.agora();
+      const mini = { id: Modelo.novoId(), path: caminho, mime: r.mime, size: r.bytes.length, sha256: sha,
+        width: r.width, height: r.height, alt: m.alt || '', caption: '',
+        bytes: new Blob([r.bytes], { type: r.mime }), status: 'draft', servers: [], removal: null,
+        metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload',
+        created_at: t, updated_at: t, previous_status: null };
+      const original = Object.assign({}, m, { thumb_media_id: mini.id, updated_at: t });
+      await db.escrever([{ op: 'put', store: 'media', valor: mini }, { op: 'put', store: 'media', valor: original }]);
+      media.push(mini);
+      const im = media.findIndex(x => x.id === m.id); if (im !== -1) media[im] = original;
+      const ii = imagens.findIndex(x => x.id === m.id); if (ii !== -1) imagens[ii] = original;
+      await Shell.registrarAlteracao(1);
+      try { const c = await Rede.contagens(db); Shell.contadores({ publicar: c.pendentes }); } catch (x) {}
+      refazerContexto();
+      dataUrisDe(media).then(function (u) { if (E === e) { e.dataUris = u; renderPrevia(); } });
+      pMini.className = 'apoio';
+      pMini.textContent = texto(TMini.feita, { t: kb(r.bytes.length) });
+    }
+
     const M = T.modelos;
     const acoes = {
       negrito: () => envolver('**', '**', M.negrito), italico: () => envolver('*', '*', M.italico), titulo: () => prefixarLinhas('## ', M.titulo),
       link: () => envolver('[', '](https://)', M.link), imagem: inserirImagem, video: inserirVideo, lista: () => prefixarLinhas('- ', M.lista), citacao: () => prefixarLinhas('> ', M.citacao),
-      codigo: () => { const sel = taCorpo.value.slice(taCorpo.selectionStart, taCorpo.selectionEnd); if (sel.indexOf('\n') !== -1) envolver('```\n', '\n```', sel); else envolver('`', '`', M.codigo); }
+      codigo: () => { const sel = taCorpo.value.slice(taCorpo.selectionStart, taCorpo.selectionEnd); if (sel.indexOf('\n') !== -1) envolver('```\n', '\n```', sel); else envolver('`', '`', M.codigo); },
+      botao: inserirBotao, artigos: inserirArtigos
     };
     const ferramentas = h('div', { class: 'ferramentas', role: 'toolbar', 'aria-label': C.conteudo }, Object.keys(T.ferramentas).map(k =>
       h('button', { type: 'button', class: 'secundario ferramenta', 'data-acao': k, title: T.ferramentas[k], disabled: removido, onclick: function () { acoes[k](); } }, T.ferramentas[k])));
@@ -374,7 +540,7 @@ const Editor = (function () {
     // --- pré-visualização --------------------------------------------------------
     const iframe = h('iframe', { id: 'ed-previa', sandbox: 'allow-scripts', title: T.previa.rotulo });
     e.iframe = iframe;
-    function renderPrevia() { const c = coletar(); iframe.srcdoc = Gerador.previaCorpo(c.title, c.body, e.dataUris, Gerador.opcoesDe(site)); }
+    function renderPrevia() { const c = coletar(); iframe.srcdoc = Gerador.previaCorpo(c.title, c.body, e.dataUris, Gerador.opcoesDe(site), ctxPrevia); }
     e.renderPrevia = renderPrevia;
     dataUrisDe(media).then(function (m) { if (E === e) { e.dataUris = m; renderPrevia(); } });
 

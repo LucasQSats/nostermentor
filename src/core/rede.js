@@ -111,7 +111,8 @@ const Rede = (function () {
     for (const p of posts) { s.add(Modelo.caminhoDe('post', p.slug)); for (const a of p.aliases || []) s.add(Modelo.caminhoDe('post', a)); }
     return s;
   }
-  function ehGerado(path, gerados) { return gerados.has(path) || path.indexOf('/tema/') === 0; }
+  // 40: `/blog/etiqueta/` é gerado, como `/tema/` — ver a nota em publicar.js.
+  function ehGerado(path, gerados) { return gerados.has(path) || path.indexOf('/tema/') === 0 || path.indexOf(Modelo.PREFIXO_ETIQUETA + '/') === 0; }
   // O que importa para o dono é o conteúdo publicado (path → sha256), não o
   // id/created_at do evento — dois manifests com o mesmo mapa não são uma
   // divergência real, ainda que relays inconsistentes na regra de empate de

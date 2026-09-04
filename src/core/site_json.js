@@ -89,8 +89,14 @@ const SiteJson = (function () {
   }
   function lerMidia(m) {
     if (!obj(m) || !idValido(m.id) || !eStr(m.path) || m.path.charAt(0) !== '/' || !eStr(m.sha256) || !RE_SHA.test(m.sha256)) return null;
-    return { id: m.id, path: m.path.slice(0, 500), mime: eStr(m.mime) ? m.mime.slice(0, 100) : Modelo.mimePorCaminho(m.path), size: inteiro(m.size, null, 0),
+    const o = { id: m.id, path: m.path.slice(0, 500), mime: eStr(m.mime) ? m.mime.slice(0, 100) : Modelo.mimePorCaminho(m.path), size: inteiro(m.size, null, 0),
       sha256: m.sha256, width: inteiro(m.width, null, 0), height: inteiro(m.height, null, 0), alt: str(m.alt, 500), caption: str(m.caption, 1000) };
+    // 32(c) — a miniatura guardada, quando existe. Só entra quando aponta
+    // mesmo para alguma coisa: uma chave a mais em todo arquivo de mídia faria
+    // TODO site existente acusar uma alteração por publicar que ninguém fez.
+    const t = idOuNulo(m.thumb_media_id);
+    if (t) o.thumb_media_id = t;
+    return o;
   }
   function semDuplicados(lista) {
     const ids = new Set(), saida = [];
@@ -142,7 +148,12 @@ const SiteJson = (function () {
   const comum = p => ({ id: p.id, slug: p.slug, aliases: arr(p.aliases).filter(eStr).slice().sort(), title: str(p.title, 300), description: s1000(p.description), body: String(p.body == null ? '' : p.body), body_format: 'markdown' });
   function escreverPagina(p) { const c = comum(p); c.in_menu = p.in_menu === true; c.cover_media_id = idOuNulo(p.cover_media_id); return c; }
   function escreverArtigo(p) { const c = comum(p); c.date = str(p.date, 25); c.excerpt = str(p.excerpt, 2000); c.tags = arr(p.tags).filter(eStr).map(t => t.toLowerCase()).slice(0, 50); c.cover_media_id = idOuNulo(p.cover_media_id); return c; }
-  function escreverMidia(m) { return { id: m.id, path: m.path, mime: eStr(m.mime) ? m.mime : Modelo.mimePorCaminho(m.path), size: Number.isInteger(m.size) ? m.size : null, sha256: m.sha256, width: Number.isInteger(m.width) ? m.width : null, height: Number.isInteger(m.height) ? m.height : null, alt: str(m.alt, 500), caption: s1000(m.caption) }; }
+  function escreverMidia(m) {
+    const o = { id: m.id, path: m.path, mime: eStr(m.mime) ? m.mime : Modelo.mimePorCaminho(m.path), size: Number.isInteger(m.size) ? m.size : null, sha256: m.sha256, width: Number.isInteger(m.width) ? m.width : null, height: Number.isInteger(m.height) ? m.height : null, alt: str(m.alt, 500), caption: s1000(m.caption) };
+    const t = idOuNulo(m.thumb_media_id);
+    if (t) o.thumb_media_id = t;      // 32(c): chave OMITIDA quando não há — ver lerMidia
+    return o;
+  }
   const porSlug = (a, b) => String(a.slug).localeCompare(String(b.slug));
 
   // dados: { site, pages, posts, media } — só o que se publica (o chamador filtra). → texto

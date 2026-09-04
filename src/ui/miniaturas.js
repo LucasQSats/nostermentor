@@ -175,6 +175,66 @@ const Miniaturas = (function () {
     return caixa;
   }
 
+  // --- 32(c): a miniatura GUARDADA -----------------------------------------
+  // A de cima (32(a)) é para o PAINEL e morre com a aba. Esta é para o LEITOR
+  // do site publicado: vira arquivo próprio, com o seu sha256, e sobe uma vez.
+  // Por isso a variação de compressão do `canvas` entre motores, que aqui não
+  // importaria, também não importa: os bytes nascem UMA vez, na máquina do
+  // dono, e a partir daí são um `media` como qualquer outro — 13 §5.2 continua
+  // de pé porque o gerador só referencia o caminho, nunca regera a imagem.
+  const MINI_LARGURA = 480;          // ~2× o cartão de 220px da galeria (telas densas)
+  const MINI_QUALIDADE = 0.8;
+  // Abaixo disto a original JÁ é uma miniatura: gerar outra seria publicar um
+  // arquivo a mais pelo Tor para poupar nada.
+  const MINI_DISPENSA_BYTES = 122880;   // 120 KiB
+
+  function valeAPena(m) {
+    if (!m || !ehImagem(m.mime)) return false;
+    if (m.mime === 'image/svg+xml') return false;        // vetor não tem tamanho de arquivo a poupar
+    if (Number.isInteger(m.width) && m.width <= MINI_LARGURA && Number.isInteger(m.size) && m.size <= MINI_DISPENSA_BYTES) return false;
+    return true;
+  }
+
+  function paraBlob(canvas, tipo, q) {
+    return new Promise(function (resolve) {
+      if (!canvas.toBlob) return resolve(null);
+      let feito = false;
+      const t = setTimeout(function () { if (!feito) { feito = true; resolve(null); } }, 8000);
+      try { canvas.toBlob(function (b) { if (feito) return; feito = true; clearTimeout(t); resolve(b || null); }, tipo, q); }
+      catch (e) { if (!feito) { feito = true; clearTimeout(t); resolve(null); } }
+    });
+  }
+
+  // → { bytes: Uint8Array, mime, width, height } | null. Nunca lança: sem
+  // miniatura a galeria serve a original, que é pior mas funciona.
+  // O `mime` devolvido é o que o motor PRODUZIU, não o que se pediu: um motor
+  // sem WebP devolve PNG, e gravar o pedido em vez do produzido daria um
+  // caminho `.webp` com bytes de PNG — e o gateway serve pelo caminho (13 §5.1).
+  async function gerar(bytes, mime) {
+    if (!ehImagem(mime) || mime === 'image/svg+xml') return null;
+    if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return null;
+    let bmp = null;
+    try {
+      bmp = await createImageBitmap(new Blob([bytes], { type: mime }));
+      const l = bmp.width, a = bmp.height;
+      if (!l || !a) return null;
+      const largura = Math.min(l, MINI_LARGURA);
+      const altura = Math.max(1, Math.round(a * (largura / l)));
+      const c = document.createElement('canvas');
+      c.width = largura; c.height = altura;
+      const ctx = c.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(bmp, 0, 0, largura, altura);
+      const blob = await paraBlob(c, 'image/webp', MINI_QUALIDADE);
+      if (!blob || !blob.size) return null;
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      // Se a "miniatura" saiu maior que o original, não é miniatura nenhuma.
+      if (buf.length >= bytes.length) return null;
+      return { bytes: buf, mime: blob.type || 'image/png', width: largura, height: altura };
+    } catch (e) { return null; }
+    finally { if (bmp && typeof bmp.close === 'function') { try { bmp.close(); } catch (e) {} } }
+  }
+
   // Ao sair da tela: os blob: são revogados, o CACHE FICA. Rever a mesma tela
   // não repete o download — o que seria absurdo pelo Tor —, e o cache morre
   // com a aba, que é o que `13` D17 manda.
@@ -185,6 +245,7 @@ const Miniaturas = (function () {
   }
   function esquecer() { cache.clear(); }
 
-  return Object.freeze({ TETO_AUTOMATICO, obter, elemento, elementoVideo, primeiroQuadro, limpar, esquecer,
+  return Object.freeze({ TETO_AUTOMATICO, MINI_LARGURA, MINI_DISPENSA_BYTES, obter, elemento, elementoVideo, primeiroQuadro,
+    gerar, valeAPena, limpar, esquecer,
     temNoCache: function (sha) { return cache.has(sha); } });
 })();

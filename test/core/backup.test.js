@@ -63,6 +63,25 @@ module.exports = async function (ctx, u) {
     const anO = Backup.analisar(JSON.stringify(exO), { pubkey: ch.pubkey, npub: ch.npub });
     out.outra = { ok: anO.ok, mesmaChave: anO.mesmaChave, npub: anO.npub === outra.npub, published: anO.dados.published };
     // lixo
+    // 32(c) — a miniatura guardada tem de sobreviver ao backup, e a chave NÃO
+    // pode nascer onde não existia: `thumb_media_id` ausente e `null` são a
+    // mesma coisa em todo o app, e inventar a chave faz a importação devolver
+    // um registro diferente do exportado (foi o aceite 5 de telas/t9_backup a
+    // apanhá-lo). Os dois sentidos, no mesmo caso.
+    const jm = JSON.parse(ex.texto);
+    jm.media = [
+      { id: 'm-orig', path: '/img/a.jpg', mime: 'image/jpeg', size: 10, sha256: 'a'.repeat(64), width: 100, height: 80, alt: '', caption: '', status: 'draft', servers: [], thumb_media_id: 'm-mini', bytes_base64: null },
+      { id: 'm-mini', path: '/img/a-mini.webp', mime: 'image/webp', size: 3, sha256: 'b'.repeat(64), width: 480, height: 384, alt: '', caption: '', status: 'draft', servers: [], bytes_base64: null },
+      { id: 'm-sem', path: '/img/c.jpg', mime: 'image/jpeg', size: 10, sha256: 'c'.repeat(64), width: 100, height: 80, alt: '', caption: '', status: 'draft', servers: [], thumb_media_id: 'nao-e-id-valido!!', bytes_base64: null }
+    ];
+    const anM = Backup.analisar(JSON.stringify(jm), { pubkey: ch.pubkey, npub: ch.npub });
+    const porId = new Map((anM.dados.media || []).map(m => [m.id, m]));
+    out.miniBackup = {
+      liga: (porId.get('m-orig') || {}).thumb_media_id,
+      semChaveNaMini: porId.has('m-mini') && !('thumb_media_id' in porId.get('m-mini')),
+      semChaveQuandoInvalido: porId.has('m-sem') && !('thumb_media_id' in porId.get('m-sem'))
+    };
+
     out.lixo = [Backup.analisar('{"a":1}', {}).codigo, Backup.analisar('nada', {}).codigo, Backup.analisar('{"format":"nostermentor-backup"}', {}).codigo, Backup.analisar('{"format":"nostermentor-backup","version":1,"pages":[{"id":"x"}]}', {}).ok];
     // mesclagem: local mais recente fica; backup mais recente vence; novo entra; igual ignorado
     const local1 = Object.assign({}, dep.pages[0], { title: 'Local mais recente', updated_at: '2030-01-01T00:00:00Z' });
@@ -118,6 +137,11 @@ module.exports = async function (ctx, u) {
     assert(j.imp.novos === 2 && j.imp.atualizados === 1 && j.imp.iguais === 4 && j.imp.locais === 1 && /^Página (um|dois)$/.test(j.imp.sobrescritos.join()) && j.imp.renomeados.length === 1 && /-2$/.test(j.imp.renomeados[0]) && j.imp.vazio === false, JSON.stringify(j.imp));
     assert(j.titulos.includes('Local mais recente') && j.titulos.includes('Do backup, mais novo') && j.titulos.includes('Só no backup') && j.titulos.includes('Colide') && new Set(j.slugs).size === j.slugs.length, JSON.stringify(j.titulos));
     assert(j.meta.alteracoes_nao_exportadas === 0, JSON.stringify(j.meta));
+  });
+  await it('32(c): a miniatura guardada sobrevive ao backup — e a chave NÃO nasce onde não existia (ausente == null em todo o app)', () => {
+    assert(r.miniBackup.liga === 'm-mini', 'a ligação original→miniatura perdeu-se: ' + r.miniBackup.liga);
+    assert(r.miniBackup.semChaveNaMini, 'a miniatura ganhou uma chave `thumb_media_id` que não tinha');
+    assert(r.miniBackup.semChaveQuandoInvalido, 'id inválido tinha de ser descartado sem deixar a chave para trás');
   });
   await it('base64 ida e volta (70.000 bytes) sem fetch', () => assert(r.b64 === true));
   await it('sem erros de página/console', () => assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros })));

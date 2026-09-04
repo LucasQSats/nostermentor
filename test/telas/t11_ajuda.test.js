@@ -1,5 +1,6 @@
 // test/telas/t11_ajuda.test.js — T11 Ajuda e Sobre (14 T11) pela INTERFACE,
-// nos dois motores. O que se prova: as seis seções existem e trocam; a de
+// nos dois motores. O que se prova: as SETE seções existem e trocam (a de
+// "botões e galerias" entrou em 2026-09-01, com o lote 30+37+40+32c); a de
 // "como abrir" leva o Tails primeiro e repete, palavra por palavra, o que a
 // bancada mediu (Documentos a cada sessão — P19; Safest não arranca — P22;
 // F5 no arranque mudo — P28; o aviso "Could not read the contents of
@@ -35,15 +36,16 @@ module.exports = async function (ctx, u) {
     return (await pg.textContent('#t11-painel')).replace(/\s+/g, ' ');
   };
 
-  await it('as seis seções de 14 T11 existem e trocam; "Como abrir" põe o Tails primeiro e repete o que a bancada mediu (Documentos a cada sessão, Safest não arranca, F5, o aviso do Tails é inofensivo)', async () => {
+  await it('as sete seções de 14 T11 existem e trocam; "Como abrir" põe o Tails primeiro e repete o que a bancada mediu (Documentos a cada sessão, Safest não arranca, F5, o aviso do Tails é inofensivo)', async () => {
     const { p } = await comAjuda();
     const abas = await p.pg.evaluate(() => [...document.querySelectorAll('#t11-abas .aba')].map(b => b.getAttribute('data-aba') + ':' + b.textContent));
-    assert(abas.join(' | ') === 'abrir:Como abrir | chave:A sua chave | copias:Onde ficam as suas coisas | remover:Remover não é apagar | apoio:Apoiar | sobre:Sobre', abas.join(' | '));
+    assert(abas.join(' | ') === 'abrir:Como abrir | chave:A sua chave | copias:Onde ficam as suas coisas | remover:Remover não é apagar | blocos:Botões e galerias | apoio:Apoiar | sobre:Sobre', abas.join(' | '));
     const t = (await p.pg.textContent('#t11-painel')).replace(/\s+/g, ' ');
     await p.pg.screenshot({ path: u.captura('t11-abrir'), fullPage: true });
     assert(/^Como abrir o Nostermentor/.test(t.trim()), t.slice(0, 80));
     assert(t.indexOf('No Tails') < t.indexOf('No Windows e no Linux'), 'o Tails devia vir primeiro');
-    assert(/pasta Documentos, e faça isso a cada sessão/.test(t) && /não abre o app a partir do pendrive nem do Persistent Storage/.test(t), 'P19 ausente');
+    assert(/dois cliques, ou arraste-o para a janela do Tor Browser/.test(t) && /funciona também a partir de um pendrive/.test(t), 'o caminho que FUNCIONA sumiu da ajuda');
+    assert(/digitar o endereço file:\/\/ na barra é que o navegador recusa/.test(t) && /copie a pasta para Documentos antes/.test(t), 'P19 (o caso que falha) ausente');
     assert(/Em Safest o navegador desliga o JavaScript e o painel não arranca/.test(t), 'P22 ausente');
     assert(/ficar parada no aviso inicial, recarregue \(F5\)/.test(t), 'P28 ausente');
     assert(/"Could not read the contents of amnesia", clique OK/.test(t) && /sem consequência/.test(t), 'P27 ausente');
@@ -53,6 +55,22 @@ module.exports = async function (ctx, u) {
     assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
     await p.pg.close();
     return abas.length + ' seções';
+  });
+
+  // ⚠️ Em caso PRÓPRIO de propósito: trocar de aba no meio do caso anterior
+  // fazia os asserts seguintes lerem o painel errado ("esperava 6 passos do
+  // Tails e 2 do resto") — um teste que troca o estado da tela a meio tem de
+  // o repor, ou não o trocar. Ver `02` §F.1.
+  await it('30/37/40/32(c): a aba "Botões e galerias" diz a regra da linha própria, os exemplos, o que renomear uma etiqueta custa e por que há um arquivo "-mini" na biblioteca', async () => {
+    const { p } = await comAjuda();
+    const tb = await abaTexto(p.pg, 'blocos');
+    assert(/sozinho na sua linha/.test(tb), 'a regra da linha própria não está na Ajuda: ' + tb.slice(0, 200));
+    assert(/\[\[botao: Fale comigo -> \/contato\]\]/.test(tb) && /\[\[artigos: 4, com-capa, etiqueta=receitas\]\]/.test(tb), 'faltam exemplos: ' + tb.slice(0, 300));
+    assert(/o antigo morre/.test(tb), 'a Ajuda tem de dizer que renomear etiqueta mata o endereço antigo');
+    assert(/-mini/.test(tb), 'a Ajuda tem de explicar o arquivo "-mini" da biblioteca');
+    assert(/muda sozinha sempre que você publica um artigo novo/.test(tb), 'a Ajuda tem de dizer o que a galeria custa ao publicar');
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.close();
   });
 
   await it('as seções de conteúdo dizem o que 14 T11 manda: a chave não é guardada e não há recuperação; as três cópias com a regra prática; remover tira do site sempre e apagar da rede nem sempre', async () => {

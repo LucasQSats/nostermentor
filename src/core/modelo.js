@@ -26,6 +26,7 @@ const Modelo = (function () {
   const CAMINHOS_RESERVADOS = Object.freeze(['/feed.xml', '/sitemap.xml', '/robots.txt']);   // pendência 13
   const CAMINHO_SITE_JSON = '/nostermentor/site.json';                                         // 13 §6
   const PREFIXO_BLOG = '/blog';
+  const PREFIXO_ETIQUETA = PREFIXO_BLOG + '/etiqueta';                                         // 40
   const STATUS = Object.freeze(['draft', 'published', 'modified', 'removed']);
 
   // 13 §5.1: imagem em /img/, o resto em /media/
@@ -69,6 +70,7 @@ const Modelo = (function () {
       case 'blog': return PREFIXO_BLOG + '/index.html';
       case 'page': return '/' + slugOuArquivo + '.html';
       case 'post': return PREFIXO_BLOG + '/' + slugOuArquivo + '.html';
+      case 'etiqueta': return PREFIXO_ETIQUETA + '/' + slugOuArquivo + '.html';
       case 'img': return '/img/' + slugOuArquivo;
       case 'media': return '/media/' + slugOuArquivo;
       case 'tema': return '/tema/' + slugOuArquivo;
@@ -76,6 +78,39 @@ const Modelo = (function () {
     }
     throw new Error('tipo de caminho desconhecido: ' + tipo);
   }
+
+  // 40 — as etiquetas dos artigos, agrupadas pelo CAMINHO que vão gerar.
+  // Agrupar por slug (e não por nome) é obrigatório, não conveniência: "São
+  // Paulo" e "sao paulo" produzem `sao-paulo`, e dois arquivos no mesmo
+  // caminho partiriam 13 §5.2 — o segundo apagaria o primeiro em silêncio.
+  // O nome exibido é o MENOR em ordem de code point entre os que caem no mesmo
+  // slug; `localeCompare` está fora de propósito aqui, porque a sua ordem
+  // depende do locale do motor e isto vira bytes publicados.
+  // Etiqueta cujo slug fica vazio (ex.: "!!!" ou "///") não gera página: fica
+  // texto no artigo, como hoje. Devolve [] se não houver nenhuma.
+  // → [{ slug, nome, nomes: [...], ids: [...] }] em ordem de slug
+  function etiquetasDe(posts) {
+    const porSlug = new Map();
+    for (const p of posts || []) {
+      if (!p || p.status === 'removed' || !Array.isArray(p.tags)) continue;
+      for (const t of p.tags) {
+        if (typeof t !== 'string' || !t) continue;
+        const s = slug(t);
+        if (!s || s.length > 120) continue;
+        let e = porSlug.get(s);
+        if (!e) { e = { slug: s, nome: t, nomes: [t], ids: [] }; porSlug.set(s, e); }
+        else { if (e.nomes.indexOf(t) === -1) e.nomes.push(t); if (t < e.nome) e.nome = t; }
+        if (e.ids.indexOf(p.id) === -1) e.ids.push(p.id);
+      }
+    }
+    const saida = Array.from(porSlug.values());
+    for (const e of saida) e.nomes.sort();
+    saida.sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
+    return saida;
+  }
+  // O caminho de uma etiqueta pelo NOME (o que o artigo mostra) — null quando
+  // o nome não produz slug nenhum.
+  function caminhoDaEtiqueta(nome) { const s = slug(nome); return s && s.length <= 120 ? caminhoDe('etiqueta', s) : null; }
 
   function extensao(path) { const m = /\.([a-z0-9]+)$/i.exec(String(path || '')); return m ? m[1].toLowerCase() : null; }
   function mimePorCaminho(path) { const e = extensao(path); return e && MIME[e] ? MIME[e] : null; }
@@ -163,8 +198,8 @@ const Modelo = (function () {
   function pendentes(c) { return (c.draft || 0) + (c.modified || 0) + (c.removed || 0); }
 
   return Object.freeze({
-    SCHEMA_VERSION, RELAYS_PADRAO, SERVIDORES_PADRAO, GATEWAYS, RESERVADOS, CAMINHOS_RESERVADOS, CAMINHO_SITE_JSON, PREFIXO_BLOG, STATUS, MIME,
-    agora, formatarData, formatarDataHora, dataDeUnix, novoId, slug, slugValido, caminhoDe, extensao, mimePorCaminho,
+    SCHEMA_VERSION, RELAYS_PADRAO, SERVIDORES_PADRAO, GATEWAYS, RESERVADOS, CAMINHOS_RESERVADOS, CAMINHO_SITE_JSON, PREFIXO_BLOG, PREFIXO_ETIQUETA, STATUS, MIME,
+    agora, formatarData, formatarDataHora, dataDeUnix, novoId, slug, slugValido, caminhoDe, etiquetasDe, caminhoDaEtiqueta, extensao, mimePorCaminho,
     normalizarUrl, uniao, urlDoSite, sitePadrao, novaPagina, novoArtigo, midiaHerdada, transicao, contarPorStatus, pendentes
   });
 })();

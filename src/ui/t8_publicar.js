@@ -59,8 +59,15 @@
     if (p === Modelo.CAMINHO_SITE_JSON) return P.site_json;
     if (p.indexOf('/tema/') === 0) return P.tema;
     if (item.tipo === 'alias') return P.alias;
+    // 40 — o dono precisa de saber que publicar UM artigo mexe nas páginas das
+    // etiquetas dele: por Tor cada caminho a mais é uma conexão a mais.
+    if (item.tipo === 'etiqueta') return P.etiqueta;
     if (p === Modelo.PREFIXO_BLOG + '/index.html') return P.blog;
     if (p === '/index.html' && item.tipo !== 'page') return P.home;
+    // 30 — uma página com galeria muda sozinha quando um artigo é publicado,
+    // sem o dono lhe ter tocado (13 §5.3). Sem esta linha, ele veria a página
+    // "Sobre" na lista de alterações sem explicação nenhuma.
+    if (item.dinamico) return P.galeria;
     return '';
   }
 
