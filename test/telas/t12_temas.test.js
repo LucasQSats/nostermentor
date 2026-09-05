@@ -105,14 +105,41 @@ module.exports = async function (ctx, u) {
     for (const pv of previas) porTema[pv.id] = pv.srcdoc;
     const assinaturas = await p.pg.evaluate(() => { const o = {}; for (const t of Temas.todos()) o[t.manifesto.id] = t.css({}).slice(0, 40); return o; });
     for (const id of Object.keys(assinaturas)) assert(porTema[id].indexOf(assinaturas[id]) !== -1, 'a prévia de ' + id + ' devia trazer o CSS de ' + id);
-    // …e o HTML é DIFERENTE entre eles: os temas mudam moldes, não só estilo.
-    // Se este caso falhar com "iguais", a prévia barata (um HTML + N folhas)
-    // voltou a ser possível — e este teste é o sítio onde isso se sabe.
-    const corpos = Object.keys(porTema).map(id => porTema[id].replace(/<style>[\s\S]*?<\/style>/, ''));
-    const distintos = new Set(corpos);
-    assert(distintos.size === corpos.length, 'os temas diferem em moldes: cada prévia devia ter HTML próprio (' + distintos.size + ' distintos em ' + corpos.length + ')');
+    // …e o HTML segue os MOLDES, não o CSS. A regra tem dois lados, e os dois
+    // importam para a tela:
+    //  · dois temas com moldes diferentes TÊM de dar HTML diferente — senão a
+    //    prévia barata (um HTML + N folhas de estilo) mentiria, mostrando o
+    //    Diário com a estrutura do Padrão;
+    //  · dois temas com os MESMOS moldes têm de dar HTML igual — e é isso que
+    //    autoriza a tela a gerar uma vez por grupo em vez de uma vez por tema.
+    // ⚠️ Isto mudou em 2026-09-05, com 21 temas: antes eram quatro, todos com
+    // moldes próprios, e o caso exigia 4 HTML distintos em 4. Hoje 15 dos 21
+    // são temas "só de CSS" (TEMAS.md §2) e partilham `Temas.moldes`.
+    // ⚠️ A assinatura é só dos moldes que ESTA página usa. A prévia é a capa
+    // do site, e a capa deste sítio está em modo "página" (ver `sessao()`
+    // acima) — logo passa por `layout` e `pagina`, e por mais nenhum. Assinar
+    // os oito daria falso alarme: o Panfleto troca `artigo`, `blog` e
+    // `etiqueta` e tem a mesma capa que o Padrão, o que está certo.
+    const USADOS = ['layout', 'pagina'];
+    const assinaturas2 = await p.pg.evaluate((usados) => { const o = {}; for (const t of Temas.todos()) o[t.manifesto.id] = JSON.stringify(usados.map(k => t.templates[k])); return o; }, USADOS);
+    const corpoDe = (id) => porTema[id].replace(/<style>[\s\S]*?<\/style>/, '');
+    const ids = Object.keys(porTema);
+    for (const a of ids) for (const b of ids) {
+      if (a >= b) continue;
+      const mesmosMoldes = assinaturas2[a] === assinaturas2[b];
+      const mesmoHtml = corpoDe(a) === corpoDe(b);
+      if (mesmosMoldes !== mesmoHtml) {
+        throw new Error(mesmosMoldes
+          ? a + ' e ' + b + ' têm os mesmos moldes de capa e deram HTML diferente — a prévia depende de algo que não são os moldes'
+          : a + ' e ' + b + ' têm moldes de capa diferentes e deram o MESMO HTML — a prévia não está a usar os moldes do tema');
+      }
+    }
+    const distintos = new Set(ids.map(corpoDe));
+    const grupos = new Set(ids.map(id => assinaturas2[id]));
+    assert(distintos.size === grupos.size, 'um HTML distinto por grupo de moldes de capa: ' + distintos.size + ' HTML para ' + grupos.size + ' grupos');
+    assert(grupos.size > 1, 'se todos os temas partilhassem moldes, a prévia cara deixaria de se justificar');
     await p.pg.close();
-    return previas.length + ' prévias isoladas, CSS do próprio tema, ' + distintos.size + ' HTML distintos';
+    return previas.length + ' prévias isoladas, CSS do próprio tema, ' + distintos.size + ' HTML distintos para ' + grupos.size + ' jogos de moldes de capa (layout+pagina) em ' + ids.length + ' temas';
   });
 
   await it('escolher um tema não grava sozinho: o aviso diz "ainda não está salvo" e só o Salvar leva ao banco e ao site', async () => {

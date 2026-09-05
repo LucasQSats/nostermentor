@@ -9,11 +9,17 @@
 
    ⚠️ A prévia de cada cartão é o site do dono gerado por inteiro com aquele
    tema, e não o mesmo HTML com outro CSS. Medido em 2026-09-05: os quatro
-   temas diferem em SEIS dos oito moldes (layout, pagina, artigo, blog,
-   etiqueta, galeria), logo trocar só a folha de estilo mostraria o Diário
-   com a estrutura do Padrão — uma prévia falsa. O custo medido de gerar os
-   quatro: 29 ms com 3 artigos, 43 ms com 50, 148 ms com 200 (Chrome, na
-   máquina de dev). Paga-se uma vez, ao abrir a tela.
+   temas de então diferem em SEIS dos oito moldes (layout, pagina, artigo,
+   blog, etiqueta, galeria), logo trocar só a folha de estilo mostraria o
+   Diário com a estrutura do Padrão — uma prévia falsa.
+
+   ⚠️ 2026-09-05, mais tarde: o app passou de 4 para 21 TEMAS, e o custo desta
+   tela passou a contar. Medido no Chrome da máquina de dev, com 50 artigos:
+   gerar para os 21 levava 229 ms, contra 40 ms dos 4 (era 29 ms com 3
+   artigos, 43 com 50 e 148 com 200, quando eram quatro). Daí a memória por
+   jogo de moldes em `gerarPrevias` — 12 dos 21 temas são "só de CSS" e
+   partilham `Temas.moldes`, e a capa deles é a MESMA. Paga-se uma vez, ao
+   abrir a tela.
 
    O cartão "Enviar tema" está DESLIGADO e diz porquê. Sem o validador de
    pacote (02 G.2, TEMAS.md §11), um tema de estranho pode trazer um
@@ -110,14 +116,31 @@
 
     async function gerarPrevias() {
       const dataUris = await Editor.dataUrisDe(midias);
+      // O HTML da capa depende dos MOLDES do tema e de mais nada — as opções
+      // só entram na folha de estilo, e o `previa()` abaixo aplica-as a cada
+      // cartão. Logo dois temas com os mesmos moldes dão a mesma capa, e
+      // gerar o site outra vez para o segundo é trabalho deitado fora.
+      // ⚠️ Isto passou a contar em 2026-09-05, quando o app foi de 4 para 21
+      // temas: 12 deles são temas "só de CSS" (TEMAS.md §2) e partilham
+      // `Temas.moldes`. MEDIDO nesse dia, no Chrome da máquina de dev, com 50
+      // artigos: 21 temas sem esta memória custavam 229 ms contra 40 ms dos
+      // 4 antigos. O caso "a prévia de cada cartão…" de `telas/t12_temas` é
+      // quem garante que a igualdade de moldes implica igualdade de HTML —
+      // se isso deixar de ser verdade, ele falha antes desta memória mentir.
+      const porMoldes = new Map();
       for (const t of Temas.todos()) {
         if (sinal.aborted) return;
         const id = t.manifesto.id;
         try {
-          const d = { site: Object.assign({}, rascunho, { theme: { id: id, version: t.manifesto.version, options: {} } }),
-            pages: pages, posts: posts, media: midias };
-          const gerado = await Gerador.gerarSite(d);
-          const arq = gerado.arquivos.find(a => a.path === Modelo.caminhoDe('home'));
+          const chave = JSON.stringify(t.templates);
+          let arq = porMoldes.get(chave);
+          if (arq === undefined) {
+            const d = { site: Object.assign({}, rascunho, { theme: { id: id, version: t.manifesto.version, options: {} } }),
+              pages: pages, posts: posts, media: midias };
+            const gerado = await Gerador.gerarSite(d);
+            arq = gerado.arquivos.find(a => a.path === Modelo.caminhoDe('home')) || null;
+            porMoldes.set(chave, arq);
+          }
           // ⚠️ Cada cartão desenha-se com as opções que clicar nele DARIA:
           //  - o tema em uso, com as que o dono tem agora;
           //  - um tema já usado antes, com as que ficaram na gaveta — é o que
@@ -147,7 +170,15 @@
         // Sem `loading="lazy"`: medido em 2026-09-05, poupava 10 KB num delta
         // de 3,5 MB (quatro iframes, Chrome) — o `srcdoc` já está em memória
         // de qualquer maneira, e o atributo só adiava a pintura sem baixar o
-        // custo. ⚠️ A prévia dos cartões de baixo aparece em branco numa
+        // custo.
+        // ⚠️ Esses 3,5 MB vinham de `performance.memory`, que NÃO vê estes
+        // iframes: sem `allow-same-origin`, cada prévia corre no seu próprio
+        // processo. Medido outra vez em 2026-09-05 pela soma do RSS da árvore
+        // de processos do Chrome, que é o número verdadeiro: **+121 MB com 4
+        // prévias e +177 MB com 21** — cresce muito abaixo do linear (a
+        // primeira prévia paga o processo, as outras quase só o conteúdo),
+        // mas cresce. Se um dia forem 50 temas, esta tela precisa de carregar
+        // as prévias à medida que se rola até elas. ⚠️ A prévia dos cartões de baixo aparece em branco numa
         // captura `fullPage`: é artefato da ferramenta, que fotografa fora do
         // viewport. Ao rolar até o cartão, ele pinta — verificado.
         const ifr = h('iframe', { class: 'tema-iframe', sandbox: 'allow-scripts',

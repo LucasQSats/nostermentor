@@ -240,8 +240,17 @@ module.exports = async function (ctx, u) {
     out.previaSemTema = /tema Padrão v4/.test(Gerador.previa('<link rel="stylesheet" href="/tema/estilo.css">', {}, {}));
     return out;
   });
-  await it('12: quatro temas registados (Padrão primeiro), cada um com 8 moldes, CSS limpo, lixo descartado, bytes determinísticos e HTML sem script; id desconhecido cai no Padrão; a prévia usa o tema pedido', () => {
-    assert(rt.ids.join(',') === 'padrao,diario,jornal,moderno', rt.ids.join(','));
+  await it('12: TODO tema registado (Padrão primeiro) tem 8 moldes, CSS limpo, lixo descartado, bytes determinísticos e HTML sem script; id desconhecido cai no Padrão; a prévia usa o tema pedido', () => {
+    // Sem lista fixa de ids, de propósito: um tema novo entra nesta prova só
+    // por se registar (TEMAS.md §2), e uma lista escrita à mão aqui era o que
+    // obrigava a mexer no teste a cada tema. O que se exige é a REGRA — o
+    // Padrão primeiro, os restantes por id — e que os quatro originais não
+    // desapareçam sem que alguém dê por isso.
+    assert(rt.ids[0] === 'padrao', 'o Padrão tem de vir primeiro: ' + rt.ids.join(','));
+    const resto = rt.ids.slice(1);
+    assert(resto.join(',') === resto.slice().sort().join(','), 'os outros temas vêm por id: ' + resto.join(','));
+    assert(new Set(rt.ids).size === rt.ids.length, 'há ids repetidos: ' + rt.ids.join(','));
+    for (const id of ['padrao', 'diario', 'jornal', 'moderno']) assert(rt.ids.indexOf(id) !== -1, 'o tema ' + id + ' deixou de estar registado');
     for (const id of rt.ids) {
       const t = rt.temas[id];
       assert(t.moldes === 8, id + ': ' + t.moldes + ' moldes');
@@ -252,10 +261,10 @@ module.exports = async function (ctx, u) {
       assert(t.semScript, id + ': HTML com script');
       assert(/class="pagina"|class="pagina /.test(t.home) && /class="menu"/.test(t.home) && /class="botao"/.test(t.home) && /class="cartoes"/.test(t.home) && /<a class="marca/.test(t.home), id + ': classes de contrato em falta na capa');
     }
-    assert(rt.temas.diario.caminhos === rt.temas.padrao.caminhos && rt.temas.jornal.caminhos === rt.temas.padrao.caminhos && rt.temas.moderno.caminhos === rt.temas.padrao.caminhos, 'os caminhos gerados não podem depender do tema');
+    for (const id of rt.ids) assert(rt.temas[id].caminhos === rt.temas.padrao.caminhos, 'os caminhos gerados não podem depender do tema — ' + id + ' difere do padrao');
     assert(rt.desconhecidoCaiNoPadrao, 'id desconhecido devia cair no Padrão');
     assert(rt.previaJornal && rt.previaSemTema, 'previa(html, uris, opcoes, tema)');
-    return rt.ids.join(', ') + ' — 8 moldes, CSS limpo e determinístico em todos';
+    return rt.ids.length + ' temas (' + rt.ids.join(', ') + ') — 8 moldes, CSS limpo e determinístico em todos';
   });
   await it('sem erros de página/console', () => assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros })));
   R.push({ nome: `hash do site de exemplo neste motor (comparar entre motores): ${r.shaTotal.slice(0, 16)}`, ok: true, detalhe: r.shaTotal, ms: 0 });

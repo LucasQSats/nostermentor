@@ -163,8 +163,32 @@ module.exports = async function (ctx, u) {
   });
 
   // --- a medição, numa página por largura ---------------------------------
+  // ⚠️ O CONTEXTO É RECICLADO, e não é otimização: é o que faz a suíte acabar.
+  // Medido em 2026-09-05, ao passar de 4 para 21 temas: são 6 páginas × 10
+  // larguras × 21 temas = **1260 páginas por motor**, e abrir e fechar todas
+  // no MESMO contexto levou o Firefox a **9,6 GB de RSS** numa máquina de
+  // 15,5 GB — a suíte parou de progredir a meio (não deu erro: ficou a
+  // arrastar-se) e foi preciso matá-la. Fechar o contexto de N em N páginas
+  // devolve a memória ao sistema. `ctx` (o que a suíte recebe) fica intacto e
+  // só serve para a página que gera o sítio.
+  // ⚠️ 40 NÃO CHEGOU (segunda medição, 2026-09-05): o Firefox continuava a
+  // crescer ~24 MB por página medida (1,9 GB às 71 capturas, 2,4 GB às 92) e
+  // ia bater nos ~12 GB ao fim das 1260. Com 8, estabiliza. Abrir um contexto
+  // custa muito menos do que a suíte não acabar.
+  const POR_CONTEXTO = 8;
+  let ctxMedida = null, usadasNoContexto = 0;
+  async function contextoDeMedida() {
+    if (ctxMedida && usadasNoContexto < POR_CONTEXTO) return ctxMedida;
+    if (ctxMedida) await ctxMedida.close();
+    ctxMedida = await ctx.browser().newContext({ ignoreHTTPSErrors: true });
+    usadasNoContexto = 0;
+    return ctxMedida;
+  }
+
   async function medir(html, largura, altura, capturarComo) {
-    const pg = await ctx.newPage();
+    const c = await contextoDeMedida();
+    usadasNoContexto++;
+    const pg = await c.newPage();
     // Sem rede, de facto: a prévia já troca toda imagem que não seja local por
     // um marcador data:, mas a página de medição recusa http(s) na mesma —
     // se algum dia escapar um pedido, o teste falha aqui e não o esconde.
@@ -329,6 +353,78 @@ module.exports = async function (ctx, u) {
     return `${Object.keys(sitio.temas).length} temas (${Object.keys(sitio.temas).join(', ')}), ${medidas.length} medições, todas com as imagens carregadas`;
   }, R);
 
+  // --- o caso que faltava: SEM LOGO e com a MENOR letra ---------------------
+  // ⚠️ Achado em 2026-09-05, ao escrever a leva de 17 temas novos: a bancada
+  // acima tem SEMPRE um logo (é o pior caso para a distorção, R4), logo o
+  // nome do site em TEXTO — que é o que um site novo tem, porque o logo é
+  // opcional — nunca era medido. E as duas configurações medidas são a padrão
+  // e o EXTREMO, que para o tamanho do texto é a letra MAIOR: a letra pequena
+  // também nunca era medida. O Mínimo falhava nas duas coisas ao mesmo tempo
+  // (nome do site com 270x19 px), e nenhum caso desta suíte dava por isso.
+  //
+  // ⚠️ A EXCEÇÃO DA WCAG, que este caso tem de respeitar ou reprova todos os
+  // temas incluindo o Padrão: o critério 2.5.8 isenta o alvo "numa frase ou
+  // cujo tamanho é limitado pela entrelinha do texto que não é alvo" — um
+  // link no meio de um parágrafo. Medido: esses ficam entre 17 e 23 px em
+  // TODOS os 21 temas, e está certo assim. O que este caso mede são os alvos
+  // que NÃO estão numa frase.
+  const semLogo = await p.pg.evaluate(async () => {
+    const site = Modelo.sitePadrao('a'.repeat(64), 'npub1teste');
+    site.title = 'Padaria da Esquina e Confeitaria';
+    const pg1 = Modelo.novaPagina('Início'); pg1.status = 'published';
+    pg1.body = 'Texto com um [link no meio](/sobre.html) do parágrafo.\n\n[[botao: Encomende aqui -> /contato]]';
+    const a1 = Modelo.novoArtigo('Pão'); a1.id = 'a1'; a1.date = '2026-01-15T00:00:00Z'; a1.status = 'published'; a1.body = 'Corpo.'; a1.tags = ['pão'];
+    site.home = { mode: 'page', page_id: pg1.id, latest_posts: 3 };
+    site.menu = [{ type: 'page', page_id: pg1.id }, { type: 'blog' }];
+    const out = {};
+    for (const t of Temas.todos()) {
+      // a MENOR de cada escolha e o mínimo de cada medida — o oposto do
+      // `extremoDe` lá de cima, que pega na última e no máximo
+      const o = {}, M = t.manifesto.options || {};
+      for (const n of Object.keys(M)) { const d = M[n]; o[n] = d.tipo === 'escolha' ? d.opcoes[0][0] : d.tipo === 'medida' ? d.min : d.padrao; }
+      for (const n of Object.keys(M)) if (M[n].tipo === 'escolha' && M[n].opcoes.some(x => x[0] === 'pequeno')) o[n] = 'pequeno';
+      const g = await Gerador.gerarSite({ site: Object.assign({}, site, { theme: { id: t.manifesto.id, version: t.manifesto.version, options: o } }), pages: [pg1], posts: [a1], media: [] });
+      out[t.manifesto.id] = Gerador.previa(g.arquivos.find(a => a.path === '/index.html').texto, {}, o, t);
+    }
+    return out;
+  });
+
+  const maus = [];
+  for (const id of Object.keys(semLogo)) {
+    for (const larg of [320, 390]) {
+      const c2 = await contextoDeMedida();
+      usadasNoContexto++;
+      const pg2 = await c2.newPage();
+      await pg2.route(/^https?:/, (r) => r.abort());
+      await pg2.setViewportSize({ width: larg, height: 800 });
+      await pg2.setContent(semLogo[id], { waitUntil: 'load' });
+      const r = await pg2.evaluate((ALVO_MIN) => {
+        const out = { alvos: [], estouro: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth) };
+        for (const el of document.querySelectorAll('a,button')) {
+          const b = el.getBoundingClientRect();
+          if (b.width === 0 && b.height === 0) continue;
+          if (b.width >= ALVO_MIN && b.height >= ALVO_MIN) continue;
+          // exceção "inline" da WCAG 2.5.8: elemento inline dentro de um pai
+          // que tem outro texto além dele — um link no meio de uma frase
+          const pai = el.parentElement;
+          const soDele = pai ? pai.textContent.trim() === el.textContent.trim() : true;
+          if (getComputedStyle(el).display === 'inline' && !soDele) continue;
+          out.alvos.push((typeof el.className === 'string' && el.className ? '.' + el.className.trim().split(/\s+/).join('.') : el.tagName.toLowerCase()) +
+            ' «' + el.textContent.trim().slice(0, 20) + '» ' + Math.round(b.width) + 'x' + Math.round(b.height));
+        }
+        return out;
+      }, ALVO_MIN);
+      await pg2.close();
+      if (r.estouro) maus.push(id + '@' + larg + ': a página rola para o lado (' + r.estouro + 'px)');
+      if (r.alvos.length) maus.push(id + '@' + larg + ': ' + r.alvos.join(' ; '));
+    }
+  }
+  await it('sem logo e com a letra pequena, todo alvo que não está numa frase tem 24x24 px e nada estoura', async () => {
+    if (maus.length) throw new Error(resumo(maus, x => x));
+    return Object.keys(semLogo).length + ' temas × 320 e 390 px, opções no mínimo, nome do site em texto';
+  }, R);
+
+  if (ctxMedida) await ctxMedida.close();
   await p.pg.close();
   return R;
 };

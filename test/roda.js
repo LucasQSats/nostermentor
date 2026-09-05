@@ -45,10 +45,16 @@ const SUITES = [
   ['rede/publicar_real', require('./rede/publicar_real.test.js')],
 ];
 const SO = process.env.NOSTERMENTOR_SUITES ? process.env.NOSTERMENTOR_SUITES.split(',') : null;
+// NOSTERMENTOR_MOTORES=chrome corre só num motor. Existe por causa de
+// `core/responsivo`, que com 21 temas leva dezenas de minutos NOS DOIS: ao
+// afinar um tema, medir num motor e só no fim correr os dois. ⚠️ Nunca fechar
+// trabalho com um motor só — metade das correções de tema deste projeto
+// vieram de o Firefox e o Chrome discordarem (TEMAS.md §7.4).
+const SO_MOTOR = process.env.NOSTERMENTOR_MOTORES ? process.env.NOSTERMENTOR_MOTORES.split(',') : null;
 const MOTORES = [
   ['firefox', firefox, {}],
   ['chrome', chromium, { executablePath: process.env.CHROME || '/usr/bin/google-chrome' }],
-];
+].filter(([nome]) => !SO_MOTOR || SO_MOTOR.includes(nome));
 const NPUB_BOSTIL = process.env.NOSTERMENTOR_NPUB_TESTE || 'npub10xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqpkge6d';  // exemplo sem dono: o ponto gerador da secp256k1
 const PUBKEY_BOSTIL = process.env.NOSTERMENTOR_PUBKEY_TESTE || '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
 
