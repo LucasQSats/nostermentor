@@ -5,7 +5,7 @@
    aqui ela é ruído.
 
    Não é um tema "para deficientes visuais": é o tema para ler ao sol num
-   telemóvel, num monitor velho, ou com a vista cansada. Tema só de CSS: os
+   celular, num monitor velho, ou com a vista cansada. Tema só de CSS: os
    oito moldes base (`Temas.moldes`). Nenhum recurso externo (02 G.2.4). */
 const TemaContraste = (function () {
   'use strict';
@@ -19,7 +19,7 @@ const TemaContraste = (function () {
       apoio: 'Todos os tamanhos deste tema são maiores do que o normal — é a razão de ele existir.' }),
     sublinhado: Object.freeze({ tipo: 'escolha', rotulo: 'Links sublinhados', padrao: 'sempre',
       opcoes: Object.freeze([['ao-passar', 'Só ao passar por cima'], ['sempre', 'Sempre']]),
-      apoio: 'Sublinhar sempre é o que permite reconhecer um link a quem não distingue cores.' }),
+      apoio: 'Sublinhar sempre é o que permite reconhecer um link para quem não distingue cores.' }),
     largura: Object.freeze({ tipo: 'escolha', rotulo: 'Largura da página', padrao: 'media',
       opcoes: Object.freeze([['estreita', 'Estreita'], ['media', 'Média'], ['larga', 'Larga']]) }),
     altura_logo: Object.freeze({ tipo: 'medida', rotulo: 'Altura do logo', padrao: 48, min: 28, max: 96, passo: 2, unidade: 'px' })
@@ -99,7 +99,7 @@ const TemaContraste = (function () {
       // ⚠️ `em` COMPÕE: na listagem o `<time>` vive dentro do `<p class="meta">`,
       // que já reduziu o tamanho — reduzir outra vez dava 11,8 px no tema
       // Galeria e 12,0 no Neon, abaixo do piso de 12 (TEMAS.md §7.2 R5),
-      // medido em 2026-09-05. Na secção "últimos artigos" o `<time>` é filho
+      // medido em 2026-09-05. Na seção "últimos artigos" o `<time>` é filho
       // direto do `<li>` e a redução acima é a que se quer; daí o escopo.
       '.lista-artigos .meta time{font-size:1em}',
       '.lista-artigos a,.ultimos p a,.blog>p a,.cartao-titulo a{display:inline-block;padding:4px 0}',

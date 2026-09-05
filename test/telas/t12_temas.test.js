@@ -61,7 +61,7 @@ module.exports = async function (ctx, u) {
     return { home: home ? home.texto : '', css: css ? css.texto : '' };
   });
 
-  await it('a galeria tem um cartão por tema do registo, marca o que está em uso e só ele não oferece "Usar este tema"', async () => {
+  await it('a galeria tem um cartão por tema do registro, marca o que está em uso e só ele não oferece "Usar este tema"', async () => {
     const { p } = await sessao();
     const cartoes = await p.pg.$$eval('.tema-cartao[data-tema]', els => els.map(e => ({
       id: e.getAttribute('data-tema'),
@@ -71,7 +71,7 @@ module.exports = async function (ctx, u) {
       atual: e.classList.contains('atual')
     })));
     const doRegisto = await p.pg.evaluate(() => Temas.todos().map(t => t.manifesto.id));
-    assert(cartoes.length === doRegisto.length, 'um cartão por tema do registo: ' + cartoes.length + ' vs ' + doRegisto.length);
+    assert(cartoes.length === doRegisto.length, 'um cartão por tema do registro: ' + cartoes.length + ' vs ' + doRegisto.length);
     assert(cartoes.map(c => c.id).join(',') === doRegisto.join(','), 'ordem: ' + cartoes.map(c => c.id).join(','));
     const emUso = cartoes.filter(c => c.emUso);
     assert(emUso.length === 1 && emUso[0].id === 'padrao', 'só o Padrão devia estar em uso: ' + JSON.stringify(emUso));
@@ -116,7 +116,7 @@ module.exports = async function (ctx, u) {
     // moldes próprios, e o caso exigia 4 HTML distintos em 4. Hoje 15 dos 21
     // são temas "só de CSS" (TEMAS.md §2) e partilham `Temas.moldes`.
     // ⚠️ A assinatura é só dos moldes que ESTA página usa. A prévia é a capa
-    // do site, e a capa deste sítio está em modo "página" (ver `sessao()`
+    // do site, e a capa deste lugar está em modo "página" (ver `sessao()`
     // acima) — logo passa por `layout` e `pagina`, e por mais nenhum. Assinar
     // os oito daria falso alarme: o Panfleto troca `artigo`, `blog` e
     // `etiqueta` e tem a mesma capa que o Padrão, o que está certo.
@@ -287,7 +287,7 @@ module.exports = async function (ctx, u) {
     return 'cartão presente, sem input nem botão, razão dita por extenso';
   });
 
-  // Responsividade: a galeria é do painel, e o painel também é lido em ecrã
+  // Responsividade: a galeria é do painel, e o painel também é lido em tela
   // pequeno. A grade não pode empurrar a página para o lado — o que estoura
   // no painel a 320 px é a barra do topo, que é anterior a esta tela.
   await it('a grade adapta-se sem estourar: de 1200 a 320 px o conteúdo desta tela cabe na largura disponível', async () => {

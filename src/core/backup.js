@@ -159,7 +159,7 @@ const Backup = (function () {
   }
   // 32(c) — a miniatura guardada sobrevive à importação, mas a chave só entra
   // quando aponta mesmo para alguma coisa. ⚠️ Escrevê-la como `null` fazia a
-  // importação devolver um registro DIFERENTE do que foi exportado — apanhado
+  // importação devolver um registro DIFERENTE do que foi exportado — pego
   // pelo aceite 5 de `telas/t9_backup`, que compara os dois lado a lado. Para
   // todo o app, `thumb_media_id` ausente e `null` são a mesma coisa, e nada
   // deve inventar a chave: é a lição do `logo_media_id` por outro caminho.

@@ -1,7 +1,7 @@
 /* tema/pixel/tema.js — PIXEL: o computador de 8 bits (12; TEMAS.md). Letra
    de largura fixa, contornos grossos, sombra dura deslocada (sem desfoque) e
    nada arredondado. As imagens saem com os pontos à mostra (`image-rendering:
-   pixelated`), como no ecrã de um monitor antigo.
+   pixelated`), como na tela de um monitor antigo.
 
    Tema só de CSS: os oito moldes base (`Temas.moldes`), sem trocar nenhum.
    A sombra é `box-shadow` sem raio de desfoque — não ocupa lugar na caixa,
@@ -17,10 +17,10 @@ const TemaPixel = (function () {
       apoio: 'Botões, links e o traço do menu.' }),
     sombra: Object.freeze({ tipo: 'escolha', rotulo: 'Sombra dura', padrao: 'media',
       opcoes: Object.freeze([['nenhuma', 'Nenhuma'], ['pequena', 'Pequena'], ['media', 'Média']]),
-      apoio: 'A sombra sem desfoque dos ecrãs antigos. Não empurra nada — vive por baixo da caixa.' }),
+      apoio: 'A sombra sem desfoque das telas antigas. Não empurra nada — vive por baixo da caixa.' }),
     pontos: Object.freeze({ tipo: 'escolha', rotulo: 'Imagens com os pontos à mostra', padrao: 'nao',
       opcoes: Object.freeze([['nao', 'Não'], ['sim', 'Sim']]),
-      apoio: 'Ao ampliar, a imagem fica quadriculada em vez de esborratada. Bom para desenho de pixéis, mau para fotografias.' }),
+      apoio: 'Ao ampliar, a imagem fica quadriculada em vez de borrada. Bom para desenho de pixels, ruim para fotografias.' }),
     tamanho_texto: Object.freeze({ tipo: 'escolha', rotulo: 'Tamanho do texto', padrao: 'medio',
       opcoes: Object.freeze([['pequeno', 'Pequeno'], ['medio', 'Médio'], ['grande', 'Grande']]) }),
     largura: Object.freeze({ tipo: 'escolha', rotulo: 'Largura da página', padrao: 'media',
@@ -104,7 +104,7 @@ const TemaPixel = (function () {
       // ⚠️ `em` COMPÕE: na listagem o `<time>` vive dentro do `<p class="meta">`,
       // que já reduziu o tamanho — reduzir outra vez dava 11,8 px no tema
       // Galeria e 12,0 no Neon, abaixo do piso de 12 (TEMAS.md §7.2 R5),
-      // medido em 2026-09-05. Na secção "últimos artigos" o `<time>` é filho
+      // medido em 2026-09-05. Na seção "últimos artigos" o `<time>` é filho
       // direto do `<li>` e a redução acima é a que se quer; daí o escopo.
       '.lista-artigos .meta time{font-size:1em}',
       '.lista-artigos a,.ultimos p a,.blog>p a,.cartao-titulo a{display:inline-block;padding:3px 0}',

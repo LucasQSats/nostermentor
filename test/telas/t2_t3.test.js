@@ -73,7 +73,7 @@ module.exports = async function (ctx, u) {
     const p = await abrir(ctx, u.url);
     await semearSite(p.pg, ch, { relays: relays4, servers });
     // A carga contra o servidor falso acaba antes de qualquer sondagem por
-    // polling apanhar o último estado de T2 (T3 substitui a tela). Um
+    // polling pegar o último estado de T2 (T3 substitui a tela). Um
     // observador de mutações grava o texto dos passos a cada mudança.
     await p.pg.evaluate(() => { window.__passos = []; new MutationObserver(() => { const ol = document.getElementById('passos'); if (ol) window.__passos.push(ol.textContent.replace(/\s+/g, ' ').trim()); }).observe(document.getElementById('app'), { subtree: true, childList: true, characterData: true }); });
     await entrarCom(p.pg, ch.nsec);

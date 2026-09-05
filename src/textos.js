@@ -158,10 +158,25 @@ const Textos = Object.freeze({
       novaPagina: 'Nova página',
       enviarMidia: 'Enviar mídia',
       verSite: 'Ver o site',
-      outros: 'outros endereços:',
       lento: 'pode levar dias para atualizar',
       naoPublicado: 'ainda não publicado — o endereço só mostra o site depois da primeira publicação',
       foraDoAr: 'fora do ar — o endereço não mostra nada até você publicar de novo'
+    },
+    // Cartão de endereços (14 T3 cartão 5): o mesmo site tem um endereço por
+    // gateway e todos valem. O QR existe porque a npub tem 63 caracteres —
+    // ninguém dita isso ao telefone nem copia de um cartaz.
+    enderecos: {
+      titulo: 'Endereços do site',
+      apoio: 'O mesmo site, por três caminhos diferentes. Qualquer um funciona — use o que preferir para divulgar.',
+      principal: 'principal',
+      copiar: 'Copiar endereço',
+      copiado: 'Endereço copiado.',
+      copiarFalhou: 'Não consegui copiar. Selecione o endereço e copie à mão.',
+      baixarQr: 'Baixar QR Code',
+      qrRotulo: 'QR Code do endereço {u}',
+      qrFalhou: 'Não consegui gerar a imagem neste navegador. O código na tela continua válido.',
+      naoPublicado: 'Os endereços já existem, mas ainda não mostram nada: o site nunca foi publicado.',
+      foraDoAr: 'Os endereços existem, mas o site está fora do ar — publique de novo para voltarem a mostrar alguma coisa.'
     },
     ultimos: { titulo: 'Últimos artigos', nenhum: 'Nenhum artigo ainda.', editar: 'editar' },
     herdados: '{n} arquivos herdados de outra ferramenta (em Mídia → Arquivos herdados).',
@@ -371,7 +386,7 @@ const Textos = Object.freeze({
       semResultado: 'Nenhum arquivo corresponde ao filtro ou à busca.'
     },
     // 32(a) — textos do módulo de miniaturas, usados também pelos dois modais
-    // do editor (a capa e "Inserir imagem"). Ficam aqui, num sítio só.
+    // do editor (a capa e "Inserir imagem"). Ficam aqui, num lugar só.
     mini: {
       semMiniatura: 'sem pré-visualização aqui',
       baixando: 'Baixando a imagem…',
@@ -616,6 +631,19 @@ const Textos = Object.freeze({
       logoSemImagens: 'Ainda não há imagens na biblioteca. Envie uma em Mídia.',
       logoEnviar: 'Enviar nova imagem…',
       logoBaixo: 'Atenção: esta imagem tem {altura} pontos de altura e você pediu {pedida} px. Em telas densas ela vai aparecer esticada — o ideal é uma imagem com pelo menos {dobro} pontos.',
+      // O ícone da aba. Fica logo abaixo do logo porque é a mesma decisão de
+      // marca, mas é OUTRA imagem: o logo é horizontal e este é quadrado.
+      favicon: 'Ícone do site (favicon)',
+      faviconApoio: 'O quadradinho que aparece na aba do navegador de quem visita o seu site, e no favorito quando alguém o guarda. Use uma imagem quadrada — ela vai ser mostrada bem pequena, então um desenho simples funciona melhor que uma foto. Sem ícone, a aba fica com o símbolo em branco do navegador.',
+      faviconNenhum: '(nenhum)',
+      faviconEscolher: 'Escolher…',
+      faviconRemover: 'Remover',
+      faviconModal: 'Escolher o ícone do site',
+      faviconSemImagens: 'Ainda não há imagens na biblioteca. Envie uma em Mídia.',
+      faviconEnviar: 'Enviar nova imagem…',
+      faviconNaoQuadrado: 'Atenção: esta imagem tem {largura}×{altura} pontos, e não é quadrada. O navegador vai espremê-la para caber num quadrado — o ícone sai distorcido. O ideal é uma imagem quadrada de pelo menos 128 pontos.',
+      faviconPequeno: 'Atenção: esta imagem tem {largura} pontos de lado. Em telas densas o ícone sai borrado — o ideal são pelo menos 128.',
+      faviconSvgAviso: 'Atenção: arquivos SVG podem conter programas. Como ícone do site ele é servido a todo mundo que visita — prefira PNG ou WebP.',
       outros: '',
       previa: 'Ver como o site está ficando',
       previaTitulo: 'Pré-visualização do site',
@@ -909,7 +937,8 @@ const Textos = Object.freeze({
         ['nostr-tools', '2.25.0', 'Unlicense', 'chaves, assinatura e verificação de eventos'],
         ['DOMPurify', '3.4.14', 'Apache-2.0', 'limpeza do HTML que a pré-visualização mostra'],
         ['marked', '18.0.11', 'MIT', 'Markdown → HTML'],
-        ['Mustache', '4.2.0', 'MIT', 'o tema, que vira as páginas do site']
+        ['Mustache', '4.2.0', 'MIT', 'o tema, que vira as páginas do site'],
+        ['qrcode-generator', '1.4.4', 'MIT', 'os QR Codes dos endereços do site, gerados aqui dentro']
       ],
       privacidade: 'O painel não tem telemetria, não carrega fontes nem imagens de fora e não fala com nenhum servidor do projeto. As únicas conexões são as que você mandar fazer.'
     }

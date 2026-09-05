@@ -13,7 +13,7 @@ const TemaManifesto = (function () {
   const options = Object.freeze({
     hora: Object.freeze({ tipo: 'escolha', rotulo: 'A faixa do cabeçalho', padrao: 'amanhecer',
       opcoes: Object.freeze([['tinta', 'Tinta (sólida)'], ['entardecer', 'Entardecer'], ['aurora', 'Aurora'], ['amanhecer', 'Amanhecer']]),
-      apoio: 'A cor que abre a página. As três degradês são desenhadas pelo site, sem imagem nenhuma.' }),
+      apoio: 'A cor que abre a página. Os três degradês são desenhados pelo site, sem imagem nenhuma.' }),
     cor_destaque: Object.freeze({ tipo: 'cor', rotulo: 'Cor de destaque', padrao: '#b4531a',
       apoio: 'Links, botões e as citações. Se ficar perto demais do fundo, o site escurece só o texto.' }),
     citacoes: Object.freeze({ tipo: 'escolha', rotulo: 'Citações', padrao: 'gigantes',
@@ -109,7 +109,7 @@ const TemaManifesto = (function () {
       // ⚠️ `em` COMPÕE: na listagem o `<time>` vive dentro do `<p class="meta">`,
       // que já reduziu o tamanho — reduzir outra vez dava 11,8 px no tema
       // Galeria e 12,0 no Neon, abaixo do piso de 12 (TEMAS.md §7.2 R5),
-      // medido em 2026-09-05. Na secção "últimos artigos" o `<time>` é filho
+      // medido em 2026-09-05. Na seção "últimos artigos" o `<time>` é filho
       // direto do `<li>` e a redução acima é a que se quer; daí o escopo.
       '.lista-artigos .meta time{font-size:1em}',
       // A data dentro de uma listagem não é a data de um artigo aberto: ali

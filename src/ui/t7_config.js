@@ -28,7 +28,7 @@
   // subir tudo de novo" seria falso, e a tela promete o diff verdadeiro.
   // O `logo_media_id` entra aqui porque o logo está no cabeçalho de todas as
   // páginas — esse, sim, regenera tudo (38).
-  const CAMPOS_TEMA = ['title', 'description', 'language', 'logo_media_id', 'home', 'blog', 'menu', 'donations', 'privacy'];
+  const CAMPOS_TEMA = ['title', 'description', 'language', 'logo_media_id', 'favicon_media_id', 'home', 'blog', 'menu', 'donations', 'privacy'];
   function temaId(s) { const t = s && s.theme; return JSON.stringify([t && t.id, t && t.version]); }
   function mudouTema(a, b) { return CAMPOS_TEMA.some(k => JSON.stringify(a[k]) !== JSON.stringify(b[k])) || temaId(a) !== temaId(b); }
   function mudouEstilo(a, b) { return JSON.stringify((a.theme || {}).options || {}) !== JSON.stringify((b.theme || {}).options || {}); }
@@ -308,6 +308,35 @@
           } }, C.logoEscolher),
           logo ? h('button', { type: 'button', id: 't7-logo-remover', class: 'ligacao', onclick: function () { rascunho.logo_media_id = null; render(); marcarSujo(); } }, C.logoRemover) : null),
         h('p', { class: 'apoio' }, C.logoApoio)));
+
+      // --- o ícone da aba (favicon) -----------------------------------------
+      // Logo abaixo do logo, porque é a mesma decisão de marca — e imagem
+      // SEPARADA, porque é outro formato: o logo é horizontal e este tem de
+      // ser quadrado e legível com 16 px de lado. Campo do SITE, como o logo.
+      // Os avisos são os mesmos do logo em espírito (dizer o que vai sair
+      // errado ANTES de publicar), e nunca impedem: quem quiser um ícone
+      // esticado tem o direito de o ter.
+      const favicon = (midias || []).find(m => m && m.id === rascunho.favicon_media_id && m.status !== 'removed') || null;
+      const spanFavicon = h('span', { id: 't7-favicon-atual', class: 'cresce' }, favicon ? favicon.path : C.faviconNenhum);
+      const avisosFavicon = [];
+      if (favicon) {
+        const l = Number.isInteger(favicon.width) ? favicon.width : null;
+        const a = Number.isInteger(favicon.height) ? favicon.height : null;
+        if (l && a && l !== a) avisosFavicon.push(h('p', { class: 'alerta', id: 't7-favicon-nao-quadrado' }, texto(C.faviconNaoQuadrado, { largura: l, altura: a })));
+        else if (l && a && l < 128) avisosFavicon.push(h('p', { class: 'alerta', id: 't7-favicon-pequeno' }, texto(C.faviconPequeno, { largura: l, altura: a })));
+        if (favicon.mime === 'image/svg+xml') avisosFavicon.push(h('p', { class: 'alerta', id: 't7-favicon-svg' }, C.faviconSvgAviso));
+      }
+      painel.appendChild(h('div', {},
+        h('label', {}, C.favicon),
+        h('div', { class: 'linha-capa' }, spanFavicon,
+          h('button', { type: 'button', id: 't7-favicon-escolher', class: 'secundario', onclick: function () {
+            escolherImagem({ titulo: C.faviconModal, semImagens: C.faviconSemImagens, nenhuma: C.faviconNenhum, enviar: C.faviconEnviar,
+              idSemImagens: 't7-favicon-sem-imagens', atualId: rascunho.favicon_media_id,
+              definir: function (id) { rascunho.favicon_media_id = id; } });
+          } }, C.faviconEscolher),
+          favicon ? h('button', { type: 'button', id: 't7-favicon-remover', class: 'ligacao', onclick: function () { rascunho.favicon_media_id = null; render(); marcarSujo(); } }, C.faviconRemover) : null),
+        h('p', { class: 'apoio' }, C.faviconApoio),
+        avisosFavicon));
 
       // --- 24: as opções que o TEMA declara ---------------------------------
       // Vêm do MANIFESTO, não do core (06 §5.3): o core não conhece nem valida

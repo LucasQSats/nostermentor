@@ -1,11 +1,20 @@
 <!doctype html>
-<html lang="pt">
+<html lang="pt-BR">
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'unsafe-inline'; connect-src https: wss:; img-src 'self' data: blob:; media-src blob:; style-src 'unsafe-inline'; frame-src 'self' data: blob:;">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="nostermentor-version" content="__APP_VERSION__">
 <title>Nostermentor</title>
+<!-- O ícone da aba do PAINEL (não o do site do dono, que é escolhido em
+     Configurações › Aparência). Embutido como `data:` e desenhado à mão: o
+     app é um arquivo só e não pode buscar imagem nenhuma — nem no disco, nem
+     na rede. `img-src 'self' data: blob:` na CSP acima é o que o autoriza.
+     SVG e não PNG porque cabe em duas linhas e fica nítido em tela densa;
+     navegador que não entender SVG fica sem ícone, que é o que já acontece
+     hoje. A letra é um caminho, não um `<text>`: dentro de um favicon não há
+     garantia de fonte nenhuma. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='12'%20fill='%232271b1'/%3E%3Cpath%20d='M16%2048V16h8l16%2022V16h8v32h-8l-16-22v22z'%20fill='%23fff'/%3E%3C/svg%3E">
 <style>
 :root{--fundo:#f4f5f7;--papel:#fff;--tinta:#1d2327;--suave:#646970;--linha:#dcdcde;--acento:#2271b1;--acento-escuro:#135e96;--erro:#b32d2e;--erro-fundo:#fcf0f1;--alerta-fundo:#fcf9e8;--alerta-borda:#dba617;--ok:#00a32a}
 *{box-sizing:border-box}
@@ -81,6 +90,33 @@ label.inline{display:inline-flex;gap:6px;align-items:center;margin:8px 0}
 .lista-relays li.sem code{color:var(--erro)}
 .lista-relays li.nao_respondeu code{color:var(--suave)}
 .lista-artigos .data{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--suave)}
+/* T3 cartão 5 — os endereços do site com QR.
+   ⚠️ Largura inteira e QR de 144 px, e as duas coisas saíram de OLHAR a
+   captura, não dos números: numa coluna de metade da tela o endereço de 82
+   caracteres quebrava em três linhas e o QR ficava com 104 px, ou seja
+   ~2,3 px por módulo — pequeno demais para a câmera de um celular ler da
+   tela, que é exatamente para o que este cartão existe. A 144 px são ~3,2
+   px por módulo, e o endereço cabe numa linha só.
+   O QR pede 144 px mas leva `min-width:0` e `max-width:100%`, para encolher
+   em vez de empurrar quando não houver espaço.
+   ⚠️ **Isto NÃO foi o que resolveu a 54, e o comentário anterior dizia que
+   sim — por inferência, não por medição.** O experimento correto é esconder o
+   cartão e medir outra vez: a 320 px a T3 dá **444 px com e sem ele**. O
+   estouro vem da barra do topo (a 54 já o dizia), e este cartão contribui
+   ZERO. O `min-width:0` fica na mesma, porque é o comportamento certo — só
+   não é a correção de coisa nenhuma. A 1200 e a 1000 px (a menor janela real
+   medida no Tor Browser) a tela cabe sem rolagem, e isso é aceite na suíte.
+   Fundo branco explícito: QR escuro sobre escuro não é lido por leitor
+   nenhum. */
+.cartao#cartao-enderecos{grid-column:1/-1}
+.lista-enderecos{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:16px}
+.endereco{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.endereco .qr{flex:0 1 auto;width:144px;min-width:0;max-width:100%;height:auto;aspect-ratio:1/1;background:#fff;border:1px solid var(--linha);border-radius:2px}
+.endereco-texto{flex:1 1 210px;min-width:0}
+.endereco-url{margin:0 0 4px;font-weight:600}
+.endereco-completo{display:block;word-break:break-all;font-size:.85em;color:var(--suave);margin:0 0 6px}
+.acoes-endereco{display:flex;gap:16px;flex-wrap:wrap;margin:0}
+.endereco-aviso{margin:6px 0 0}
 .cartao.apoie{grid-column:1/-1;background:#f0f6fc}
 #faixa button.ligacao{margin-left:6px}
 /* M3 — listas (T4/T5) */
@@ -265,16 +301,16 @@ button.ver-mini:hover{background:var(--papel);color:var(--acento-escuro)}
 #t6a .pre.cache{color:var(--suave)}
 button.perigoso:hover{background:#8a2224;border-color:#8a2224}
 /* T12 — a galeria de temas (14 T12). Grade fluida com `auto-fill`, como a
-   `.grade-capas`: adapta-se sozinha do piso de 320 px ao ecrã largo, sem uma
+   `.grade-capas`: adapta-se sozinha do piso de 320 px à tela larga, sem uma
    única `@media` — a mesma regra que TEMAS.md §7 impõe aos temas.
    A prévia é um iframe encolhido por `transform: scale`, não um iframe
-   estreito: assim o tema desenha-se na largura de um ecrã de verdade (1100 px)
-   e vê-se o layout que o leitor verá, em vez do layout de telemóvel. */
+   estreito: assim o tema se desenha na largura de uma tela de verdade (1100 px)
+   e se vê o layout que o leitor verá, em vez do layout de celular. */
 .grade-temas{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:18px;align-items:start;margin:16px 0}
 .tema-cartao{padding:0;overflow:hidden;display:flex;flex-direction:column;min-width:0}
 .tema-cartao.atual{border-color:var(--acento);box-shadow:0 0 0 1px var(--acento)}
 .tema-previa{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;background:#fff;border-bottom:1px solid var(--linha)}
-/* O iframe desenha-se na largura de um ecrã de verdade (--previa-larg) e é
+/* O iframe se desenha na largura de uma tela de verdade (--previa-larg) e é
    encolhido para caber no cartão. O fator NÃO pode ser fixo: o cartão mede
    307 px numa grade de três colunas e 460 px numa de uma só (medido em
    2026-09-05), e um `scale` fixo deixava faixa branca. `--previa-escala` é

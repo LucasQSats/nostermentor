@@ -1,4 +1,4 @@
-/* tema/mercado/tema.js — MERCADO: o jornal económico (12; TEMAS.md). Papel
+/* tema/mercado/tema.js — MERCADO: o jornal econômico (12; TEMAS.md). Papel
    salmão, tinta azul-marinho, rótulos em versalete espaçado e — o que
    nenhum outro tema faz — TABELAS tratadas a sério: cabeçalho destacado,
    linhas alternadas e algarismos de largura fixa, para as colunas de números
@@ -14,7 +14,7 @@ const TemaMercado = (function () {
   const options = Object.freeze({
     papel: Object.freeze({ tipo: 'escolha', rotulo: 'Papel', padrao: 'salmao',
       opcoes: Object.freeze([['branco', 'Branco'], ['creme', 'Creme'], ['salmao', 'Salmão']]),
-      apoio: 'O salmão é o papel dos jornais de economia — vinca o assunto antes de se ler uma linha.' }),
+      apoio: 'O salmão é o papel dos jornais de economia — anuncia o assunto antes de ler uma linha.' }),
     cor_tinta: Object.freeze({ tipo: 'cor', rotulo: 'Cor da tinta', padrao: '#123a5e',
       apoio: 'Títulos, links e o filete do cabeçalho.' }),
     numeros: Object.freeze({ tipo: 'escolha', rotulo: 'Algarismos', padrao: 'tabulares',
@@ -115,7 +115,7 @@ const TemaMercado = (function () {
       '.cartao{margin:0;border-top:2px solid var(--tinta);padding-top:10px}',
       '.cartao-capa{display:block;line-height:0;margin:0 0 .5em}',
       '.cartao-capa img{width:100%;height:auto;display:block}',
-      // O título do cartão é um `h3`, e o `h3` deste tema é o rótulo de secção
+      // O título do cartão é um `h3`, e o `h3` deste tema é o rótulo de seção
       // (sem serifa, maiúsculas, espaçado). Num cartão isso dá um título
       // comprido todo em caixa alta, pesado de ler — visto na captura de
       // 2026-09-05. Aqui volta a ser texto de leitura.

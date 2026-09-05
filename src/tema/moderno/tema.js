@@ -34,7 +34,11 @@ const TemaModerno = (function () {
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     '<title>{{titulo_pagina}}</title>',
     '{{#descricao}}<meta name="description" content="{{descricao}}">',
-    '{{/descricao}}<link rel="stylesheet" href="/tema/estilo.css">',
+    // O ícone da aba. Este tema tem molde próprio, logo repete a linha que
+    // vive em core/temas.js (TEMAS.md §2: quem substitui o layout herda a
+    // obrigação). Sem ícone escolhido, não sai <link> nenhum.
+    '{{/descricao}}{{#favicon}}<link rel="icon" href="{{src}}"{{#tipo}} type="{{tipo}}"{{/tipo}}>',
+    '{{/favicon}}<link rel="stylesheet" href="/tema/estilo.css">',
     '</head>',
     '<body>',
     '<header class="cabecalho">',
@@ -85,7 +89,7 @@ const TemaModerno = (function () {
     ''
   ].join('\n');
 
-  // a listagem é uma grelha de cartões, na largura toda
+  // a listagem é uma grade de cartões, na largura toda
   const blog = [
     '<section class="blog">',
     '<div class="miolo"><h1>{{blog_titulo}}</h1></div>',
@@ -139,8 +143,8 @@ const TemaModerno = (function () {
 
   function resolver(opcoes) { return Temas.resolver(options, opcoes); }
 
-  // As contas de cor vivem no registo (`Temas.cor`, core/temas.js): estavam
-  // copiadas dentro de cada tema e mudaram de sítio em 2026-09-05, quando o
+  // As contas de cor vivem no registro (`Temas.cor`, core/temas.js): estavam
+  // copiadas dentro de cada tema e mudaram de lugar em 2026-09-05, quando o
   // app passou a ter 21 temas. Mesma fórmula inteira, mesmos bytes.
   const C = Temas.cor;
   const paraRgb = C.paraRgb, paraHex = C.paraHex, brilho = C.brilho, legivelSobre = C.legivelSobre;

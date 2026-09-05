@@ -109,7 +109,7 @@ const TemaDefi = (function () {
       // ⚠️ `em` COMPÕE: na listagem o `<time>` vive dentro do `<p class="meta">`,
       // que já reduziu o tamanho — reduzir outra vez dava 11,8 px no tema
       // Galeria e 12,0 no Neon, abaixo do piso de 12 (TEMAS.md §7.2 R5),
-      // medido em 2026-09-05. Na secção "últimos artigos" o `<time>` é filho
+      // medido em 2026-09-05. Na seção "últimos artigos" o `<time>` é filho
       // direto do `<li>` e a redução acima é a que se quer; daí o escopo.
       '.lista-artigos .meta time{font-size:1em}',
       '.lista-artigos a,.ultimos p a,.blog>p a,.cartao-titulo a{display:inline-block;padding:3px 0}',

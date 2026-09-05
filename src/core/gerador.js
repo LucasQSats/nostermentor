@@ -237,7 +237,7 @@ const Gerador = (function () {
   // ⚠️ Por que NÃO usar `DOMPurify.removed`, que existe para isto: medido na
   // 3.4.14, ele **não reporta a tag `script`** quando o HTML começa por ela nem
   // quando há vários — o aviso mentiria por omissão, que é pior do que não
-  // haver aviso. O inventário antes/depois apanha os dois casos, apanha ainda
+  // haver aviso. O inventário antes/depois pega os dois casos, pega ainda
   // o `href="javascript:"` que o sanitizador esvazia calado, e não acusa o
   // `<tbody>` que ele ACRESCENTA a uma `<table>` (comparar só o que sumiu).
   //
@@ -371,7 +371,8 @@ const Gerador = (function () {
     const slugsEtiqueta = new Set(etiquetas.map(e => e.slug));
     const hrefEtiqueta = function (nome) { const sl = Modelo.slug(nome); return sl && slugsEtiqueta.has(sl) ? Modelo.caminhoDe('etiqueta', sl) : null; };
     return { site, pages, posts, media, porIdMedia, homePage, hrefPagina, hrefPost, hrefBlog, menu, mostrarHora, resumoDe, itemLista,
-      etiquetas, hrefEtiqueta, logo: logoDe(site, porIdMedia), opcoes: opcoesDe(site), lang: site.language || 'pt-BR',
+      etiquetas, hrefEtiqueta, logo: logoDe(site, porIdMedia), favicon: faviconDe(site, porIdMedia),
+      opcoes: opcoesDe(site), lang: site.language || 'pt-BR',
       tema: Temas.de(site) };
   }
 
@@ -380,18 +381,31 @@ const Gerador = (function () {
   // Não confundir com `profile.picture_media_id`, que é o avatar do kind 0 —
   // são dois campos porque são duas imagens (avatar quadrado no Nostr, logo
   // horizontal no site). O título do site vai para o `alt`: quem lê por leitor
-  // de ecrã, e quem indexa, continua a ver o nome (03 §1.1).
+  // de tela, e quem indexa, continua a ver o nome (03 §1.1).
   function logoDe(site, porIdMedia) {
     const m = site.logo_media_id ? porIdMedia.get(site.logo_media_id) : null;
     if (!m) return null;
     const tem = Number.isInteger(m.width) && Number.isInteger(m.height) && m.width > 0 && m.height > 0;
     return { src: m.path, alt: site.title || '', largura: tem ? m.width : null, altura: tem ? m.height : null };
   }
+  // O ícone da aba do navegador. Campo do SITE como o logo, e uma TERCEIRA
+  // imagem: o avatar do Nostr é quadrado mas grande, o logo é horizontal, e
+  // este tem de continuar legível com 16 px de lado.
+  // ⚠️ O `type` sai do próprio caminho publicado, nunca de um palpite: o
+  // navegador que recebe `image/png` num WebP simplesmente não desenha.
+  // Sem ícone escolhido devolve `null`, e o molde não emite `<link>` nenhum
+  // — melhor não ter ícone do que ter um `<link>` apontando para o vazio,
+  // que faz o leitor do site pagar um pedido a mais por nada.
+  function faviconDe(site, porIdMedia) {
+    const m = site.favicon_media_id ? porIdMedia.get(site.favicon_media_id) : null;
+    if (!m || !m.path) return null;
+    return { src: m.path, tipo: Modelo.mimePorCaminho(m.path) || m.mime || '' };
+  }
   // 24 — as opções que o tema vai resolver. O core não conhece nome nenhum
   // (06 §5.3): passa o objeto inteiro e é o tema que valida e descarta o que
   // não bate com o manifesto dele.
   function opcoesDe(site) { const t = site && site.theme; return (t && t.options && typeof t.options === 'object') ? t.options : {}; }
-  // 12 — o tema que vai desenhar: pelo `site.theme.id`, via registo
+  // 12 — o tema que vai desenhar: pelo `site.theme.id`, via registro
   // (core/temas.js); desconhecido cai no Padrão. Os blocos recebem `ctx`
   // nulo quando se renderiza um RESUMO (texto), e aí qualquer tema serve.
   function temaDe(ctx) { return (ctx && ctx.tema) || Temas.padrao(); }
@@ -401,7 +415,7 @@ const Gerador = (function () {
     const site = ctx.site;
     const doacoes = (site.donations && site.donations.support_block && site.donations.lightning_address) ? { lightning_address: site.donations.lightning_address } : null;
     return Mustache.render(ctx.tema.templates.layout, {
-      lang: ctx.lang, titulo_pagina: o.tituloPagina, descricao: o.descricao || '', site_titulo: site.title || '', logo: ctx.logo,
+      lang: ctx.lang, titulo_pagina: o.tituloPagina, descricao: o.descricao || '', site_titulo: site.title || '', logo: ctx.logo, favicon: ctx.favicon,
       menu: ctx.menu.map(m => ({ href: m.href, rotulo: m.rotulo, externo: m.externo, atual: !!o.atualId && m.id === o.atualId })),
       conteudo: o.conteudo, doacoes: doacoes, credito: !(site.donations && site.donations.footer_credit === false)
     });
@@ -507,6 +521,10 @@ const Gerador = (function () {
   }
   function previa(html, dataUris, opcoes, tema) {
     let s = html.replace(linkCss(), '<style>\n' + (tema || Temas.padrao()).css(opcoes) + '</style>');
+    // O ícone da aba sai da prévia: dentro do iframe o caminho `/img/…` não
+    // existe, e o navegador ia buscá-lo à raiz do disco — um pedido que
+    // falha, um erro no console e nada mostrado (a prévia não tem aba).
+    s = s.replace(/<link rel="icon"[^>]*>\n?/g, '');
     s = s.replace(/(<img\b[^>]*\bsrc=")([^"]*)(")/g, function (tudo, a, src, z) {
       if (dataUris && dataUris[src]) return a + dataUris[src] + z;
       if (/^data:/i.test(src)) return tudo;

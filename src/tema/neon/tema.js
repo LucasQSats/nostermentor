@@ -17,12 +17,12 @@ const TemaNeon = (function () {
       apoio: 'Títulos, links, filetes e botões. Se ficar perto demais do fundo, o site clareia só o texto.' }),
     brilho: Object.freeze({ tipo: 'escolha', rotulo: 'Brilho', padrao: 'suave',
       opcoes: Object.freeze([['nenhum', 'Nenhum'], ['forte', 'Forte'], ['suave', 'Suave']]),
-      apoio: 'O halo à volta das letras. Forte é bonito e cansa a leitura longa.' }),
+      apoio: 'O halo ao redor das letras. Forte é bonito e cansa a leitura longa.' }),
     corte: Object.freeze({ tipo: 'medida', rotulo: 'Canto cortado', padrao: 12, min: 0, max: 28, passo: 2, unidade: 'px',
-      apoio: 'O tamanho da diagonal que corta o canto das caixas. Zero deixa-as retas.' }),
-    grelha: Object.freeze({ tipo: 'escolha', rotulo: 'Grelha de fundo', padrao: 'sim',
+      apoio: 'O tamanho da diagonal que corta o canto das caixas. Com zero, ficam retas.' }),
+    grelha: Object.freeze({ tipo: 'escolha', rotulo: 'Grade de fundo', padrao: 'sim',
       opcoes: Object.freeze([['nao', 'Não'], ['sim', 'Sim']]),
-      apoio: 'As linhas ténues por trás da página. São desenhadas pelo site, sem imagem.' }),
+      apoio: 'As linhas tênues por trás da página. São desenhadas pelo site, sem imagem.' }),
     tamanho_texto: Object.freeze({ tipo: 'escolha', rotulo: 'Tamanho do texto', padrao: 'medio',
       opcoes: Object.freeze([['pequeno', 'Pequeno'], ['medio', 'Médio'], ['grande', 'Grande']]) }),
     largura: Object.freeze({ tipo: 'escolha', rotulo: 'Largura da página', padrao: 'media',
@@ -57,7 +57,7 @@ const TemaNeon = (function () {
       ? 'repeating-linear-gradient(to right,' + e.grade + ' 0 1px,transparent 1px 48px),repeating-linear-gradient(to bottom,' + e.grade + ' 0 1px,transparent 1px 48px)'
       : 'none';
     return [
-      '/* Nostermentor — tema Neon v1. Brilho e grelha são CSS; nenhuma imagem, nenhuma letra vinda de fora. */',
+      '/* Nostermentor — tema Neon v1. Brilho e grade são CSS; nenhuma imagem, nenhuma letra vinda de fora. */',
       ':root{--fundo:' + e.fundo + ';--tinta:' + e.tinta + ';--suave:' + e.suave + ';--linha:' + e.linha + ';--bloco:' + e.bloco + ';' +
         '--acento:' + v.cor_destaque + ';--acento-legivel:' + legivel + ';--acento-texto:' + C.textoSobre(C.paraRgb(v.cor_destaque)) + ';' +
         '--brilho:' + (BRILHOS[v.brilho] === 'none' ? 'none' : BRILHOS[v.brilho] + ' ' + legivel) + ';' +
@@ -114,7 +114,7 @@ const TemaNeon = (function () {
       // ⚠️ `em` COMPÕE: na listagem o `<time>` vive dentro do `<p class="meta">`,
       // que já reduziu o tamanho — reduzir outra vez dava 11,8 px no tema
       // Galeria e 12,0 no Neon, abaixo do piso de 12 (TEMAS.md §7.2 R5),
-      // medido em 2026-09-05. Na secção "últimos artigos" o `<time>` é filho
+      // medido em 2026-09-05. Na seção "últimos artigos" o `<time>` é filho
       // direto do `<li>` e a redução acima é a que se quer; daí o escopo.
       '.lista-artigos .meta time{font-size:1em}',
       '.lista-artigos a,.ultimos p a,.blog>p a,.cartao-titulo a{display:inline-block;padding:3px 0}',

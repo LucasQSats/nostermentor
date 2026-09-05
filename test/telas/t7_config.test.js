@@ -275,6 +275,43 @@ module.exports = async function (ctx, u) {
     return 'logo no cabeçalho de todas as páginas, com o título no alt; aviso de altura visto e apagado';
   });
 
+  await it('o ícone da aba (favicon): fica logo abaixo do logo, é imagem SEPARADA dele, avisa quando a imagem não é quadrada, e sai no <head> de todas as páginas', async () => {
+    const { p, ch } = await sessao();
+    await aba(p.pg, 'aparencia');
+    // A ordem importa: ele pediu o campo "debaixo de Logo do cabeçalho".
+    const ordem = await p.pg.evaluate(() => {
+      const l = document.getElementById('t7-logo-atual'), f2 = document.getElementById('t7-favicon-atual');
+      return l && f2 ? (l.compareDocumentPosition(f2) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 : null;
+    });
+    assert(ordem === true, 'o ícone não está abaixo do logo do cabeçalho');
+    assert((await p.pg.textContent('#t7-favicon-atual')) === '(nenhum)' && !(await p.pg.$('#t7-favicon-remover')), 'sem ícone não há o que remover');
+    await p.pg.click('#t7-favicon-escolher');
+    await p.pg.waitForSelector('.grade-capas');
+    await p.pg.click('.capa-opcao[data-media-id]');
+    await p.pg.waitForSelector('#modal-fundo', { state: 'detached' });
+    assert((await p.pg.textContent('#t7-favicon-atual')) === '/img/retrato.png');
+    // a imagem semeada é 300×60: retangular, e o navegador ia espremê-la
+    const naoQuadrado = await p.pg.textContent('#t7-favicon-nao-quadrado');
+    assert(/300×60/.test(naoQuadrado) && /não é quadrada/.test(naoQuadrado), naoQuadrado);
+    const aviso = await salvar(p.pg);
+    assert(/subir tudo de novo/.test(aviso), 'o ícone está no <head> de todas as páginas: ' + aviso);
+    const g = await homeGerada(p.pg);
+    assert(/<link rel="icon" href="\/img\/retrato\.png" type="image\/png">/.test(g.home), 'sem <link rel=icon> na home: ' + g.home.slice(0, 500));
+    assert(/<link rel="icon"/.test(g.artigo), 'o ícone tem de estar no artigo também');
+    // Ícone, logo e avatar são TRÊS campos: juntá-los obrigaria uma imagem a
+    // servir três formatos (quadrado pequeno, horizontal, quadrado grande).
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    assert(banco.site.favicon_media_id === banco.media[0].id, 'o ícone não foi gravado: ' + banco.site.favicon_media_id);
+    assert(banco.site.logo_media_id !== banco.site.favicon_media_id || banco.site.logo_media_id === null, 'ícone e logo têm de ser campos separados');
+    await p.pg.click('#t7-favicon-remover');
+    assert((await p.pg.textContent('#t7-favicon-atual')) === '(nenhum)');
+    await salvar(p.pg);
+    const g2 = await homeGerada(p.pg);
+    assert(!/rel="icon"/.test(g2.home), 'remover o ícone tinha de tirar o <link> do <head>');
+    await p.pg.close();
+    return 'ícone abaixo do logo, aviso de 300×60 não quadrada, <link rel=icon> em todas as páginas e removível';
+  });
+
   await it('48: os seletores de logo e de avatar mostram miniatura para mídia vinda da REDE, sem bytes locais — achado pelo dono no teste à mão do lote 4', async () => {
     const PNG = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'limpeza', 'limpo.png'));
     const sha = f.blobEm('c1', PNG, 'image/png');
@@ -650,7 +687,7 @@ module.exports = async function (ctx, u) {
     return 'contador 0 → 1 → 0 mexendo só no título; ' + plano.atualiza + ' caminhos a atualizar, kind0 ' + plano.kind0;
   });
 
-  await it('31: fotografia antiga (sem `site_config`) não inventa pendência — e ainda apanha o título pelas tags do manifest', async () => {
+  await it('31: fotografia antiga (sem `site_config`) não inventa pendência — e ainda pega o título pelas tags do manifest', async () => {
     // Quem já tem site publicado por versão anterior não tem a configuração
     // guardada. O caminho de reserva usa só o que a fotografia velha traz;
     // o que ele NÃO pode fazer é acender sozinho e nunca mais apagar.
@@ -666,21 +703,21 @@ module.exports = async function (ctx, u) {
       return {
         temCampo: pub.site_config !== undefined,
         parada: Publicar.configPendente(site, velha, media),       // nada mudou → false
-        titulo: Publicar.configPendente(outro, velha, media),      // título → apanhado pelas tags
+        titulo: Publicar.configPendente(outro, velha, media),      // título → pego pelas tags
         menu: Publicar.configPendente(soMenu, velha, media),       // menu → fora do alcance da fotografia velha
-        exata: Publicar.configPendente(soMenu, pub, media)         // com o campo novo → apanhado
+        exata: Publicar.configPendente(soMenu, pub, media)         // com o campo novo → pego
       };
     });
     assert(r.temCampo === true, 'a fotografia nova tem de guardar a configuração');
     assert(r.parada === false, 'sem mudança nenhuma não pode acender');
-    assert(r.titulo === true, 'o título está nas tags do manifest, tem de ser apanhado');
+    assert(r.titulo === true, 'o título está nas tags do manifest, tem de ser pego');
     assert(r.menu === false, 'o menu não cabe na fotografia velha — honesto é não adivinhar');
-    assert(r.exata === true, 'com a fotografia nova, o menu tem de ser apanhado');
+    assert(r.exata === true, 'com a fotografia nova, o menu tem de ser pego');
     await s.p.pg.close();
     return 'reserva conservadora: título sim, menu só com a fotografia nova';
   });
 
-  // 12 — a troca de tema na aba Aparência: a lista vem do registo, escolher
+  // 12 — a troca de tema na aba Aparência: a lista vem do registro, escolher
   // outro tema troca as opções desenhadas, o aviso diz que muda todas as
   // páginas (é HTML, não só CSS), o CSS gerado é o do tema novo, a prévia
   // também, e o banco guarda id + versão do manifesto com opções vazias.

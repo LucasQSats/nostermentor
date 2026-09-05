@@ -18,7 +18,7 @@ const TemaLivro = (function () {
     cor_tinta: Object.freeze({ tipo: 'cor', rotulo: 'Cor dos títulos e links', padrao: '#7a2d1e' }),
     alinhamento: Object.freeze({ tipo: 'escolha', rotulo: 'Alinhamento do texto', padrao: 'justificado',
       opcoes: Object.freeze([['esquerda', 'Alinhado à esquerda'], ['justificado', 'Justificado']]),
-      apoio: 'Justificado é o do livro impresso: as linhas terminam todas no mesmo sítio.' }),
+      apoio: 'Justificado é o do livro impresso: as linhas terminam todas no mesmo lugar.' }),
     capitular: Object.freeze({ tipo: 'escolha', rotulo: 'Capitular', padrao: 'sim',
       opcoes: Object.freeze([['nao', 'Não'], ['sim', 'Sim']]),
       apoio: 'A letra grande com que começa o texto, como no primeiro parágrafo de um capítulo.' }),
@@ -111,7 +111,7 @@ const TemaLivro = (function () {
       'table{display:block;overflow-x:auto;overflow-wrap:normal;margin:0 0 1.6em}',
       'th,td{padding:5px 14px 5px 0;text-align:left;vertical-align:top;border-bottom:1px solid var(--linha)}',
       'blockquote{margin:1.6em 0 1.6em 1.6em;padding:0;border:0;font-style:italic;color:var(--suave)}',
-      // A mancha: margens largas de livro. 32px em telemóvel, 56 acima —
+      // A mancha: margens largas de livro. 32px em celular, 56 acima —
       // sem `@media`: o padding cresce com a letra, não com a tela.
       '.cabecalho{max-width:var(--largura);margin:0 auto;padding:34px 24px 12px;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 20px;border-bottom:1px solid var(--linha)}',
       '.marca{font-size:1.15em;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;color:var(--tinta)}',

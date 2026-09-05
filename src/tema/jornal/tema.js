@@ -1,7 +1,7 @@
 /* tema/jornal/tema.js — JORNAL: o site como uma página de jornal (12;
    TEMAS.md). Cabeçalho de banca com o título do site entre filetes, o menu
-   como barra de secções, o corpo do artigo em colunas que se dobram sozinhas
-   com a largura da tela (`column-width`: em telemóvel é uma, no monitor são
+   como barra de seções, o corpo do artigo em colunas que se dobram sozinhas
+   com a largura da tela (`column-width`: em celular é uma, no monitor são
    duas ou três — sem `@media`), capitular no primeiro parágrafo, listagem em
    primeira página. Pacote de DADOS: manifesto, oito moldes e `css(opcoes)`
    pura. Zero recursos externos; famílias de letra do sistema; inteiros. */
@@ -12,13 +12,13 @@ const TemaJornal = (function () {
     papel: Object.freeze({ tipo: 'escolha', rotulo: 'Papel', padrao: 'jornal',
       opcoes: Object.freeze([['branco', 'Branco'], ['jornal', 'Papel de jornal']]) }),
     cor_destaque: Object.freeze({ tipo: 'cor', rotulo: 'Cor de destaque', padrao: '#8b1a1a',
-      apoio: 'Links, filetes de secção e o botão.' }),
+      apoio: 'Links, filetes de seção e o botão.' }),
     colunas: Object.freeze({ tipo: 'escolha', rotulo: 'Colunas no texto', padrao: 'automaticas',
       opcoes: Object.freeze([['uma', 'Uma só'], ['automaticas', 'Quantas couberem'], ['estreitas', 'Estreitas, quantas couberem']]),
-      apoio: 'Em telemóvel é sempre uma coluna; em tela larga o texto divide-se como num jornal.' }),
+      apoio: 'Em celular é sempre uma coluna; em tela larga o texto se divide como num jornal.' }),
     capitular: Object.freeze({ tipo: 'escolha', rotulo: 'Letra capitular', padrao: 'sim',
       opcoes: Object.freeze([['sim', 'Sim'], ['nao', 'Não']]),
-      apoio: 'A primeira letra do artigo, grande, a ocupar três linhas.' }),
+      apoio: 'A primeira letra do artigo, grande, ocupando três linhas.' }),
     tamanho_texto: Object.freeze({ tipo: 'escolha', rotulo: 'Tamanho do texto', padrao: 'medio',
       opcoes: Object.freeze([['pequeno', 'Pequeno'], ['medio', 'Médio'], ['grande', 'Grande']]) }),
     largura: Object.freeze({ tipo: 'escolha', rotulo: 'Largura da página', padrao: 'larga',
@@ -36,7 +36,11 @@ const TemaJornal = (function () {
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     '<title>{{titulo_pagina}}</title>',
     '{{#descricao}}<meta name="description" content="{{descricao}}">',
-    '{{/descricao}}<link rel="stylesheet" href="/tema/estilo.css">',
+    // O ícone da aba. Este tema tem molde próprio, logo repete a linha que
+    // vive em core/temas.js (TEMAS.md §2: quem substitui o layout herda a
+    // obrigação). Sem ícone escolhido, não sai <link> nenhum.
+    '{{/descricao}}{{#favicon}}<link rel="icon" href="{{src}}"{{#tipo}} type="{{tipo}}"{{/tipo}}>',
+    '{{/favicon}}<link rel="stylesheet" href="/tema/estilo.css">',
     '</head>',
     '<body>',
     '<header class="cabecalho">',
@@ -89,7 +93,7 @@ const TemaJornal = (function () {
     ''
   ].join('\n');
 
-  // primeira página: a mais recente em destaque, as outras em grelha
+  // primeira página: a mais recente em destaque, as outras em grade
   const blog = [
     '<section class="blog">',
     '<h1>{{blog_titulo}}</h1>',
@@ -102,8 +106,8 @@ const TemaJornal = (function () {
 
   const etiqueta = [
     '<section class="blog etiqueta-pagina">',
-    '<h1>Secção: {{etiqueta}}</h1>',
-    '{{^tem_artigos}}<p class="vazio">Nenhuma notícia nesta secção.</p>',
+    '<h1>Seção: {{etiqueta}}</h1>',
+    '{{^tem_artigos}}<p class="vazio">Nenhuma notícia nesta seção.</p>',
     '{{/tem_artigos}}<ul class="lista-artigos">{{#artigos}}<li><h2><a href="{{href}}">{{titulo}}</a></h2><p class="meta"><time datetime="{{data_iso}}">{{data}}</time></p>{{#resumo}}<p class="resumo">{{resumo}}</p>{{/resumo}}</li>',
     '{{/artigos}}</ul>',
     '<p><a href="{{blog_href}}">{{blog_titulo}}</a></p>',
@@ -143,8 +147,8 @@ const TemaJornal = (function () {
 
   function resolver(opcoes) { return Temas.resolver(options, opcoes); }
 
-  // As contas de cor vivem no registo (`Temas.cor`, core/temas.js): estavam
-  // copiadas dentro de cada tema e mudaram de sítio em 2026-09-05, quando o
+  // As contas de cor vivem no registro (`Temas.cor`, core/temas.js): estavam
+  // copiadas dentro de cada tema e mudaram de lugar em 2026-09-05, quando o
   // app passou a ter 21 temas. Mesma fórmula inteira, mesmos bytes.
   const C = Temas.cor;
   const paraRgb = C.paraRgb, paraHex = C.paraHex, brilho = C.brilho, legivelSobre = C.legivelSobre;
@@ -198,7 +202,7 @@ const TemaJornal = (function () {
       // as etiquetas em versaletes corriam juntas ("PÃO RECEITAS …"): folga e filete
       '.etiqueta{text-decoration:none;color:inherit;display:inline-block;padding:2px 0;margin-right:.7em;line-height:20px;border-bottom:1px dotted var(--suave)}',
       'a.etiqueta:hover{border-bottom-color:var(--acento-legivel);color:var(--acento-legivel)}',
-      // as colunas: `column-width` dobra sozinha — uma em telemóvel, mais em tela larga
+      // as colunas: `column-width` dobra sozinha — uma em celular, mais em tela larga
       '.corpo{column-width:var(--coluna);column-gap:2em;column-rule:1px solid var(--bloco);text-align:justify;hyphens:auto}',
       '.corpo>*{break-inside:avoid}',
       '.corpo>p{margin:0 0 1em}',
@@ -211,7 +215,7 @@ const TemaJornal = (function () {
       '.ampliar{display:block;line-height:0;text-decoration:none;cursor:zoom-in}',
       '.botao{display:inline-block;padding:.5em 1.2em;background:var(--acento);color:var(--acento-texto);text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.85em}',
       '.cta{margin:1.2em 0}',
-      // --- primeira página: grelha com filetes ---------------------------------
+      // --- primeira página: grade com filetes ---------------------------------
       '.lista-artigos{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0 28px}',
       '.lista-artigos li{margin:0;padding:12px 0 16px;border-bottom:1px solid var(--linha)}',
       '.lista-artigos li:first-child{grid-column:1/-1}',

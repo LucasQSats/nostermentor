@@ -1,6 +1,10 @@
 /* ui/t3_inicio.js — T3 Início (14 T3; 03 §3.6 "resumo do site"): saúde da
-   publicação (13 §5.5), alterações não publicadas, backup, atalhos, últimos
-   artigos e o cartão "Apoie". Desde o M4 o cartão de saúde verifica E
+   publicação (13 §5.5), alterações não publicadas, backup, atalhos,
+   endereços do site com QR, últimos artigos e o cartão "Apoie".
+   A lista de endereços saiu dos atalhos e virou cartão próprio: os atalhos
+   dizem o que FAZER agora, os endereços dizem como DAR o site a outra
+   pessoa — e um QR ao lado de um botão de ação não se lê.
+   Desde o M4 o cartão de saúde verifica E
    republica: reenvia o manifest já assinado aos relays que não o têm, sem
    pedir a chave. Desde o M5 o reenvio mostra placar RELAY POR RELAY e fica
    travado quando a rede está à frente deste navegador (guarda de 13 §5.5), e
@@ -162,9 +166,6 @@
     cartaoBackup.appendChild(h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.ir('t9'); } }, T.backup.exportar)));
 
     // 4. atalhos
-    const outros = Modelo.GATEWAYS.filter(g => !g.principal).map(function (g) {
-      return h('span', {}, ' ', h('a', { href: Modelo.urlDoSite(s.npub, g.host), target: '_blank', rel: 'noopener noreferrer' }, g.host), g.lento ? h('span', { class: 'apoio' }, ' (' + T.atalhos.lento + ')') : null);
-    });
     const principal = Modelo.GATEWAYS.find(g => g.principal);
     // Honestidade de status: o endereço existe sempre, o site nem sempre.
     const semPublicacao = !published || !published.manifest_event;
@@ -176,16 +177,65 @@
         h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.ir('t4', { novo: true }); } }, T.atalhos.novaPagina),
         h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.ir('t6', { enviar: true }); } }, T.atalhos.enviarMidia)),
       h('p', {}, h('a', { id: 'ver-site', href: Modelo.urlDoSite(s.npub, principal.host), target: '_blank', rel: 'noopener noreferrer' }, T.atalhos.verSite),
-        avisoSite ? h('span', { class: 'apoio', id: 'ver-site-aviso' }, ' — ' + avisoSite) : null,
-        h('span', { class: 'apoio' }, ' — ' + T.atalhos.outros), outros));
+        avisoSite ? h('span', { class: 'apoio', id: 'ver-site-aviso' }, ' — ' + avisoSite) : null));
 
-    // 5. últimos artigos
+    // 5. endereços do site, com QR (14 T3 cartão 5). Cartão PRÓPRIO e não uma
+    // linha dos atalhos: os atalhos são "o que fazer agora", isto é "como dar
+    // o endereço a outra pessoa" — e um QR ao lado de um botão de ação não é
+    // legível. O aviso de "ainda não publicado" repete-se aqui de propósito:
+    // quem chega para divulgar tem de saber que o endereço ainda não mostra
+    // nada, sem ter de olhar o cartão de cima.
+    const E = T.enderecos;
+    const cartaoEnderecos = h('div', { class: 'cartao', id: 'cartao-enderecos' }, h('h2', {}, E.titulo), h('p', { class: 'apoio' }, E.apoio));
+    if (semPublicacao || foraDoAr) cartaoEnderecos.appendChild(h('p', { class: 'alerta', id: 'enderecos-aviso' }, semPublicacao ? E.naoPublicado : E.foraDoAr));
+    cartaoEnderecos.appendChild(h('ul', { class: 'lista-enderecos' }, Modelo.GATEWAYS.map(function (g) {
+      const url = Modelo.urlDoSite(s.npub, g.host);
+      const pAviso = h('p', { class: 'apoio endereco-aviso', hidden: true });
+      // O QR é desenhado aqui, nó a nó. Se a biblioteca faltar (nunca deve
+      // faltar — a montagem confere o sha256), o endereço continua legível:
+      // o cartão perde o código, não a informação.
+      let qr = null;
+      try { qr = Qr.elemento(url, { classe: 'qr', rotulo: texto(E.qrRotulo, { u: url }) }); }
+      catch (e) { qr = null; }
+      const linkBaixar = h('a', { class: 'ligacao baixar-qr', href: '#', download: 'qrcode-' + g.host + '-' + Chave.npub8(s.npub) + '.png' }, E.baixarQr);
+      // O PNG só é gerado quando pedido, e o blob é solto assim que o
+      // navegador o pega: um objeto por gateway ficaria vivo à toa.
+      linkBaixar.addEventListener('click', async function (ev) {
+        if (linkBaixar.dataset.pronto === '1') { delete linkBaixar.dataset.pronto; return; }
+        ev.preventDefault();
+        const blob = await Qr.png(url);
+        if (!blob) { pAviso.textContent = E.qrFalhou; pAviso.hidden = false; return; }
+        const u = URL.createObjectURL(blob);
+        linkBaixar.href = u;
+        linkBaixar.dataset.pronto = '1';
+        linkBaixar.click();
+        setTimeout(function () { try { URL.revokeObjectURL(u); } catch (e2) {} linkBaixar.href = '#'; }, 30000);
+      });
+      const btCopiar = h('button', { type: 'button', class: 'ligacao copiar-endereco', onclick: async function () {
+        let ok = false;
+        try { await navigator.clipboard.writeText(url); ok = true; } catch (e) { ok = false; }
+        pAviso.textContent = ok ? E.copiado : E.copiarFalhou;
+        pAviso.hidden = false;
+      } }, E.copiar);
+      return h('li', { class: 'endereco' },
+        qr,
+        h('div', { class: 'endereco-texto' },
+          h('p', { class: 'endereco-url' },
+            h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, g.host),
+            g.principal ? h('span', { class: 'apoio' }, ' (' + E.principal + ')') : null,
+            g.lento ? h('span', { class: 'apoio' }, ' (' + T.atalhos.lento + ')') : null),
+          h('code', { class: 'endereco-completo' }, url),
+          h('p', { class: 'acoes-endereco' }, btCopiar, ' ', linkBaixar),
+          pAviso));
+    })));
+
+    // 6. últimos artigos
     const cartaoUltimos = h('div', { class: 'cartao', id: 'cartao-ultimos' }, h('h2', {}, T.ultimos.titulo));
     if (!posts.length) cartaoUltimos.appendChild(h('p', { class: 'apoio' }, T.ultimos.nenhum));
     else cartaoUltimos.appendChild(h('ul', { class: 'lista-artigos' }, posts.map(p => h('li', {}, h('span', { class: 'data' }, Modelo.formatarData(p.date)), ' ', p.title, ' ', h('span', { class: 'apoio' }, '(' + (Textos.status[p.status] || p.status) + ')'), ' ',
       h('button', { type: 'button', class: 'ligacao', onclick: function () { Shell.ir('t5', { editar: p.id }); } }, T.ultimos.editar)))));
 
-    // 6. apoie (T-16)
+    // 7. apoie (T-16)
     const cartaoApoie = apoioFechado ? null : h('div', { class: 'cartao apoie', id: 'cartao-apoie' }, h('h2', {}, T.apoie.titulo), h('p', {}, T.apoie.texto),
       h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.ir('t11', { secao: 'apoio' }); } }, T.apoie.botao),
         h('button', { type: 'button', class: 'ligacao', id: 'fechar-apoie', onclick: function () { apoioFechado = true; cartaoApoie.remove(); } }, T.apoie.fechar)));
@@ -193,7 +243,7 @@
     raiz.appendChild(h('section', { id: 't3' },
       h('h1', {}, T.titulo),
       params && params.resumo ? h('p', { id: 'resumo-carga', class: 'alerta' }, params.resumo) : null,
-      h('div', { class: 'cartoes' }, cartaoSaude, cartaoAlt, cartaoBackup, cartaoAtalhos, cartaoUltimos, cartaoApoie)));
+      h('div', { class: 'cartoes' }, cartaoSaude, cartaoAlt, cartaoBackup, cartaoAtalhos, cartaoEnderecos, cartaoUltimos, cartaoApoie)));
   }
 
   Shell.registrar('t3', { montar: montar, desmontar: desmontar });

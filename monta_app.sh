@@ -18,7 +18,7 @@ HTML="$SAIDA/nostermentor.html"
 # 1. bibliotecas íntegras (recusa montar se divergirem de VERSOES.md)
 ( cd src/libs && sha256sum --quiet -c SHA256SUMS ) || { echo "✗ src/libs difere de SHA256SUMS — ver VERSOES.md" >&2; exit 1; }
 
-LIBS=(nostr-tools.inline.js purify.min.js marked.umd.js mustache.min.js)
+LIBS=(nostr-tools.inline.js purify.min.js marked.umd.js mustache.min.js qrcode-generator.js)
 CORE=$(ls src/core/*.js 2>/dev/null | sort)
 TEMA=$(find src/tema -name '*.js' 2>/dev/null | sort || true)
 UI="src/ui/shell.js $(ls src/ui/*.js | grep -v '/shell\.js$' | sort)"

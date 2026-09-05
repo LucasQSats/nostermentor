@@ -31,10 +31,10 @@
   'use strict';
   let ctrl = null;
   const urlsAbertas = [];        // srcdoc não abre blob:, mas o modal pode — simetria com T6
-  // A largura em que a prévia se DESENHA, antes de ser encolhida: um ecrã de
+  // A largura em que a prévia se DESENHA, antes de ser encolhida: uma tela de
   // portátil. O Tor Browser maximizado mede 1200×600 e solto 1000×500 (medido
   // na bancada nº 1, 2026-09-05), logo 1100 fica no meio do que o leitor real
-  // vai ver — e não no meio do que um telemóvel veria.
+  // vai ver — e não no meio do que um celular veria.
   const LARGURA_PREVIA = 1100;
 
   function desmontar() {

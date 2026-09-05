@@ -35,7 +35,7 @@ const Editor = (function () {
   // 32(c) — a miniatura de uma capa é `media` como qualquer outra (tem de o
   // ser: sobe, tem sha256 e sai do ar como as outras), mas NÃO é conteúdo que
   // se escolha. Fica de fora dos seletores; na biblioteca (T6) continua à
-  // vista, porque lá o dono está a ver o que está publicado, não a escolher.
+  // vista, porque lá o dono está vendo o que está publicado, não a escolher.
   function idsDeMiniatura(media) {
     const s = new Set();
     for (const m of media || []) if (m && m.thumb_media_id) s.add(m.thumb_media_id);
@@ -50,7 +50,7 @@ const Editor = (function () {
   function kb(n) { return Math.max(1, Math.round(n / 1024)) + ' KB'; }
   // 39 — o botão "Imagem" com um mp4 gerava `<img src="…mp4">`, que não mostra
   // NADA. Vídeo tem de ter caminho próprio; foi o que a medição da varredura
-  // de 2026-08-31 apanhou.
+  // de 2026-08-31 pegou.
   function videosDe(media) { return (media || []).filter(r => r && r.status !== 'removed' && /^video\//.test(r.mime || '') && r.origin !== 'network'); }
 
   // "Ver como ficará" (14 T4a): a página inteira com o tema, isolada (usado por T4/T5 também)
@@ -495,7 +495,7 @@ const Editor = (function () {
         // ⚠️ Quando NADA sobra, a lista de motivos é ainda mais necessária, não
         // menos: quem cola um <iframe> do YouTube receberia só "não sobrou
         // nada" e ficaria sem saber o quê nem porquê. (Achado na bancada,
-        // 2026-09-04 — a primeira coisa que ela apanhou.)
+        // 2026-09-04 — a primeira coisa que ela pegou.)
         if (r.vazio) divAviso.appendChild(h('p', { class: 'erro', id: 'html-nada' }, H.tudoRemovido));
         if (r.removidos.length) {
           // Um item por GRUPO de explicação, com as tags daquele grupo juntas

@@ -188,7 +188,7 @@ module.exports = async function (ctx, u) {
     assert(meta, 'o relato devia sobreviver ao registro: ' + JSON.stringify(banco.meta.map(x => x.key)));
     assert(meta.value.unverified.length === 1 && meta.value.refused_by.length === 1, JSON.stringify(meta.value));
     const sha = meta.key.slice(8);
-    assert(f.temBlob('x-incerto', sha) && f.temBlob('x-sem-remocao', sha), 'nenhum dos dois apagou de facto');
+    assert(f.temBlob('x-incerto', sha) && f.temBlob('x-sem-remocao', sha), 'nenhum dos dois apagou de fato');
 
     await irAMidia(p.pg);
     await p.pg.waitForSelector('#t6-relato .t6-reconferir');

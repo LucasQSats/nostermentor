@@ -1,4 +1,4 @@
-/* tema/terminal/tema.js — TERMINAL: o site como uma consola (12; TEMAS.md).
+/* tema/terminal/tema.js — TERMINAL: o site como um console (12; TEMAS.md).
    Tudo em letra de largura fixa, fundo quase preto, um sinal de comando antes
    de cada título, o menu entre parênteses retos e um cursor a piscar… que não
    pisca: o site publicado não tem uma linha de script (02 G.0), e uma
@@ -7,22 +7,22 @@
 
    Tema só de CSS: usa os oito moldes base (`Temas.moldes`) sem trocar
    nenhum. Os sinais (`$`, `#`, `[`, `]`) são `content` do CSS, não HTML —
-   o texto que o leitor de ecrã lê continua a ser o do dono. Nenhum recurso
+   o texto que o leitor de tela lê continua a ser o do dono. Nenhum recurso
    externo (02 G.2.4); letras do sistema. */
 const TemaTerminal = (function () {
   'use strict';
 
   const options = Object.freeze({
-    esquema: Object.freeze({ tipo: 'escolha', rotulo: 'Cores da consola', padrao: 'noite',
+    esquema: Object.freeze({ tipo: 'escolha', rotulo: 'Cores do console', padrao: 'noite',
       opcoes: Object.freeze([['ambar', 'Âmbar'], ['fosforo', 'Verde fósforo'], ['noite', 'Noite']]),
-      apoio: 'Fundo, texto e comentários mudam juntos. Todas escuras — é uma consola.' }),
+      apoio: 'Fundo, texto e comentários mudam juntos. Todas escuras — é um console.' }),
     cor_destaque: Object.freeze({ tipo: 'cor', rotulo: 'Cor de destaque', padrao: '#7ee787',
       apoio: 'O sinal de comando, os links e a barra do bloco de código.' }),
     prompt: Object.freeze({ tipo: 'escolha', rotulo: 'Sinal antes dos títulos', padrao: 'cifrao',
       opcoes: Object.freeze([['nenhum', 'Nenhum'], ['seta', 'Uma seta'], ['cifrao', 'Um cifrão']]) }),
     cursor: Object.freeze({ tipo: 'escolha', rotulo: 'Cursor depois do título', padrao: 'sim',
       opcoes: Object.freeze([['nao', 'Não'], ['sim', 'Sim']]),
-      apoio: 'Um bloco parado. Não pisca de propósito: piscar sem parar cansa quem lê e o site não tem script para o controlar.' }),
+      apoio: 'Um bloco parado. Não pisca de propósito: piscar sem parar cansa quem lê e o site não tem script para controlá-lo.' }),
     tamanho_texto: Object.freeze({ tipo: 'escolha', rotulo: 'Tamanho do texto', padrao: 'medio',
       opcoes: Object.freeze([['pequeno', 'Pequeno'], ['medio', 'Médio'], ['grande', 'Grande']]) }),
     largura: Object.freeze({ tipo: 'escolha', rotulo: 'Largura da página', padrao: 'media',
@@ -123,7 +123,7 @@ const TemaTerminal = (function () {
       // ⚠️ `em` COMPÕE: na listagem o `<time>` vive dentro do `<p class="meta">`,
       // que já reduziu o tamanho — reduzir outra vez dava 11,8 px no tema
       // Galeria e 12,0 no Neon, abaixo do piso de 12 (TEMAS.md §7.2 R5),
-      // medido em 2026-09-05. Na secção "últimos artigos" o `<time>` é filho
+      // medido em 2026-09-05. Na seção "últimos artigos" o `<time>` é filho
       // direto do `<li>` e a redução acima é a que se quer; daí o escopo.
       '.lista-artigos .meta time{font-size:1em}',
       '.lista-artigos a,.ultimos p a,.blog>p a,.cartao-titulo a{display:inline-block;padding:3px 0}',

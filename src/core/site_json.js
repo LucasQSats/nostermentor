@@ -64,6 +64,7 @@ const SiteJson = (function () {
     if (eStr(s.language)) o.language = s.language.slice(0, 20);
     if (obj(s.profile)) o.profile = { name: str(s.profile.name, 200), about: str(s.profile.about, 2000), picture_media_id: idOuNulo(s.profile.picture_media_id) };
     if ('logo_media_id' in s) o.logo_media_id = idOuNulo(s.logo_media_id);
+    if ('favicon_media_id' in s) o.favicon_media_id = idOuNulo(s.favicon_media_id);
     if (obj(s.home)) o.home = { mode: s.home.mode === 'page' ? 'page' : 'blog', page_id: idOuNulo(s.home.page_id), latest_posts: inteiro(s.home.latest_posts, 5, 0, 100) };
     if (obj(s.blog)) o.blog = { prefix: Modelo.PREFIXO_BLOG, title: str(s.blog.title, 100) || 'Blog' };
     if (Array.isArray(s.menu)) o.menu = s.menu.map(lerItemMenu).filter(Boolean).slice(0, 50);
@@ -136,6 +137,19 @@ const SiteJson = (function () {
       donations: { lightning_address: s200(s.donations && s.donations.lightning_address), support_block: !!(s.donations && s.donations.support_block === true), footer_credit: !(s.donations && s.donations.footer_credit === false) },
       privacy: { show_publish_time: !!(s.privacy && s.privacy.show_publish_time === true) }
     };
+    // ⚠️ O ícone da aba só entra QUANDO EXISTE — como `discovery`, e ao
+    // contrário do `logo_media_id`, que sai sempre. A razão não é estética:
+    // esta função também produz a ASSINATURA da configuração (`assinaturaSite`
+    // abaixo), e a assinatura de cada site fica guardada em
+    // `published.site_config` desde a última publicação. Um campo novo
+    // incondicional muda a assinatura de TODO site já publicado, e o painel
+    // passaria a dizer "Configurações do site alteradas" a quem não mexeu em
+    // nada — e a mandá-lo republicar, pelo Tor, um site cujo HTML é idêntico
+    // byte a byte (sem ícone escolhido o molde não emite `<link>` nenhum).
+    // Assim, quem não usa o recurso tem a assinatura de ontem, e só quem
+    // escolhe um ícone vê a configuração mudar — que é a verdade.
+    const favicon = idOuNulo(s.favicon_media_id);
+    if (favicon) o.favicon_media_id = favicon;
     if (s.discovery && eStr(s.discovery.canonical_base)) o.discovery = { canonical_base: s.discovery.canonical_base.slice(0, 300) };
     o.network = { relays: urls(s.network && s.network.relays, 'wss:'), servers: urls(s.network && s.network.servers, 'https:') };
     return o;

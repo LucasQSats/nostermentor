@@ -13,14 +13,16 @@
 | DOMPurify | 3.4.14 | `purify.min.js` | 29.204 | `c2f26ea4fc0d88141c9aa430eb515ac86fce59418ceebd85fa475b87a8d6c3e6` | Apache-2.0 **ou** MPL-2.0 (escolhemos Apache-2.0) | `https://unpkg.com/dompurify@3.4.14/dist/purify.min.js` | 2026-08-26 |
 | marked | 18.0.11 | `marked.umd.js` | 44.679 | `69451c8541c9c1e7a4bf3ffc6f73c4d89633de92bfbe3e484dfe182ef8091f88` | MIT (cabeçalho do próprio arquivo) | `https://unpkg.com/marked@18.0.11/lib/marked.umd.js` (o campo `browser` do `package.json` da versão; não existe `marked.min.js` na raiz desta versão) | 2026-08-26 |
 | Mustache | 4.2.0 | `mustache.min.js` | 11.790 | `d7fd0603512461e8edbd81686bead2ab82df3389b9cca235dd9d5b408848e02a` | MIT | `https://unpkg.com/mustache@4.2.0/mustache.min.js` | 2026-08-26 |
+| qrcode-generator | 1.4.4 | `qrcode-generator.js` | 56.694 | `18ae399f81182bc9de916e9c77b195df20cc58d6f2d55a62b085a299f1bf1780` | MIT (cabeçalho do próprio arquivo) | `https://unpkg.com/qrcode-generator@1.4.4/qrcode.js` (o pacote não publica versão minificada; entra como está) | 2026-09-05 |
 
 Globais que cada uma define ao carregar como `<script>` clássico (medido
-pelos testes de `test/telas/`): `NT`, `DOMPurify`, `marked`, `Mustache`.
+pelos testes de `test/telas/`): `NT`, `DOMPurify`, `marked`, `Mustache`,
+`qrcode`.
 
 ⚠️ **Esta tabela é mostrada ao usuário** desde 2026-08-27, em T11 → Sobre
 (`src/textos.js`, `t11.sobre.bibliotecas`: nome, versão, licença e para que
 serve). Mudar uma versão aqui obriga a mudar lá — `test/telas/t11_ajuda.test.js`
-compara as quatro linhas e falha se divergirem.
+compara as cinco linhas e falha se divergirem.
 
 Para regenerar o bundle do nostr-tools: `./gera_bundle.sh` (instala as
 dependências de desenvolvimento no scratchpad, nunca nesta pasta — `02`

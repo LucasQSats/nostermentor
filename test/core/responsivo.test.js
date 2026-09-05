@@ -10,7 +10,7 @@
 // O site publicado não tem uma linha de script (02 G.0), logo tudo o que
 // adapta a página é CSS — e o tema Padrão não tem uma única `@media`: a
 // adaptação é fluida por construção (viewport, max-width:100%, flex-wrap,
-// grelha auto-fill). Isto aqui responde se essa aposta se sustenta.
+// grade auto-fill). Isto aqui responde se essa aposta se sustenta.
 //
 // MÉTODO: gera o site com `Gerador.gerarSite`, embute o CSS e troca as imagens
 // por data: URI com `Gerador.previa` (é o que a prévia do painel já faz), põe o
@@ -20,7 +20,7 @@
 // AS LARGURAS incluem as do Tor Browser, que é onde o leitor deste produto
 // está: o letterboxing arredonda a área da página a múltiplos de 200×100 px
 // (documentação do Tor Project, consultada em 2026-09-05) para esconder quem
-// lê, e essas medidas não são as de telemóvel nem as de desktop. MEDIDO em
+// lê, e essas medidas não são as de celular nem as de desktop. MEDIDO em
 // 2026-09-05 na bancada Tails 7.11 (tela 1280×800), com uma página-régua só
 // de CSS, no nível de segurança padrão: janela maximizada → 1200×600; janela
 // solta → 1000×500. O 800 fica como o múltiplo abaixo, para telas pequenas.
@@ -28,7 +28,7 @@ const { abrir, coletor } = require('../util.js');
 
 // [largura, altura, rótulo, éTelefone]
 const TELAS = [
-  [320, 800, 'telemóvel pequeno', true],
+  [320, 800, 'celular pequeno', true],
   [360, 800, 'Android comum', true],
   [390, 844, 'iPhone', true],
   [412, 915, 'Android grande', true],
@@ -42,7 +42,7 @@ const TELAS = [
 // Só destas se guarda imagem, para não encher a pasta de resultados.
 const CAPTURAR = [320, 390, 768, 1280];
 const ALVO_MIN = 24;   // WCAG 2.2 AA (2.5.8): alvo de toque mínimo 24x24 CSS px
-const FONTE_MIN = 12;  // abaixo disto é texto que ninguém lê em telemóvel
+const FONTE_MIN = 12;  // abaixo disto é texto que ninguém lê em celular
 
 module.exports = async function (ctx, u) {
   const { R, it } = coletor();
@@ -170,7 +170,7 @@ module.exports = async function (ctx, u) {
   // 15,5 GB — a suíte parou de progredir a meio (não deu erro: ficou a
   // arrastar-se) e foi preciso matá-la. Fechar o contexto de N em N páginas
   // devolve a memória ao sistema. `ctx` (o que a suíte recebe) fica intacto e
-  // só serve para a página que gera o sítio.
+  // só serve para a página que gera o lugar.
   // ⚠️ 40 NÃO CHEGOU (segunda medição, 2026-09-05): o Firefox continuava a
   // crescer ~24 MB por página medida (1,9 GB às 71 capturas, 2,4 GB às 92) e
   // ia bater nos ~12 GB ao fim das 1260. Com 8, estabiliza. Abrir um contexto
@@ -189,7 +189,7 @@ module.exports = async function (ctx, u) {
     const c = await contextoDeMedida();
     usadasNoContexto++;
     const pg = await c.newPage();
-    // Sem rede, de facto: a prévia já troca toda imagem que não seja local por
+    // Sem rede, de fato: a prévia já troca toda imagem que não seja local por
     // um marcador data:, mas a página de medição recusa http(s) na mesma —
     // se algum dia escapar um pedido, o teste falha aqui e não o esconde.
     await pg.route(/^https?:/, (r) => r.abort());
@@ -317,7 +317,7 @@ module.exports = async function (ctx, u) {
     if (maus.length) throw new Error(resumo(maus, x => `${x.pagina}@${x.largura}: ${x.m.culpados.map(c => c.el + ' →' + c.direita).slice(0, 2).join(' ; ')}`));
   }, R);
 
-  await it('em telemóvel, todo link tem pelo menos 24x24 px de alvo', async () => {
+  await it('em celular, todo link tem pelo menos 24x24 px de alvo', async () => {
     const maus = medidas.filter(x => x.telefone && x.m.alvos.length);
     if (maus.length) throw new Error(resumo(maus, x => `${x.pagina}@${x.largura}: ${x.m.alvos.length} alvos pequenos — ${x.m.alvos.map(a => a.el.split(' «')[0] + ' ' + a.w + 'x' + a.h).slice(0, 3).join(', ')}`));
   }, R);

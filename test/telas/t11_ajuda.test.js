@@ -6,7 +6,7 @@
 // F5 no arranque mudo — P28; o aviso "Could not read the contents of
 // amnesia" é inofensivo — P27); a de "apoiar" diz a verdade enquanto não há
 // endereço de doação, em vez de mostrar um placeholder; "Sobre" mostra a
-// versão real do app, a licença, o código e as quatro bibliotecas com versão
+// versão real do app, a licença, o código e as cinco bibliotecas com versão
 // e licença; o rodapé e o cartão de T3 abrem direto na aba certa; e a tela
 // funciona ANTES de T2 acabar — quem clica "Ajuda" com o site a carregar não
 // pode levar uma tela vazia.
@@ -91,7 +91,7 @@ module.exports = async function (ctx, u) {
     await p.pg.close();
   });
 
-  await it('"Apoiar" e "Sobre": sem endereço de doação a tela diz isso (não mostra placeholder); Sobre traz a versão REAL do app, a licença MIT, o código e as quatro bibliotecas com versão e licença', async () => {
+  await it('"Apoiar" e "Sobre": sem endereço de doação a tela diz isso (não mostra placeholder); Sobre traz a versão REAL do app, a licença MIT, o código e as cinco bibliotecas com versão e licença', async () => {
     const { p } = await comAjuda();
     const apoio = await abaTexto(p.pg, 'apoio');
     assert(/O endereço para doações ainda não está publicado/.test(apoio) && /site oficial ainda não está publicado/.test(apoio), apoio.slice(0, 200));
@@ -108,12 +108,28 @@ module.exports = async function (ctx, u) {
     assert(est.versao === 'Versão: ' + est.appVersion && est.rodape.indexOf(est.appVersion) >= 0, JSON.stringify(est.versao) + ' / ' + est.rodape);
     assert(est.codigo === 'https://github.com/LucasQSats/nostermentor', est.codigo);
     assert(/Licença: MIT/.test(sobre) && /não tem telemetria/.test(sobre), sobre.slice(0, 200));
-    assert(est.libs.length === 4, 'esperava 4 bibliotecas, veio ' + est.libs.length);
+    assert(est.libs.length === 5, 'esperava 5 bibliotecas, veio ' + est.libs.length);
     assert(/^nostr-tools 2\.25\.0 \(Unlicense\)/.test(est.libs[0]) && /^DOMPurify 3\.4\.14 \(Apache-2\.0\)/.test(est.libs[1]), JSON.stringify(est.libs));
     assert(/^marked 18\.0\.11 \(MIT\)/.test(est.libs[2]) && /^Mustache 4\.2\.0 \(MIT\)/.test(est.libs[3]), JSON.stringify(est.libs));
+    assert(/^qrcode-generator 1\.4\.4 \(MIT\)/.test(est.libs[4]), JSON.stringify(est.libs));
+    // O ícone da aba do PAINEL (não o do site do dono, que se escolhe em T7).
+    // Tem de existir, ser embutido e desenhar de facto: um `href` para arquivo
+    // ou para a rede seria um pedido que o app não pode fazer — e num
+    // `file://` nem chegaria a lado nenhum.
+    const icone = await p.pg.evaluate(() => {
+      const l = document.querySelector('link[rel="icon"]');
+      if (!l) return null;
+      const href = l.getAttribute('href');
+      const svg = new DOMParser().parseFromString(decodeURIComponent(href.replace(/^data:image\/svg\+xml,/, '')), 'image/svg+xml');
+      return { href: href.slice(0, 30), tipo: l.getAttribute('type'), erro: !!svg.querySelector('parsererror'),
+        formas: svg.documentElement.children.length, raiz: svg.documentElement.tagName };
+    });
+    assert(icone, 'o painel não tem ícone de aba nenhum');
+    assert(/^data:image\/svg\+xml,/.test(icone.href), 'o ícone do painel não é embutido: ' + icone.href);
+    assert(icone.tipo === 'image/svg+xml' && icone.raiz === 'svg' && !icone.erro && icone.formas >= 2, JSON.stringify(icone));
     assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
     await p.pg.close();
-    return est.libs.length + ' bibliotecas, versão ' + est.appVersion;
+    return est.libs.length + ' bibliotecas, versão ' + est.appVersion + ', ícone do painel embutido e desenhável';
   });
 
   await it('o rodapé "Apoie o Nostermentor" e o cartão de T3 abrem T11 DIRETO na aba Apoiar; e a Ajuda funciona antes de T2 acabar (relay mudo, site ainda a carregar)', async () => {

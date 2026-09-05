@@ -36,7 +36,7 @@
    - palavra sem espaços, URL crua e título sem espaços passavam da borda até
      1280 px (o Firefox quebra URLs nas barras por conta própria; o Chrome
      não — regra que não se pode assumir) → `overflow-wrap:anywhere` no corpo,
-     que também deixa o cartão da galeria encolher até ao mínimo da grelha;
+     que também deixa o cartão da galeria encolher até ao mínimo da grade;
    - links de lista tinham 20 px de altura (WCAG 2.2 pede 24) → inline-block
      com 2 px de folga em cima e em baixo; o menu já passava (27 px), porque
      a caixa flexível engrossa os links sozinha;
@@ -82,7 +82,7 @@ const TemaPadrao = (function () {
   });
 
   // Os oito moldes deste tema são os MOLDES BASE do app (`Temas.moldes`, em
-  // core/temas.js): estavam aqui e mudaram de sítio em 2026-09-05, byte a
+  // core/temas.js): estavam aqui e mudaram de lugar em 2026-09-05, byte a
   // byte, quando o app passou de quatro para vinte e um temas. O Padrão usa-os
   // como estão — é dele que saíram —, e qualquer tema pode partir deles e
   // trocar só o molde que quiser. As classes que a folha de estilo abaixo
@@ -161,7 +161,7 @@ const TemaPadrao = (function () {
       // surpresa entre motores, e aqui os bytes têm de render o mesmo em todos.
       // `overflow-wrap:anywhere` (e não `break-word`): só parte uma palavra
       // quando ela não cabe de outra forma, E conta na largura mínima — é o
-      // que deixa o cartão da galeria encolher até ao mínimo da grelha em vez
+      // que deixa o cartão da galeria encolher até ao mínimo da grade em vez
       // de a esticar. Herdado por tudo o que o Markdown produz.
       'body{margin:0;background:var(--fundo);color:var(--tinta);font-family:var(--fonte-texto);font-size:var(--base);line-height:1.6;overflow-wrap:anywhere}',
       'a{color:var(--acento-legivel)}',
@@ -170,7 +170,7 @@ const TemaPadrao = (function () {
       'pre{overflow:auto;padding:12px;background:var(--bloco);border-radius:var(--canto)}',
       // A tabela vem do Markdown sem caixa à volta, logo é ela própria que
       // rola: `display:block` faz dela um bloco da largura da coluna, com a
-      // grelha dentro a rolar quando não cabe (7 colunas em 320 px). E volta
+      // grade dentro a rolar quando não cabe (7 colunas em 320 px). E volta
       // a `overflow-wrap:normal`: com a quebra em qualquer ponto herdada do
       // corpo, o motor preferia esmagar as células ("Seg/und/a", medido em
       // 2026-09-05) a rolar. Dentro da tabela o estouro já está contido.
@@ -203,9 +203,9 @@ const TemaPadrao = (function () {
       // uma linha de script. O molde que o vai produzir ainda não existe (falta
       // a 30, o marcador); a aparência, que é o que a 24 devia entregar, existe.
       '.botao{display:inline-block;padding:.6em 1.2em;border-radius:var(--canto);background:var(--acento);color:var(--acento-texto);text-decoration:none;font-family:var(--fonte-titulos);font-weight:700}',
-      // 30 — a galeria: grelha que se adapta sozinha, sem media query e sem JS.
+      // 30 — a galeria: grade que se adapta sozinha, sem media query e sem JS.
       // `auto-fill` com mínimo de 220px dá 2 colunas na largura estreita e 3 na
-      // larga; num telemóvel cai para 1 sem regra nenhuma a mais.
+      // larga; num celular cai para 1 sem regra nenhuma a mais.
       '.cta{margin:1.5em 0}',
       '.galeria{margin:2em 0}',
       '.cartoes{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px}',

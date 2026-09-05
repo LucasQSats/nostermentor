@@ -38,7 +38,7 @@ const Modelo = (function () {
     m4a: 'audio/mp4', ogg: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav', pdf: 'application/pdf',
     ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2',
     // 46 — formatos que faltavam e que o dono encontra no dia a dia: um vídeo
-    // de telemóvel é `.mov`. Sem estar aqui, o caminho publicado virava
+    // de celular é `.mov`. Sem estar aqui, o caminho publicado virava
     // `.bin`, e `.bin` faz o navegador do LEITOR tratar o vídeo como arquivo
     // para baixar em vez de o tocar. Vão no fim de propósito: `extensaoDe`
     // procura pela primeira chave com o mesmo mime, e a ordem de cima é a
@@ -133,6 +133,11 @@ const Modelo = (function () {
       pubkey: pubkey, npub: npub, title: '', description: '', language: 'pt-BR',
       profile: { name: '', about: '', picture_media_id: null },
       logo_media_id: null,                 // 38: o logo do cabeçalho — NÃO é o avatar do kind 0
+      // O ícone da ABA do navegador de quem lê o site. Terceira imagem, e não
+      // uma das duas de cima, porque serve a um terceiro formato: quadrado e
+      // legível com 16 px de lado. Campo do SITE, como o logo — trocar de tema
+      // não pode apagar o ícone.
+      favicon_media_id: null,
       home: { mode: 'blog', page_id: null, latest_posts: 5 },
       blog: { prefix: PREFIXO_BLOG, title: 'Blog' },
       menu: [{ type: 'blog' }],

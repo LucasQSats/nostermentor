@@ -1,6 +1,6 @@
 /* tema/fotografia/tema.js — GALERIA: o tema para quem publica imagens
    (12; TEMAS.md). Quase sem enfeite: a fotografia ocupa a largura toda, o
-   texto encolhe para não competir com ela e a grelha de cartões tem uma
+   texto encolhe para não competir com ela e a grade de cartões tem uma
    medida que o dono controla — quantas imagens quer por linha.
 
    Troca dois moldes base (`pagina` e `artigo`): a capa sobe para CIMA do
@@ -21,9 +21,9 @@ const TemaFotografia = (function () {
       apoio: 'O preto é o fundo de sala de exposição: faz a cor da imagem saltar.' }),
     cor_destaque: Object.freeze({ tipo: 'cor', rotulo: 'Cor de destaque', padrao: '#c8a15a',
       apoio: 'Links e botões. Se ficar perto demais do fundo, o site clareia só o texto.' }),
-    coluna_minima: Object.freeze({ tipo: 'medida', rotulo: 'Largura mínima de cada imagem na grelha', padrao: 200,
+    coluna_minima: Object.freeze({ tipo: 'medida', rotulo: 'Largura mínima de cada imagem na grade', padrao: 200,
       min: 140, max: 340, passo: 10, unidade: 'px',
-      apoio: 'Quanto menor, mais imagens cabem por linha. A grelha ajusta-se sozinha ao tamanho da tela.' }),
+      apoio: 'Quanto menor, mais imagens cabem por linha. A grade se ajusta sozinha ao tamanho da tela.' }),
     moldura: Object.freeze({ tipo: 'escolha', rotulo: 'Moldura das imagens', padrao: 'nenhuma',
       opcoes: Object.freeze([['nenhuma', 'Nenhuma'], ['fina', 'Fina'], ['larga', 'Larga']]) }),
     tamanho_texto: Object.freeze({ tipo: 'escolha', rotulo: 'Tamanho do texto', padrao: 'medio',
@@ -120,7 +120,7 @@ const TemaFotografia = (function () {
       '.galeria{margin:1.8em 0}',
       // ⚠️ `min(var(--coluna),100%)` e não `var(--coluna)`: a largura mínima da
       // coluna é escolha do dono e vai até 340 px, que NÃO CABE numa tela de
-      // 320 — a grelha respeitava o mínimo e a página passava a rolar para o
+      // 320 — a grade respeitava o mínimo e a página passava a rolar para o
       // lado (38 px de estouro, medido em 2026-09-05). O `min()` deixa a
       // coluna encolher até à largura disponível quando não há espaço.
       '.cartoes{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(var(--coluna),100%),1fr));gap:10px}',
@@ -140,7 +140,7 @@ const TemaFotografia = (function () {
       // ⚠️ `em` COMPÕE: na listagem o `<time>` vive dentro do `<p class="meta">`,
       // que já reduziu o tamanho — reduzir outra vez dava 11,8 px no tema
       // Galeria e 12,0 no Neon, abaixo do piso de 12 (TEMAS.md §7.2 R5),
-      // medido em 2026-09-05. Na secção "últimos artigos" o `<time>` é filho
+      // medido em 2026-09-05. Na seção "últimos artigos" o `<time>` é filho
       // direto do `<li>` e a redução acima é a que se quer; daí o escopo.
       '.lista-artigos .meta time{font-size:1em}',
       '.lista-artigos a,.ultimos p a,.blog>p a,.cartao-titulo a{display:inline-block;padding:3px 0}',

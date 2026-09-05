@@ -24,6 +24,7 @@ const SUITES = [
   ['core/rede', require('./core/rede.test.js')],
   ['core/limpeza', require('./core/limpeza.test.js')],
   ['core/gerador', require('./core/gerador.test.js')],
+  ['core/qr', require('./core/qr.test.js')],
   ['core/blocos', require('./core/blocos.test.js')],
   ['core/html_colado', require('./core/html_colado.test.js')],
   ['core/backup', require('./core/backup.test.js')],

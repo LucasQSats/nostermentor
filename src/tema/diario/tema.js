@@ -16,9 +16,9 @@ const TemaDiario = (function () {
     tom: Object.freeze({ tipo: 'escolha', rotulo: 'Tom do papel', padrao: 'creme',
       opcoes: Object.freeze([['branco', 'Branco'], ['creme', 'Creme'], ['amarelo', 'Amarelo de bloco']]) }),
     cor_tinta: Object.freeze({ tipo: 'cor', rotulo: 'Cor da tinta', padrao: '#1f3a8a',
-      apoio: 'A caneta: títulos, links e o carimbo da data. O texto corrido fica sempre em tinta escura, para se ler.' }),
+      apoio: 'A caneta: títulos, links e o carimbo da data. O texto corrido fica sempre em tinta escura, para continuar legível.' }),
     cor_capa: Object.freeze({ tipo: 'cor', rotulo: 'Cor da capa', padrao: '#5b3a29',
-      apoio: 'O fundo à volta da folha, e a etiqueta do cabeçalho.' }),
+      apoio: 'O fundo ao redor da folha, e a etiqueta do cabeçalho.' }),
     tamanho_texto: Object.freeze({ tipo: 'escolha', rotulo: 'Tamanho do texto', padrao: 'medio',
       opcoes: Object.freeze([['pequeno', 'Pequeno'], ['medio', 'Médio'], ['grande', 'Grande']]) }),
     largura: Object.freeze({ tipo: 'escolha', rotulo: 'Largura da folha', padrao: 'media',
@@ -36,7 +36,11 @@ const TemaDiario = (function () {
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     '<title>{{titulo_pagina}}</title>',
     '{{#descricao}}<meta name="description" content="{{descricao}}">',
-    '{{/descricao}}<link rel="stylesheet" href="/tema/estilo.css">',
+    // O ícone da aba. Este tema tem molde próprio, logo repete a linha que
+    // vive em core/temas.js (TEMAS.md §2: quem substitui o layout herda a
+    // obrigação). Sem ícone escolhido, não sai <link> nenhum.
+    '{{/descricao}}{{#favicon}}<link rel="icon" href="{{src}}"{{#tipo}} type="{{tipo}}"{{/tipo}}>',
+    '{{/favicon}}<link rel="stylesheet" href="/tema/estilo.css">',
     '</head>',
     '<body>',
     '<header class="cabecalho">',
@@ -112,7 +116,7 @@ const TemaDiario = (function () {
     ''
   ].join('\n');
 
-  // As fotografias coladas: grelha de "polaroids" com a data escrita por baixo.
+  // As fotografias coladas: grade de "polaroids" com a data escrita por baixo.
   const galeria = [
     '<section class="galeria">',
     '{{^tem_artigos}}<p class="vazio">Ainda não há entradas.</p>',
@@ -140,8 +144,8 @@ const TemaDiario = (function () {
 
   function resolver(opcoes) { return Temas.resolver(options, opcoes); }
 
-  // As contas de cor vivem no registo (`Temas.cor`, core/temas.js): estavam
-  // copiadas dentro de cada tema e mudaram de sítio em 2026-09-05, quando o
+  // As contas de cor vivem no registro (`Temas.cor`, core/temas.js): estavam
+  // copiadas dentro de cada tema e mudaram de lugar em 2026-09-05, quando o
   // app passou a ter 21 temas. Mesma fórmula inteira, mesmos bytes.
   const C = Temas.cor;
   const paraRgb = C.paraRgb, paraHex = C.paraHex, brilho = C.brilho, legivelSobre = C.legivelSobre;

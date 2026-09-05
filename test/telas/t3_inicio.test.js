@@ -119,12 +119,14 @@ module.exports = async function (ctx, u) {
     const site = await p.pg.evaluate(() => ({
       href: document.getElementById('ver-site').getAttribute('href'),
       aviso: document.getElementById('ver-site-aviso').textContent,
-      outros: [...document.querySelectorAll('#cartao-atalhos a')].map(a => a.textContent).slice(1),
+      // Os endereços deixaram de ser uma linha dos atalhos e viraram o cartão
+      // 5 — aqui só se confere que o cartão de atalhos NÃO os traz de volta.
+      linksAtalhos: [...document.querySelectorAll('#cartao-atalhos a')].map(a => a.textContent),
       naoPublicado: document.getElementById('saude-nao-publicado').textContent
     }));
     assert(site.href === `https://${ch.npub}.nsite.lol/`, site.href);
     assert(/ainda não publicado/.test(site.aviso) && /só mostra o site depois da primeira publicação/.test(site.aviso), site.aviso);
-    assert(site.outros.join(',') === 'nsite.cloud,nsite.run', site.outros.join(','));
+    assert(site.linksAtalhos.join(',') === 'Ver o site', site.linksAtalhos.join(','));
     assert(site.naoPublicado === 'Seu site ainda não foi publicado.', site.naoPublicado);
     await p.pg.click('#cartao-atalhos button:has-text("Novo artigo")');
     await p.pg.waitForSelector('#editor[data-tipo="post"]');
@@ -142,6 +144,94 @@ module.exports = async function (ctx, u) {
     assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
     await p.pg.close();
     return 'os cinco atalhos chegam onde 14 T3 diz';
+  });
+
+  await it('endereços (14 T3 cartão 5): os TRÊS gateways, cada um com o endereço completo e um QR gerado aqui dentro — desenhado, com zona de silêncio, e sem buscar nada de fora', async () => {
+    f.relay('a-vazio-qr', { modo: 'vazio', eventos: [] });
+    const { p, ch } = await siteNovo([f.ws('a-vazio-qr')]);
+    await irAoInicio(p.pg);
+    await p.pg.waitForSelector('#cartao-enderecos .qr');
+    await p.pg.screenshot({ path: u.captura('t3-enderecos'), fullPage: true });
+    const e = await p.pg.evaluate(() => {
+      const itens = [...document.querySelectorAll('#cartao-enderecos li.endereco')];
+      return {
+        n: itens.length,
+        hosts: itens.map(li => li.querySelector('.endereco-url a').textContent),
+        urls: itens.map(li => li.querySelector('.endereco-completo').textContent),
+        hrefs: itens.map(li => li.querySelector('.endereco-url a').getAttribute('href')),
+        // O QR tem de ser SVG desenhado no próprio painel: um <img> com src
+        // externo seria exatamente o vazamento que este cartão não pode ter.
+        qrTags: itens.map(li => li.querySelector('.qr') && li.querySelector('.qr').tagName.toLowerCase()),
+        qrRotulos: itens.map(li => li.querySelector('.qr').getAttribute('aria-label')),
+        qrCaixas: itens.map(li => li.querySelector('.qr').getAttribute('viewBox')),
+        imagens: document.querySelectorAll('#cartao-enderecos img').length,
+        aviso: document.getElementById('enderecos-aviso').textContent,
+        botoes: itens.map(li => !!li.querySelector('.copiar-endereco') && !!li.querySelector('.baixar-qr')),
+        baixarNomes: itens.map(li => li.querySelector('.baixar-qr').getAttribute('download'))
+      };
+    });
+    assert(e.n === 3, 'esperava três endereços, veio ' + e.n);
+    assert(e.hosts.join(',') === 'nsite.lol,nsite.cloud,nsite.run', e.hosts.join(','));
+    for (let i = 0; i < 3; i++) {
+      assert(e.urls[i] === `https://${ch.npub}.${e.hosts[i]}/`, e.urls[i]);
+      assert(e.hrefs[i] === e.urls[i], e.hrefs[i] + ' != ' + e.urls[i]);
+      assert(e.qrTags[i] === 'svg', 'o QR de ' + e.hosts[i] + ' não é SVG: ' + e.qrTags[i]);
+      assert(e.qrRotulos[i].indexOf(e.urls[i]) >= 0, 'o QR não diz o endereço a quem ouve: ' + e.qrRotulos[i]);
+      assert(e.botoes[i], 'faltou copiar ou baixar em ' + e.hosts[i]);
+      assert(/^qrcode-nsite\.[a-z]+-[a-z0-9]{8}\.png$/.test(e.baixarNomes[i]), e.baixarNomes[i]);
+    }
+    // Três endereços diferentes têm de dar três códigos diferentes — um QR
+    // desenhado uma vez e repetido levaria toda a gente ao mesmo gateway.
+    const caminhos = await p.pg.evaluate(() => [...document.querySelectorAll('#cartao-enderecos .qr path')].map(p2 => p2.getAttribute('d')));
+    assert(new Set(caminhos).size === 3, 'os três QR têm o mesmo desenho');
+    // Zona de silêncio: nada pintado nos 4 módulos da borda (a norma exige, e
+    // sem ela muitos leitores não acham o código).
+    const margens = await p.pg.evaluate(() => [...document.querySelectorAll('#cartao-enderecos .qr')].map(function (svg) {
+      const lado = Number(svg.getAttribute('viewBox').split(' ')[3]);
+      const d = svg.querySelector('path').getAttribute('d');
+      let fora = 0;
+      for (const m of d.matchAll(/M(\d+) (\d+)h(\d+)/g)) {
+        const x = +m[1], y = +m[2], w = +m[3];
+        if (y < 4 || y >= lado - 4 || x < 4 || x + w > lado - 4) fora++;
+      }
+      return fora;
+    }));
+    assert(margens.every(x => x === 0), 'há módulo pintado na zona de silêncio: ' + JSON.stringify(margens));
+    assert(e.imagens === 0, 'o cartão tem <img> — o QR tem de ser desenhado aqui, não buscado');
+    assert(/nunca foi publicado/.test(e.aviso), e.aviso);
+    // 54 — o painel inteiro estoura a 320 px desde antes deste cartão, e se
+    // ele é para telefone ou só para computador é decisão de produto por
+    // tomar. Aqui não se julga isso: mede-se se o cartão novo PIOROU o
+    // número, escondendo-o e medindo outra vez — que é o único jeito de
+    // separar a contribuição dele do estouro que já existia.
+    // A 1200 e a 1000 px (a menor janela real medida no Tor Browser, bancada
+    // nº 1) a tela tem de caber sem rolagem: isso, sim, é aceite.
+    const larguras = {};
+    for (const w of [1200, 1000, 320]) {
+      await p.pg.setViewportSize({ width: w, height: 800 });
+      await p.pg.waitForTimeout(60);
+      larguras[w] = await p.pg.evaluate(() => {
+        const area = document.getElementById('conteudo').getBoundingClientRect();
+        const fora = [...document.querySelectorAll('#cartao-enderecos *')]
+          .map(el => ({ el: el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : ''), dir: Math.round(el.getBoundingClientRect().right) }))
+          .filter(x => x.dir > Math.round(area.right));
+        // Isola a contribuição DESTE cartão: mede, esconde, mede outra vez.
+        const c = document.getElementById('cartao-enderecos');
+        const com = document.documentElement.scrollWidth;
+        c.hidden = true;
+        const sem = document.documentElement.scrollWidth;
+        c.hidden = false;
+        return { scroll: com, semOCartao: sem, cliente: document.documentElement.clientWidth,
+          areaDir: Math.round(area.right), fora: fora.slice(0, 6), quantosFora: fora.length };
+      });
+    }
+    assert(larguras[1200].scroll <= larguras[1200].cliente, 'a T3 estoura em 1200 px: ' + JSON.stringify(larguras[1200]));
+    assert(larguras[1000].scroll <= larguras[1000].cliente, 'a T3 estoura em 1000 px: ' + JSON.stringify(larguras[1000]));
+    assert(larguras[320].scroll === larguras[320].semOCartao, 'o cartão de endereços PIOROU a largura a 320 px: ' + larguras[320].scroll + ' com ele, ' + larguras[320].semOCartao + ' sem ele');
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.close();
+    return 'três endereços, três QR distintos, margem limpa e nada de fora; cabe em 1200 e em 1000; a 320 px '
+      + larguras[320].scroll + ' com o cartão e ' + larguras[320].semOCartao + ' sem ele (54: o estouro não é dele)';
   });
 
   await it('cartões 2, 3 e 5 (14 T3): contagens por estado, backup vermelho com "N não exportadas" e a linha da mídia só local, e os CINCO artigos mais recentes por data com o estado e "editar"', async () => {

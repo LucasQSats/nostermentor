@@ -1,4 +1,4 @@
-/* core/temas.js — o REGISTO de temas (12; TEMAS.md §3 e §11). É a única
+/* core/temas.js — o REGISTRO de temas (12; TEMAS.md §3 e §11). É a única
    porta entre o core e os temas: cada arquivo `src/tema/<id>/tema.js`
    regista-se ao carregar (o core carrega antes dos temas — 15 §2), e o
    gerador escolhe pelo `site.theme.id` (13 §3). Id desconhecido cai no
@@ -18,7 +18,7 @@ const Temas = (function () {
   // quatro temas era repetição tolerável; com vinte e um, são vinte e uma
   // cópias das mesmas noventa linhas de HTML, e a promessa da TEMAS.md §2 ("o tema mais
   // simples é um tema só de CSS") obrigava na prática a copiar tudo à mão.
-  // Passam a viver aqui, num sítio só, e um tema escreve:
+  // Passam a viver aqui, num lugar só, e um tema escreve:
   //
   //     const templates = Object.freeze(Object.assign({}, Temas.moldes,
   //       { pagina: oMeuMoldeDePagina }));   // troca só o que quiser
@@ -38,7 +38,7 @@ const Temas = (function () {
   // largura, altura} | null, menu[] {href, rotulo, externo, atual}, conteudo
   // (HTML já sanitizado), doacoes {lightning_address} | null, credito (bool).
   // 38 — o logo SUBSTITUI o título no cabeçalho e o título vai para o `alt`:
-  // o leitor vê a marca, o buscador e o leitor de ecrã continuam a ler o nome
+  // o leitor vê a marca, o buscador e o leitor de tela continuam a ler o nome
   // do site (03 §1.1). Sem logo, o cabeçalho é o texto de sempre.
   const layout = [
     '<!doctype html>',
@@ -48,7 +48,14 @@ const Temas = (function () {
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     '<title>{{titulo_pagina}}</title>',
     '{{#descricao}}<meta name="description" content="{{descricao}}">',
-    '{{/descricao}}<link rel="stylesheet" href="/tema/estilo.css">',
+    // O ícone da aba do navegador de quem lê o site. Vive no molde
+    // COMPARTILHADO de propósito: nenhum dos 21 temas substitui `layout`,
+    // logo uma linha aqui vale para todos. ⚠️ Um tema de terceiro que
+    // substitua `layout` tem de repetir esta linha, ou o site sai sem ícone
+    // (TEMAS.md §2). Sem ícone escolhido, `favicon` é nulo e não sai `<link>`
+    // nenhum: um `<link>` para o vazio custaria um pedido a cada leitor.
+    '{{/descricao}}{{#favicon}}<link rel="icon" href="{{src}}"{{#tipo}} type="{{tipo}}"{{/tipo}}>',
+    '{{/favicon}}<link rel="stylesheet" href="/tema/estilo.css">',
     '</head>',
     '<body>',
     '<header class="cabecalho">',
@@ -139,7 +146,7 @@ const Temas = (function () {
 
   // 30 — a galeria de artigos, o bloco que o marcador `[[artigos: …]]` produz.
   // Contexto: tem_artigos, artigos[] {href, titulo, data, data_iso, resumo,
-  // capa {src, alt, largura, altura, href} | null}. Sem JS: é grelha CSS e
+  // capa {src, alt, largura, altura, href} | null}. Sem JS: é grade CSS e
   // links (clicável sim, carrossel não — 06 §5.3.2 (c)).
   const galeria = [
     '<section class="galeria">',
@@ -241,7 +248,7 @@ const Temas = (function () {
   // voltar, devolve-se.
   //
   // ⚠️ Onde vive, e porquê: em `site.theme_memory`, que é campo LOCAL do
-  // registo `site` — **nunca sai no `site.json` publicado** (13 §5.2 lista o
+  // registro `site` — **nunca sai no `site.json` publicado** (13 §5.2 lista o
   // que a rede recebe, e isto não está lá). Guardar na rede os ajustes de
   // temas que o dono NÃO usa seria publicar dado inútil e alargar a superfície
   // à toa. Vai no BACKUP (decisão dele: "no backup, junto com o site"), que é
@@ -266,7 +273,7 @@ const Temas = (function () {
     return saida;
   }
 
-  // A troca de tema, num sítio só: guarda o que o tema que sai tinha, devolve
+  // A troca de tema, num lugar só: guarda o que o tema que sai tinha, devolve
   // o que o tema que entra tinha da última vez. Devolve o `theme` novo e a
   // gaveta nova — quem grava é a tela.
   // ⚠️ Guarda-se pelo id do tema que ESTÁ no `site`, mesmo que este app não o

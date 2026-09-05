@@ -4,12 +4,12 @@
 > a galeria, e agora a leva que levou o app de 4 a 21 temas).** Este documento
 > descreve o que um tema tem de ser para funcionar por inteiro com o
 > Nostermentor. Só passa de rascunho a especificação quando um tema escrito
-> por alguém de fora o tiver usado de verdade. A secção 11 diz, sem rodeios,
+> por alguém de fora o tiver usado de verdade. A seção 11 diz, sem rodeios,
 > o que o app ainda não faz.
 
 O que se quer é simples de enunciar: **qualquer pessoa com este documento à
 frente consegue escrever o seu tema**, sem ler o código do app. Se alguma
-secção exigir ler o código, a secção está incompleta — diga.
+seção exigir ler o código, a seção está incompleta — diga.
 
 ---
 
@@ -25,7 +25,7 @@ produto: quem publica com o Nostermentor está, em geral, a fazê-lo por trás
 do Tor, e quem lê o site também. Um tema que executasse código no painel
 teria a chave do dono ao alcance; um tema que trouxesse um recurso de outro
 servidor entregaria o endereço de cada leitor a esse servidor. As duas coisas
-são proibidas, e a secção 8 explica cada uma.
+são proibidas, e a seção 8 explica cada uma.
 
 O que o tema **controla**: a estrutura HTML de cada tipo de página (os
 moldes), a folha de estilo, e as opções que oferece ao dono do site.
@@ -52,20 +52,22 @@ const templates = Object.freeze(Object.assign({}, Temas.moldes,
 ```
 
 `Temas.moldes` vive em `src/core/temas.js` e é, byte a byte, o que o tema
-Padrão sempre produziu. Os moldes escrevem HTML com todas as classes da
-secção 5, e é nelas que a folha de estilo se agarra. **Dos 21 temas que o app
+Padrão sempre produziu. **Dos 21 temas, 18 usam o `layout` do core; três — o
+Diário, o Jornal e o Moderno — têm `layout` próprio** (medido em 2026-09-05,
+procurando `const layout = [` arquivo a arquivo). Os moldes escrevem HTML com todas as classes da
+seção 5, e é nelas que a folha de estilo se agarra. **Dos 21 temas que o app
 traz, 12 não trocam molde nenhum** — são só folha de estilo (contados pelo
 sha256 do jogo de moldes de cada um, 2026-09-05).
 
 ⚠️ **Mexer num molde de `Temas.moldes` é mexer em 12 temas de uma vez**, e
 obriga a subir a `version` de cada um: o site publicado é comparado por
-sha256 arquivo a arquivo (secção 9), logo um byte diferente no molde
+sha256 arquivo a arquivo (seção 9), logo um byte diferente no molde
 republica todas as páginas de todos os sites que o usem.
 
 Cada tema vive num único arquivo, `src/tema/<id>/tema.js`, e termina por se
 registar: `Temas.registar(TemaX)`. É só isso que o app precisa para o
-oferecer na tela **Temas** — a montagem (`./monta_app.sh`) apanha todos os
-arquivos de `src/tema/`, e o registo (`src/core/temas.js`) é a única porta
+oferecer na tela **Temas** — a montagem (`./monta_app.sh`) pega todos os
+arquivos de `src/tema/`, e o registro (`src/core/temas.js`) é a única porta
 entre o app e os temas.
 
 O app traz **21 temas**. Os quatro primeiros são os exemplos de referência
@@ -76,16 +78,16 @@ sem trocar nenhum:
 |---|---|---|
 | `padrao` | Padrão | o tema de origem: sóbrio, uma coluna, oito opções |
 | `diario` | Diário | folha de caderno pautada com margem vermelha; título numa etiqueta de capa, menu em separadores, data carimbada, fotografias "coladas" |
-| `jornal` | Jornal | cabeçalho de banca entre filetes, menu como barra de secções, texto em colunas, capitular, primeira página em grelha |
+| `jornal` | Jornal | cabeçalho de banca entre filetes, menu como barra de seções, texto em colunas, capitular, primeira página em grade |
 | `moderno` | Moderno | letra do sistema sem serifa, cabeçalho fixo com barra de cor, capa a toda a largura, cartões com sombra, claro/escuro/automático |
 | `vintage` | Vintage | folha de rosto de 1900: simetria central, filete duplo, versaletes espaçados, florão tipográfico a abrir cada página |
 | `livro` | Livro | a página impressa: margens largas, texto justificado, capitular, e o blog como um ÍNDICE com pontilhado |
-| `mercado` | Mercado | jornal económico: papel salmão, tinta azul-marinho, tabelas com algarismos de largura fixa e linhas alternadas, data antes do título |
+| `mercado` | Mercado | jornal econômico: papel salmão, tinta azul-marinho, tabelas com algarismos de largura fixa e linhas alternadas, data antes do título |
 | `panfleto` | Panfleto | a folha fotocopiada: tarja preta no cabeçalho, maiúsculas pesadas, barra grossa sob o título, carimbo inclinado na data, textura de fotocópia |
 | `manifesto` | Manifesto | cartaz de causa: faixa em degradê a toda a largura, título enorme, citações do tamanho de um slogan |
-| `terminal` | Terminal | consola: tudo em largura fixa, `$` antes dos títulos, menu entre parênteses retos, cursor parado |
+| `terminal` | Terminal | console: tudo em largura fixa, `$` antes dos títulos, menu entre parênteses retos, cursor parado |
 | `pixel` | Pixel | 8 bits: contornos grossos, sombra dura sem desfoque, cabeçalho como caixa de diálogo |
-| `neon` | Neon | painel de instrumentos: escuro, cor que brilha, cantos cortados na diagonal com `clip-path`, grelha de fundo |
+| `neon` | Neon | painel de instrumentos: escuro, cor que brilha, cantos cortados na diagonal com `clip-path`, grade de fundo |
 | `defi` | DeFi | índigo profundo, degradê de duas cores que o dono escolhe, cartões redondos com halo, nome do site pintado com o degradê |
 | `satoshi` | Satoshi | laranja e preto, e a lista de publicações como uma corrente de blocos ligados por um elo |
 | `limpo` | Limpo | branco, muito ar, título grande, um acento discreto, sem caixas nem sombras |
@@ -93,7 +95,7 @@ sem trocar nenhum:
 | `noturno` | Noturno | o escuro para LER: ardósia, texto quente em vez de branco puro, entrelinha larga, zero efeitos |
 | `contraste` | Alto contraste | legibilidade acima de tudo: letra grande, preto/branco puros (ou amarelo sobre preto), contorno de foco grosso |
 | `natureza` | Natureza | verdes e terras, cantos assimétricos de folha, degradê de horizonte, e a capa da página desenhada |
-| `fotografia` | Galeria | para imagens: cromo mínimo, capa acima do título, grelha densa cuja largura mínima o dono escolhe |
+| `fotografia` | Galeria | para imagens: cromo mínimo, capa acima do título, grade densa cuja largura mínima o dono escolhe |
 | `quadrinhos` | Quadrinhos | retícula de pontos, contornos pretos grossos, e o resumo dentro de um balão de fala com bico |
 
 Quando este documento e um desses arquivos divergirem, o arquivo está certo
@@ -113,15 +115,15 @@ Um tema exporta um objeto congelado com quatro membros:
 ```
 
 Os `templates` são quase sempre `Temas.moldes`, ou uma cópia dele com um ou
-outro molde trocado (secção 2). O que o app oferece a quem escreve um tema,
+outro molde trocado (seção 2). O que o app oferece a quem escreve um tema,
 todo em `src/core/temas.js`, é só isto — e nada disto é obrigatório:
 
 | | O que faz | Onde é obrigatório |
 |---|---|---|
 | `Temas.moldes` | os oito moldes base | — |
-| `Temas.resolver(options, opcoes)` | valida as opções contra o manifesto e descarta o que não bate | a validação é obrigatória (secção 6); fazê-la à mão é permitido |
-| `Temas.cor` | `paraRgb`, `paraHex`, `brilho`, `misturar`, `legivelSobre`, `textoSobre`, `acentoLegivel` — tudo em aritmética inteira | — (mas a regra dos inteiros é, secção 9) |
-| `Temas.registar(tema)` | põe o tema no registo | sim, é a última linha do arquivo |
+| `Temas.resolver(options, opcoes)` | valida as opções contra o manifesto e descarta o que não bate | a validação é obrigatória (seção 6); fazê-la à mão é permitido |
+| `Temas.cor` | `paraRgb`, `paraHex`, `brilho`, `misturar`, `legivelSobre`, `textoSobre`, `acentoLegivel` — tudo em aritmética inteira | — (mas a regra dos inteiros é, seção 9) |
+| `Temas.registar(tema)` | põe o tema no registro | sim, é a última linha do arquivo |
 
 O manifesto:
 
@@ -132,7 +134,7 @@ O manifesto:
 | `nome` | texto | o nome que o painel mostra |
 | `autor` | texto | quem o assina; "autor desconhecido" é um rótulo válido, omitir não é |
 | `engine_min` | inteiro | a versão mínima do motor de geração que o tema exige (hoje só existe a 1) |
-| `options` | objeto | as opções que o painel desenha, na ordem em que aparecem — secção 6 |
+| `options` | objeto | as opções que o painel desenha, na ordem em que aparecem — seção 6 |
 
 O `site.json` publicado guarda `theme: { id, version, options }`: o id do
 tema, a versão com que o site foi publicado, e os valores que o dono escolheu.
@@ -148,7 +150,7 @@ Padrão e a tela diz qual tema falta.
 
 ⚠️ **O `nome` e o `autor` do manifesto passaram a ser visíveis** (2026-09-05):
 a tela Temas mostra um cartão por tema com o nome, o autor, a versão e uma
-**pré-visualização do site de quem está a escolher**, gerada com o seu tema.
+**pré-visualização do site de quem está escolhendo**, gerada com o seu tema.
 Vale a pena que o `nome` seja curto e que o `autor` seja como quer ser
 creditado — é o que aparece no cartão.
 
@@ -162,7 +164,7 @@ contexto: **tudo o que o molde precisa chega pré-calculado.**
 
 | Molde | Produz | Contexto que recebe |
 |---|---|---|
-| `layout` | a página HTML inteira, de `<!doctype>` a `</html>` | `lang`, `titulo_pagina`, `descricao`, `site_titulo`, `logo{src,alt,largura,altura}` ou `null`, `menu[]{href,rotulo,externo,atual}`, `conteudo` (HTML já pronto, vindo de um dos moldes abaixo), `doacoes{lightning_address}` ou `null`, `credito` (booleano) |
+| `layout` | a página HTML inteira, de `<!doctype>` a `</html>` | `lang`, `titulo_pagina`, `descricao`, `site_titulo`, `logo{src,alt,largura,altura}` ou `null`, `favicon{src,tipo}` ou `null`, `menu[]{href,rotulo,externo,atual}`, `conteudo` (HTML já pronto, vindo de um dos moldes abaixo), `doacoes{lightning_address}` ou `null`, `credito` (booleano) |
 | `pagina` | o miolo de uma página fixa | `titulo`, `corpo` (HTML sanitizado do Markdown), `ultimos{blog_titulo,blog_href,artigos[]{href,titulo,data,data_iso}}` ou `null`, `capa{src,alt,largura,altura,legenda}` ou `null` |
 | `artigo` | o miolo de um artigo | `titulo`, `data`, `data_iso`, `tem_tags`, `tags[]{nome,href}` (`href` é `null` quando a etiqueta não tem página), `capa{…}` ou `null`, `corpo` |
 | `blog` | a listagem do blog | `blog_titulo`, `tem_artigos`, `artigos[]{href,titulo,data,data_iso,resumo}` |
@@ -176,6 +178,22 @@ Notas que evitam surpresas:
 - **`layout` é chamado uma vez por página**, com `conteudo` já preenchido por
   `pagina`, `artigo`, `blog` ou `etiqueta`. `alias` é a exceção: produz a
   página inteira sozinho, sem `layout`, porque é um stub de redirecionamento.
+- ⚠️ **Quem troca o `layout` herda o `<head>` inteiro, e com ele obrigações
+  que não são visuais.** Hoje são duas: o `<link rel="stylesheet">` do tema e
+  o `<link rel="icon">` do ícone da aba (`{{#favicon}}`). Um tema que copie um
+  `layout` antigo e esqueça a segunda linha gera um site **sem ícone**, e nada
+  quebra — simplesmente não aparece.
+  ➜ **Isto já aconteceu connosco, em 2026-09-05:** ao pôr o ícone no molde do
+  core, a afirmação escrita era *"nenhum tema troca o `layout`, logo uma linha
+  serve os 21"*. Era **falsa**: o Diário, o Jornal e o Moderno — os três
+  primeiros temas escritos — têm `layout` próprio. Quem a escreveu procurou
+  `layout:` e não viu o `const layout = [...]` seguido de `{ layout, … }` na
+  forma abreviada. **Quem apanhou foi o teste**, que mede os 21 e não lê a
+  fonte (`test/core/gerador.test.js`, caso do favicon). A lição é a mesma da
+  T12: *uma afirmação sobre N temas mede-se nos N.*
+- **`alias` (a página de redirecionamento) NÃO leva ícone**, e é decisão:
+  ninguém a vê — ela salta para outro endereço num piscar —, e um `<link>`
+  ali custaria a cada leitor um pedido a mais por nada.
 - **A capa chega ao molde `pagina` e o tema Padrão não a desenha, de
   propósito** (decisão de 2026-08-31). É um dado à espera de um tema que a
   queira: basta acrescentar o bloco `{{#capa}}…{{/capa}}`.
@@ -207,7 +225,7 @@ dentro de `.principal`: `h1`–`h6`, `p`, `ul`/`ol`/`li`, `blockquote`,
 ⚠️ **É aqui que mora o risco de responsividade.** O tema não controla o que
 o dono escreve, mas responde por como isso aparece: uma tabela de sete
 colunas, uma palavra sem espaços, uma URL colada, um bloco de código
-comprido. A secção 7 diz o que se mediu e o que é obrigatório.
+comprido. A seção 7 diz o que se mediu e o que é obrigatório.
 
 Também são contrato os atributos que os moldes escrevem e que a folha pode
 usar: `aria-current="page"` no item de menu da página atual, `rel="external
@@ -246,7 +264,7 @@ regras a partir do manifesto — mas é o tema que o exporta e chama):
 
 Sem isto, `cor_destaque: "red;background:url(https://…)"` viraria uma linha
 da folha de estilo que o **leitor** baixa — injeção de CSS no site de quem
-visita, que é precisamente o buraco de privacidade que a secção 8 fecha.
+visita, que é precisamente o buraco de privacidade que a seção 8 fecha.
 
 ## 7. Responsividade: o que se mede, e o que é obrigatório
 
@@ -263,8 +281,8 @@ larguras medidas:
 
 | Largura | Porquê |
 |---|---|
-| 320 | telemóvel pequeno — o piso |
-| 360, 390, 412 | telemóveis comuns |
+| 320 | celular pequeno — o piso |
+| 360, 390, 412 | celulares comuns |
 | 768 | tablet ao alto |
 | 800 | Tor Browser em tela pequena |
 | **1000 × 500** | **Tor Browser em janela solta** — medido em 2026-09-05, Tails 7.11, tela 1280×800 |
@@ -285,7 +303,7 @@ vertical: um cabeçalho alto come um terço da tela.
 |---|---|---|---|
 | R1 | **A página nunca rola para o lado**, em nenhuma largura | `scrollWidth` do documento ≤ largura da janela | tabela de 7 colunas: 310 px de estouro em 320; palavra sem espaços: até 1280 px |
 | R2 | **Nenhum elemento passa da borda direita** | toda caixa visível termina antes da borda; exceção: o que está dentro de uma caixa que rola e cabe (o `pre`) | além dos acima, o título de artigo sem espaços nas listagens e na galeria |
-| R3 | **Todo alvo que não está numa frase tem pelo menos 24×24 px** em telemóvel (≤ 412 px) | caixa de cada `a` e `button`; WCAG 2.2 AA, critério 2.5.8 | links de lista com 20 px de altura; o menu passava (27 px), porque a caixa flexível engrossa os links |
+| R3 | **Todo alvo que não está numa frase tem pelo menos 24×24 px** em celular (≤ 412 px) | caixa de cada `a` e `button`; WCAG 2.2 AA, critério 2.5.8 | links de lista com 20 px de altura; o menu passava (27 px), porque a caixa flexível engrossa os links |
 | R4 | **Nenhuma imagem sai distorcida** | proporção desenhada vs. a dos atributos `width`/`height`, tolerância de 2 % | logo de 6:1 a 96 px ficava 280×96 (2,9:1) em 320 px |
 | R5 | **Nenhum texto abaixo de 12 px** | `font-size` calculado de todo elemento com texto próprio | nenhum — passou |
 | R6 | **Entre 45 e 90 caracteres por linha** em tela larga (≥ 1000 px), **na configuração padrão** do tema | largura do primeiro parágrafo de texto corrido (o primeiro fragmento, para contar a COLUNA num tema com colunas) ÷ largura real de uma letra média no tipo do corpo | ~96 com a largura "média" de 760 px em Georgia 17 px. Hoje: Padrão ~88, Diário ~85, Jornal ~75 (em colunas), Moderno ~84 |
@@ -339,7 +357,7 @@ Se o seu tema passa nisto, passa no que o dono vai escrever.
 
 Tudo o que se segue veio da medição. **Nenhuma `@media` foi precisa**: a
 adaptação é fluida por construção (`meta viewport`, `max-width:100%` em
-imagens e vídeo, `flex-wrap` no cabeçalho e no menu, grelha `auto-fill` na
+imagens e vídeo, `flex-wrap` no cabeçalho e no menu, grade `auto-fill` na
 galeria, `max-width` na coluna). Isto é um resultado, não uma exigência — um
 tema pode usar `@media` à vontade.
 
@@ -351,7 +369,7 @@ tema pode usar `@media` à vontade.
 - **Palavra sem espaços, URL, título sem espaços**: `overflow-wrap:anywhere`
   no `body`. Só parte uma palavra quando ela não cabe de outra forma, e
   conta na largura mínima — é o que deixa o cartão da galeria encolher até
-  ao mínimo da grelha. ⚠️ O Firefox quebra URLs nas barras por conta
+  ao mínimo da grade. ⚠️ O Firefox quebra URLs nas barras por conta
   própria; o Chrome não. Não contar com isso.
 - **Alvo de toque**: os links de lista (`.lista-artigos a`, `.ultimos p a`,
   `.blog>p a`, `.cartao-titulo a`) são `display:inline-block;padding:2px 0`.
@@ -388,7 +406,7 @@ Eram ~100 s com quatro temas; com 21 são **perto de uma hora nos dois motores**
 `responsivo-<tema>-<página>-<largura>-<motor>.png`) e um JSON com todas as
 medidas. ⚠️ **É a suíte mais cara do projeto, e é linear no número de temas:**
 ao escrever um tema, correr esta suíte sozinha e só no fim a suíte completa. Nenhum número substitui o olho: **olhe para as
-capturas.** Foi a captura, não o número, que apanhou a tabela esmagada no
+capturas.** Foi a captura, não o número, que pegou a tabela esmagada no
 Padrão e as etiquetas coladas no Jornal.
 
 ## 8. Segurança e privacidade — o porquê de cada regra
@@ -400,7 +418,7 @@ não decretadas.
    são texto para o Mustache preencher, a folha é texto para o site levar.
    As duas funções de um tema, `resolver` e `css`, correm dentro do app —
    por isso um tema **instalado pela rede** só poderá existir depois de
-   haver um validador (secção 11); até lá, os temas são os quatro que vêm
+   haver um validador (seção 11); até lá, os temas são os quatro que vêm
    com o app.
 2. **Zero recursos externos.** Nenhuma URL absoluta em `src`, `href`,
    `url()` ou `@import` da folha. O motivo é o leitor: uma fonte do Google,
@@ -461,45 +479,45 @@ dois motores, e compara os hashes. Um tema que falhe aí falha em produção.
    oito moldes, o CSS sem recurso externo, o lixo nas opções a voltar ao
    padrão, os mesmos bytes em qualquer ordem de entrada, o HTML sem script,
    as classes de contrato e os mesmos caminhos gerados. A segunda, a
-   responsividade da secção 7. Um tema registado entra nas duas sozinho.
+   responsividade da seção 7. Um tema registado entra nas duas sozinho.
 2. **Procurar à mão o que o validador ainda não procura:** `http`, `url(`,
    `@import`, `<script`, `on[a-z]+=`, `javascript:` na saída de
    `css(opcoes)` e nos moldes.
 3. **Abrir o site gerado no Tor Browser, no nível *Safest*,** numa janela de
    1000×500. É o leitor mais exigente que vai ter.
-4. **Olhar as capturas** de 320 e 390 px. Os números da secção 7 dizem se
+4. **Olhar as capturas** de 320 e 390 px. Os números da seção 7 dizem se
    nada estoura; só o olho diz se se lê bem.
 5. **Trocar cada opção para o seu extremo** e repetir 3 e 4.
 
 ## 11. O que ainda não existe (e este documento não finge que existe)
 
-- **Não há validador de pacote.** As regras da secção 8 são cumpridas
+- **Não há validador de pacote.** As regras da seção 8 são cumpridas
   pelos 21 temas por construção e conferidas pela suíte; não há ainda
   código que as aplique a um tema vindo de fora. Por isso **só os temas que
-  vêm com o app existem**: o registo é preenchido pelos arquivos de
+  vêm com o app existem**: o registro é preenchido pelos arquivos de
   `src/tema/`, na montagem.
 - **Não há instalação de tema pela rede**, nem formato de pacote na rede
   definido. Nenhum kind de evento foi escolhido, e este documento **não
   inventa um**: quando houver, virá com a evidência que o justifica.
 - **`engine_min` ainda não é conferido**: só existe a versão 1 do motor.
 - **A troca de tema existe desde 2026-09-05**: o gerador lê `site.theme.id`
-  pelo registo e a prévia usa o tema escolhido. Nesse mesmo dia a escolha
-  mudou de sítio: era um `<select>` na aba *Aparência* e passou a ser a tela
+  pelo registro e a prévia usa o tema escolhido. Nesse mesmo dia a escolha
+  mudou de lugar: era um `<select>` na aba *Aparência* e passou a ser a tela
   **Temas**, uma galeria com um cartão e uma pré-visualização por tema (a aba
   *Aparência* ficou com os ajustes do tema em uso). ✅ **E desde o mesmo dia
   ela guarda as opções de cada tema**: trocar e voltar devolve o que estava
-  (secção 3).
+  (seção 3).
 - **Não há como enviar um tema pelo painel.** A tela Temas tem o cartão
   "Enviar um tema" **desligado**, e diz porquê: sem o validador acima, um tema
   de fora poderia buscar um recurso a um servidor e entregar-lhe o IP de cada
-  leitor do site (secção 8). Enquanto isso, um tema novo entra como os 21
+  leitor do site (seção 8). Enquanto isso, um tema novo entra como os 21
   que existem — um arquivo em `src/tema/<id>/tema.js`, montado com o app.
 - **Os sinais decorativos que alguns temas põem com `content` não estão
   marcados como decorativos.** O Terminal escreve `$` antes dos títulos, `##`
   antes dos subtítulos e `[` `]` à volta dos itens de menu; o Vintage põe um
   florão acima de cada título; o Satoshi pode pôr um `₿` antes do nome do
   site. **Isto é CSS, não HTML** — o texto do dono continua intacto e a
-  ferramenta de busca lê o que ele escreveu. Mas **vários leitores de ecrã
+  ferramenta de busca lê o que ele escreveu. Mas **vários leitores de tela
   anunciam o `content` de um `::before`**, e quem ouve a página ouviria
   "cifrão, título do artigo". A correção é a forma alternativa da propriedade
   (`content: "$\A0" / ""`, que declara o texto alternativo vazio), suportada
@@ -511,10 +529,10 @@ dois motores, e compara os hashes. Um tema que falhe aí falha em produção.
   `content` decorativo nenhum**.
 
 - **A listagem do blog não tem capas.** O contexto do molde `blog` traz
-  `href`, `titulo`, `data`, `data_iso` e `resumo`, e mais nada (secção 4) —
+  `href`, `titulo`, `data`, `data_iso` e `resumo`, e mais nada (seção 4) —
   um tema de fotografia não consegue pôr miniaturas na listagem. Quem quiser
   uma frente com imagens usa o bloco `[[artigos: … com-capa]]` numa página,
-  que é o único sítio onde a capa chega ao molde. **É limitação do contrato,
+  que é o único lugar onde a capa chega ao molde. **É limitação do contrato,
   não do tema**; se algum dia mudar, muda aqui.
 - **O custo da galeria cresce com o número de temas, e está medido.** A tela
   Temas gera o site uma vez por jogo de moldes e mostra uma prévia por
@@ -527,5 +545,5 @@ dois motores, e compara os hashes. Um tema que falhe aí falha em produção.
   dia forem 50 temas, a tela precisa de carregar as prévias à medida que se
   rola até elas.
 
-Quando algum destes itens deixar de ser verdade, esta secção encolhe e a
+Quando algum destes itens deixar de ser verdade, esta seção encolhe e a
 data do topo muda.

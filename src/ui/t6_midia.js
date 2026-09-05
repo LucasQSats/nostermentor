@@ -20,7 +20,7 @@
   'use strict';
   let ctrl = null;
   let aba = 'biblioteca';           // por sessão, não persiste
-  // 44 — filtro/busca/página, um estado por aba: quem está a procurar um vídeo
+  // 44 — filtro/busca/página, um estado por aba: quem está procurando um vídeo
   // na biblioteca não quer o filtro reposto ao espreitar os herdados.
   const estadoLista = { biblioteca: null, herdados: null };
   const pendentes = [];             // arquivos escolhidos, ainda não guardados

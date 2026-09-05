@@ -2,7 +2,7 @@
    em mão (12; TEMAS.md). Alto contraste, título em maiúsculas pesadas, uma
    barra preta grossa em vez de filete, a data carimbada de esguelha na cor de
    alarme e a textura de fotocópia por baixo de tudo. É o tema para quem
-   publica o que não o deixam publicar noutro sítio.
+   publica o que não o deixam publicar em outro lugar.
 
    ⚠️ O nome é "Panfleto" e não "Anti-censura" de propósito: `03` §1.2.1
    proíbe este projeto de prometer conteúdo "incensurável", porque a promessa

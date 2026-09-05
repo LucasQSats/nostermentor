@@ -101,6 +101,43 @@ module.exports = async function (ctx, u) {
     const d9 = JSON.parse(JSON.stringify(dados)); d9.site.logo_media_id = 'm-1'; d9.media[0].width = null; d9.media[0].height = null;
     out.logoSemMedidas = (await Gerador.gerarSite(d9)).arquivos.find(a => a.path === '/index.html').texto;
 
+    // O ícone da aba (favicon): o campo é do SITE e o `<link>` vive no molde
+    // compartilhado, logo tem de sair em TODA página e em TODO tema.
+    const dF = JSON.parse(JSON.stringify(dados)); dF.site.favicon_media_id = 'm-1';
+    const gF = await Gerador.gerarSite(dF);
+    out.comFavicon = gF.arquivos.find(a => a.path === '/index.html').texto;
+    const temIcone = (t) => /<link rel="icon" href="\/img\/capa\.png" type="image\/png">/.test(t);
+    out.htmlSemIcone = gF.arquivos.filter(a => /\.html$/.test(a.path) && !temIcone(a.texto)).map(a => a.path);
+    out.htmlComIcone = gF.arquivos.filter(a => /\.html$/.test(a.path) && temIcone(a.texto)).length;
+    out.semIconeSaoRedirects = gF.arquivos.filter(a => /\.html$/.test(a.path) && !temIcone(a.texto)).every(a => /http-equiv="refresh"/.test(a.texto));
+    // O `<link>` está no molde compartilhado, mas isso é uma AFIRMAÇÃO sobre
+    // os 21 temas — mede-se nos 21, não no Padrão. (A lição do t12: um teste
+    // escrito contra um caso fixa o que era acidente.)
+    out.temas = Temas.todos().length;
+    out.temasSemFavicon = [];
+    for (const t of Temas.todos()) {
+      const d = JSON.parse(JSON.stringify(dF));
+      d.site.theme = { id: t.manifesto.id, version: t.manifesto.version, options: {} };
+      const g = await Gerador.gerarSite(d);
+      const html = g.arquivos.filter(a => /\.html$/.test(a.path));
+      const conteudo = html.filter(a => !/http-equiv="refresh"/.test(a.texto));
+      if (!conteudo.length || !conteudo.every(a => temIcone(a.texto))) out.temasSemFavicon.push(t.manifesto.id);
+    }
+    // ícone escolhido que não existe na biblioteca → nenhum <link>, e não um
+    // <link> apontando para o vazio (custaria um pedido a cada leitor).
+    const dG = JSON.parse(JSON.stringify(dados)); dG.site.favicon_media_id = 'nao-existe';
+    out.faviconFantasma = (await Gerador.gerarSite(dG)).arquivos.find(a => a.path === '/index.html').texto;
+    // Dentro da prévia o caminho `/img/…` não existe: o ícone tem de sair.
+    out.previaComFavicon = Gerador.previa(out.comFavicon, {}, {}, null);
+    // ⚠️ A assinatura da configuração fica guardada em `published.site_config`
+    // desde a última publicação. Um campo novo INCONDICIONAL a mudaria para
+    // todo site já publicado — "Configurações alteradas" para quem não mexeu
+    // em nada, e republicação pelo Tor de um HTML idêntico. Por isso o campo
+    // só entra quando existe.
+    out.assinaturaSemIcone = SiteJson.assinaturaSite(dados.site);
+    out.assinaturaComIcone = SiteJson.assinaturaSite(dF.site);
+    out.siteJsonComIcone = Object.keys(JSON.parse((await Gerador.gerarSite(dF)).arquivos.find(a => a.path === '/nostermentor/site.json').texto).site).join(',');
+
     out.shaTotal = await Gerador.sha256Hex(new TextEncoder().encode(g1.arquivos.map(a => a.path + ':' + a.sha256).join('\n')));
     return out;
   });
@@ -127,6 +164,27 @@ module.exports = async function (ctx, u) {
     assert(/Publicado com Nostermentor/.test(s) && !/href="http/.test(s.slice(s.indexOf('<footer'))), 'rodapé');
     assert(/<a href="\/index\.html" aria-current="page">Início<\/a>/.test(r.home) && /<title>Meu Site<\/title>/.test(r.home), 'home: título/menu');
   });
+  await it('o ícone da aba (favicon): sai em TODA página HTML e nos 21 temas, com o `type` do arquivo real; ícone que não existe não gera <link> nenhum; e a prévia não o carrega', () => {
+    assert(/<link rel="icon" href="\/img\/capa\.png" type="image\/png">/.test(r.comFavicon), 'sem <link rel=icon>: ' + r.comFavicon.slice(0, 400));
+    // As ÚNICAS páginas sem ícone podem ser as de redirecionamento: elas só
+    // existem para saltar para outro endereço e ninguém as vê. Pôr o ícone
+    // ali custaria a cada leitor um pedido por uma aba que dura um piscar.
+    assert(r.semIconeSaoRedirects, 'há página de conteúdo sem o ícone: ' + r.htmlSemIcone.join(','));
+    assert(r.htmlComIcone > 0, 'nenhuma página ficou com o ícone');
+    assert(r.temas >= 21, 'esperava ao menos 21 temas registrados, veio ' + r.temas);
+    assert(r.temasSemFavicon.length === 0, 'temas sem o ícone: ' + r.temasSemFavicon.join(','));
+    // Sem ícone escolhido (o caso de todo site que existe hoje) não pode
+    // aparecer <link rel=icon> nenhum, senão todo leitor paga um pedido.
+    assert(!/rel="icon"/.test(r.sobre) && !/rel="icon"/.test(r.home), 'site sem ícone ganhou <link rel=icon>');
+    assert(!/rel="icon"/.test(r.faviconFantasma), 'ícone inexistente virou <link> para o vazio');
+    assert(!/rel="icon"/.test(r.previaComFavicon), 'a prévia carrega o ícone, e o caminho não existe dentro dela');
+    // Compatibilidade da assinatura: site sem ícone não pode ganhar o campo.
+    assert(r.assinaturaSemIcone.indexOf('favicon_media_id') === -1, 'o campo novo entrou na assinatura de um site SEM ícone — todo site publicado diria "configurações alteradas"');
+    assert(r.assinaturaComIcone.indexOf('favicon_media_id') > -1, 'o campo não entra na assinatura nem quando há ícone');
+    assert(r.siteJsonComIcone === 'pubkey,npub,title,description,language,profile,logo_media_id,home,blog,menu,theme,donations,privacy,favicon_media_id,network', r.siteJsonComIcone);
+    return r.temas + ' temas, todos com o ícone em todas as páginas; sem ícone não sai <link> nem muda a assinatura';
+  });
+
   await it('home em modo página: corpo + "últimos artigos" (2) com link para o blog; oculta (in_menu=false) fora do menu mas publicada', () => {
     assert(/Bem-vindo ao <strong>site<\/strong>/.test(r.home) && /class="ultimos"/.test(r.home) && (r.home.match(/<li><a href="\/blog\//g) || []).length === 2 && /Todos os artigos/.test(r.home), r.home.slice(r.home.indexOf('<main'), r.home.indexOf('</main>')));
     assert(!/Oculta/.test(r.home.slice(r.home.indexOf('<nav'), r.home.indexOf('</nav>'))) && r.caminhos.includes('/oculta.html'), 'oculta');
