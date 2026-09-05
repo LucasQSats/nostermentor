@@ -166,5 +166,8 @@ const SiteJson = (function () {
     return JSON.stringify(saida);
   }
 
-  return Object.freeze({ CAMINHO, FORMATO, decodificar, ler, lerSite, escrever, assinaturaSite });
+  // `lerOpcoesTema` é exportado desde 2026-09-05: o backup guarda as opções
+  // dos temas que NÃO estão em uso (T12 lembra-as ao trocar e voltar), e passam
+  // pela mesma lista branca — é o mesmo dado, vindo de outro arquivo.
+  return Object.freeze({ CAMINHO, FORMATO, decodificar, ler, lerSite, escrever, assinaturaSite, lerOpcoesTema });
 })();

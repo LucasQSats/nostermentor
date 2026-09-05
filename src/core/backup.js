@@ -83,7 +83,14 @@ const Backup = (function () {
     const aviso = typeof o.progresso === 'function' ? o.progresso : function () {};
     aviso({ passo: 'lendo' });
     const t = await lerTudo(db);
-    const site = t.site || Modelo.sitePadrao(o.pubkey, o.npub);
+    const siteBruto = t.site || Modelo.sitePadrao(o.pubkey, o.npub);
+    // A gaveta de opções por tema sai UMA vez, no campo de topo
+    // `theme_options`. Dentro do `site` seria uma segunda cópia — e a de
+    // dentro morreria na volta, porque o `site` do arquivo passa por
+    // `SiteJson.lerSite`, que é lista branca e não a conhece. Duas cópias em
+    // que uma se perde é pior do que qualquer uma das duas.
+    const site = Object.assign({}, siteBruto);
+    delete site.theme_memory;
     const total = t.media.filter(m => levaBytes(m, o.completo)).length;
     const media = [];
     let feitos = 0, lidos = 0;
@@ -101,8 +108,16 @@ const Backup = (function () {
     aviso({ passo: 'montando' });
     if (total) await respirar();
     const exported_at = Modelo.agora();
+    // `theme_options`: os ajustes dos temas que NÃO estão em uso (a gaveta de
+    // `Temas.trocar`). Campo de TOPO e não dentro do `site`, de propósito: o
+    // `site` do backup passa por `SiteJson.lerSite`, que é a mesma lista
+    // branca do que vem da REDE — e da rede isto nunca pode chegar, porque o
+    // `site.json` publicado não o leva (13 §6.1). Aqui é local, e é o que faz
+    // a memória sobreviver ao Tails desligar e viajar de máquina (decisão
+    // dele, 2026-09-05).
     const dados = { format: FORMATO, version: Modelo.SCHEMA_VERSION, exported_at: exported_at, app_version: window.APP_VERSION,
-      site: site, pages: t.pages, posts: t.posts, media: media, published: t.published, meta: { schema_version: Modelo.SCHEMA_VERSION } };
+      site: site, pages: t.pages, posts: t.posts, media: media, published: t.published,
+      theme_options: Temas.memoriaDe(siteBruto), meta: { schema_version: Modelo.SCHEMA_VERSION } };
     const texto = JSON.stringify(dados);
     if (RE_NSEC.test(texto)) { const err = new Error(Textos.t9.exportar.tripwire); err.codigo = 'tripwire'; throw err; }
     const blob = new Blob([texto], { type: 'application/json' });
@@ -183,6 +198,10 @@ const Backup = (function () {
     const npub = eStr(site.npub) && /^npub1[023456789acdefghjklmnpqrstuvwxyz]{58}$/.test(site.npub) ? site.npub : null;
     const agora = Modelo.agora();
     const s = SiteJson.lerSite(site);
+    // A gaveta de opções por tema: passa por `Temas.memoriaDe`, que é lista
+    // branca (ids com forma de id, opções planas e pequenas). Backup antigo
+    // sem o campo dá gaveta vazia, que é o comportamento de antes.
+    s.theme_memory = Temas.memoriaDe({ theme_memory: j.theme_options });
     const dados = {
       site: s, pages: semDuplicados(arr(j.pages).map(p => lerPagina(p, agora)).filter(Boolean)),
       posts: semDuplicados(arr(j.posts).map(p => lerArtigo(p, agora)).filter(Boolean)),
@@ -249,7 +268,19 @@ const Backup = (function () {
         ops.push({ op: 'put', store: it.store, valor: r });
       }
       if (!t.site) ops.push({ op: 'put', store: 'site', chave: 'site', valor: site });
-      else { const s = Object.assign({}, t.site); s.network = Object.assign({}, t.site.network, { relays: Modelo.uniao(t.site.network.relays, site.network.relays), servers: Modelo.uniao(t.site.network.servers, site.network.servers) }); ops.push({ op: 'put', store: 'site', chave: 'site', valor: s }); }
+      else {
+        const s = Object.assign({}, t.site);
+        s.network = Object.assign({}, t.site.network, { relays: Modelo.uniao(t.site.network.relays, site.network.relays), servers: Modelo.uniao(t.site.network.servers, site.network.servers) });
+        // "Juntar" preserva o `site` local — mas a gaveta de opções por tema é
+        // acumulável, e descartar a do arquivo perderia ajustes que só existem
+        // lá. Juntam-se as duas, e **o que está nesta máquina ganha**: é a
+        // mesma regra do resto do "juntar" para o `site`.
+        const importada = Temas.memoriaDe({ theme_memory: dados.site.theme_memory });
+        const local = Temas.memoriaDe(t.site);
+        const juntas = Object.assign({}, importada, local);
+        if (Object.keys(juntas).length) s.theme_memory = juntas; else delete s.theme_memory;
+        ops.push({ op: 'put', store: 'site', chave: 'site', valor: s });
+      }
       if (published && (!t.published || !t.published.manifest_event || Saude.comparar(published.manifest_event, t.published.manifest_event) > 0)) ops.push({ op: 'put', store: 'published', chave: 'current', valor: published });
       if (vazio) ops.push({ op: 'put', store: 'meta', valor: { key: 'last_export_at', value: analise.exported_at || agora } }, { op: 'put', store: 'meta', valor: { key: 'alteracoes_nao_exportadas', value: 0 } });
       resultado = { modo: 'juntar', novos: plano.novos.length, atualizados: plano.atualizados.length, iguais: plano.iguais.length, locais: plano.locais.length, bancoEstavaVazio: vazio };

@@ -264,6 +264,42 @@ button.ver-mini:hover{background:var(--papel);color:var(--acento-escuro)}
 #t6-relato ul.reconferido{border-left:3px solid var(--acento);padding-left:8px;margin-top:4px}
 #t6a .pre.cache{color:var(--suave)}
 button.perigoso:hover{background:#8a2224;border-color:#8a2224}
+/* T12 — a galeria de temas (14 T12). Grade fluida com `auto-fill`, como a
+   `.grade-capas`: adapta-se sozinha do piso de 320 px ao ecrã largo, sem uma
+   única `@media` — a mesma regra que TEMAS.md §7 impõe aos temas.
+   A prévia é um iframe encolhido por `transform: scale`, não um iframe
+   estreito: assim o tema desenha-se na largura de um ecrã de verdade (1100 px)
+   e vê-se o layout que o leitor verá, em vez do layout de telemóvel. */
+.grade-temas{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:18px;align-items:start;margin:16px 0}
+.tema-cartao{padding:0;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.tema-cartao.atual{border-color:var(--acento);box-shadow:0 0 0 1px var(--acento)}
+.tema-previa{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;background:#fff;border-bottom:1px solid var(--linha)}
+/* O iframe desenha-se na largura de um ecrã de verdade (--previa-larg) e é
+   encolhido para caber no cartão. O fator NÃO pode ser fixo: o cartão mede
+   307 px numa grade de três colunas e 460 px numa de uma só (medido em
+   2026-09-05), e um `scale` fixo deixava faixa branca. `--previa-escala` é
+   escrita pelo JS a cada cartão, a partir da largura real da moldura. */
+.tema-iframe{position:absolute;top:0;left:0;width:var(--previa-larg,1100px);height:calc(var(--previa-larg,1100px)*3/4);border:0;transform:scale(var(--previa-escala,.2545));transform-origin:0 0;pointer-events:none}
+.tema-capa{position:absolute;inset:0;width:100%;background:none;border:0;padding:0;cursor:pointer}
+.tema-capa:hover{background:rgba(34,113,177,.12)}
+.tema-capa:focus-visible{outline:2px solid var(--acento);outline-offset:-2px}
+.tema-sem-previa{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;margin:0}
+.tema-cartao .tema-nome{margin:10px 14px 2px}
+.tema-cartao .tema-meta{margin:0 14px 8px}
+.tema-cartao .acoes{margin:0;padding:0 14px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.etiqueta-uso{background:var(--acento);color:#fff;border-radius:3px;padding:4px 10px;font-size:13px;font-weight:600}
+.tema-enviar{border-style:dashed}
+.tema-previa-vazia{display:flex;align-items:center;justify-content:center;background:var(--fundo)}
+.tema-mais{font-size:44px;color:var(--suave);line-height:1}
+.tema-enviar p{margin:0 14px 8px}
+.tema-enviar p:first-of-type{margin-top:10px}
+/* O cartão de envio não pode dominar a grade: o texto explica um "ainda não",
+   e não vale mais alto que os temas que existem. A resposta é texto CURTO, e
+   não `overflow:auto` — cortar a explicação a meio de uma frase, com a
+   rolagem escondida dentro de um cartão, foi o que a captura mostrou. */
+.tema-enviar .tema-porque{font-size:13px;line-height:1.5}
+#t12-ajustar{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:6px 0 0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 </style>
 <body>
 <div id="semjs">

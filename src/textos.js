@@ -600,10 +600,11 @@ const Textos = Object.freeze({
       creditoApoio: 'Ajuda outras pessoas a descobrir a ferramenta; você pode desligar.'
     },
     aparencia: {
-      tema: 'Tema',
+      tema: 'Tema em uso',
       temaAtual: 'Padrão',
-      temaApoio: 'Trocar o tema muda o desenho de todas as páginas. As cores e medidas abaixo são do tema escolhido e voltam ao padrão dele quando você troca.',
-      temaDesconhecido: 'O tema "{id}" não vem com esta versão do app. Até escolher outro, o site é gerado com o tema Padrão.',
+      temaApoio: 'As cores e medidas abaixo são deste tema. Trocar de tema muda o desenho de todas as páginas, e as opções voltam ao padrão do tema novo.',
+      temaTrocar: 'Ver todos os temas →',
+      temaDesconhecido: 'O tema "{id}" não vem com esta versão do app. Até escolher outro em Temas, o site é gerado com o tema Padrão.',
       semOpcoes: 'Este tema não tem opções para ajustar nesta versão.',
       opcoes: 'Cores, letras e medidas',
       logo: 'Logo do cabeçalho',
@@ -615,7 +616,7 @@ const Textos = Object.freeze({
       logoSemImagens: 'Ainda não há imagens na biblioteca. Envie uma em Mídia.',
       logoEnviar: 'Enviar nova imagem…',
       logoBaixo: 'Atenção: esta imagem tem {altura} pontos de altura e você pediu {pedida} px. Em telas densas ela vai aparecer esticada — o ideal é uma imagem com pelo menos {dobro} pontos.',
-      outros: 'Temas de outras pessoas: numa fase seguinte.',
+      outros: '',
       previa: 'Ver como o site está ficando',
       previaTitulo: 'Pré-visualização do site',
       previaVazia: 'Ainda não há nada para pré-visualizar.'
@@ -753,9 +754,48 @@ const Textos = Object.freeze({
     backupPendente: 'Backup: {n} não exportadas',
     trancar: 'Trancar',
     trancarDica: 'Esquece a chave e volta à tela de entrada. O que está salvo neste navegador continua até ele fechar.',
-    menu: [['t3', 'Início'], ['t4', 'Páginas'], ['t5', 'Artigos'], ['t6', 'Mídia'], ['t7', 'Configurações'], ['t11', 'Ajuda']],
-    nomes: { t2: 'Carregando da rede', t3: 'Início', t4: 'Páginas', t5: 'Artigos', t6: 'Mídia', t7: 'Configurações', t8: 'Publicar', t9: 'Backup', t10: 'Nova versão', t11: 'Ajuda e Sobre' },
+    menu: [['t3', 'Início'], ['t4', 'Páginas'], ['t5', 'Artigos'], ['t6', 'Mídia'], ['t12', 'Temas'], ['t7', 'Configurações'], ['t11', 'Ajuda']],
+    nomes: { t2: 'Carregando da rede', t3: 'Início', t4: 'Páginas', t5: 'Artigos', t6: 'Mídia', t7: 'Configurações', t8: 'Publicar', t9: 'Backup', t10: 'Nova versão', t11: 'Ajuda e Sobre', t12: 'Temas' },
     rodapeApoio: 'Apoie o Nostermentor'
+  },
+
+  // T12 — Temas (14 T12): a galeria. O seletor que vivia na aba Aparência
+  // do T7 (um dropdown de quatro linhas) virou esta tela, a pedido do dono
+  // em 2026-09-05: uma página por si, com um cartão por tema e a prévia real
+  // de cada um. A aba Aparência fica com o que é ajuste do tema EM USO
+  // (o logo, as cores, as medidas) e ganha um botão para cá.
+  // O cartão "Enviar tema" existe e está DESLIGADO de propósito: sem o
+  // validador de pacote (02 G.2, TEMAS.md §11) aceitar tema de estranho
+  // abriria um buraco de privacidade nos LEITORES do site — o texto diz isso
+  // de frente em vez de esconder o botão.
+  t12: {
+    titulo: 'Temas',
+    apoio: 'O tema decide o desenho de todas as páginas do seu site. Escolha um e veja como fica antes de publicar.',
+    emUso: 'Em uso',
+    usar: 'Usar este tema',
+    verMaior: 'Ver maior',
+    autor: 'por {autor}',
+    versao: 'versão {n}',
+    trocado: 'Tema trocado para {nome}. Ainda não está salvo.',
+    trocadoLembrado: 'Tema trocado para {nome}, com os ajustes que você já tinha feito nele. Ainda não está salvo.',
+    salvar: 'Salvar',
+    salvando: 'Salvando…',
+    salvo: 'Tema salvo neste navegador. Isto muda todas as páginas — a próxima publicação vai subir tudo de novo.',
+    semAlteracoes: 'Nada mudou.',
+    ajustar: 'Ajustar cores e medidas deste tema →',
+    ajustarApoio: 'As cores, letras e medidas ficam em Configurações, na aba Aparência — são do tema que está em uso.',
+    desconhecido: 'O tema "{id}" não vem com esta versão do app. Até escolher um destes, o site é gerado com o tema Padrão.',
+    previaTitulo: 'O tema {nome} no seu site',
+    previaVazia: 'Ainda não há nada para pré-visualizar. Escreva uma página ou um artigo primeiro.',
+    previaApoio: 'Esta é a capa do seu site com este tema, com o seu conteúdo de verdade.',
+    carregando: 'Montando as pré-visualizações…',
+    // O cartão de envio: desligado, e a razão dita por extenso.
+    enviarTitulo: 'Enviar um tema',
+    enviarEmBreve: 'Ainda não dá',
+    enviarPorque: 'Um tema de outra pessoa só entra depois de o app conferir que ele não busca nada em servidor nenhum — senão o servidor de quem escreveu o tema ficaria sabendo quem visita o seu site. Essa conferência ainda não existe, e é por isso que este botão ainda não funciona.',
+    enviarSpec: 'Quem quiser escrever um tema já pode: a especificação está no arquivo TEMAS.md do projeto.',
+    aindaCarregando: 'Ainda estou carregando o seu site.',
+    voltarACarregar: 'Voltar a carregar'
   },
 
   // T11 — Ajuda e Sobre (14 T11). O LEIA-ME.txt vive também aqui, para quem

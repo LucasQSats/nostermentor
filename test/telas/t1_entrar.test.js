@@ -124,7 +124,7 @@ module.exports = async function (ctx, u) {
       assert(!est.t1, 'T1 continua no DOM depois de entrar');
       assert(/^Nostermentor \d+\.\d+\.\d+(-dev)?$/.test(est.rodape), est.rodape);
       assert(est.publicar === 'Nada a publicar' && est.publicarDesligado && est.backup === 'Backup em dia', JSON.stringify([est.publicar, est.backup]));
-      assert(est.menu.join('·') === 'Início·Páginas·Artigos·Mídia·Configurações·Ajuda', est.menu.join('·'));
+      assert(est.menu.join('·') === 'Início·Páginas·Artigos·Mídia·Temas·Configurações·Ajuda', est.menu.join('·'));
       assert(est.temSessao && est.sessao.npub === u.NPUB_BOSTIL && !('sk' in est.sessao), 'Shell.sessao() expõe algo a mais: ' + Object.keys(est.sessao));
       const v1 = await varrer(p.pg, nsecBostil);
       assert(v1.achados.length === 0, 'varredura após Entrar: ' + v1.achados.join(' | '));
@@ -225,11 +225,11 @@ module.exports = async function (ctx, u) {
   });
 
   // --- moldura e stubs (o que M1 promete além de T1) --------------------------
-  await it('moldura: menu leva às telas de verdade — T3 desde M2, T4/T5/T9 desde M3, T6 desde M4, T7 e T11 desde M5 (nenhum stub restante no menu); Backup abre T9; rodapé com a versão; "Apoie" abre Ajuda', async () => {
+  await it('moldura: menu leva às telas de verdade — T3 desde M2, T4/T5/T9 desde M3, T6 desde M4, T7 e T11 desde M5, T12 desde 2026-09-05 (nenhum stub restante no menu); Backup abre T9; rodapé com a versão; "Apoie" abre Ajuda', async () => {
     const p = await abrir(ctx, u.url);
     await p.pg.click('#btn-gerar'); await p.pg.check('#copiei'); await p.pg.click('#entrar-nova');
     await p.pg.waitForSelector('#moldura');
-    const esperados = [['t3', 'Início', false], ['t4', 'Páginas', false], ['t5', 'Artigos', false], ['t6', 'Mídia', false], ['t7', 'Configurações', false], ['t11', 'Ajuda e Sobre', false]];
+    const esperados = [['t3', 'Início', false], ['t4', 'Páginas', false], ['t5', 'Artigos', false], ['t6', 'Mídia', false], ['t12', 'Temas', false], ['t7', 'Configurações', false], ['t11', 'Ajuda e Sobre', false]];
     for (const [tela, nome, stub] of esperados) {
       await p.pg.click(`#menu .item[data-tela="${tela}"]`);
       await p.pg.waitForSelector('#conteudo h1', { timeout: 10000 });   // T3 monta depois de ler o banco (assíncrona desde M2)

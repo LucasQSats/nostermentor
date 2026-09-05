@@ -47,5 +47,56 @@ const Temas = (function () {
     return saida;
   }
 
-  return Object.freeze({ registar, porId, padrao, todos, idDe, de, conhecido, resolver });
+  // --- a memória de opções por tema (decisão dele, 2026-09-05) --------------
+  // Trocar de tema zera `site.theme.options` — as opções são do tema, não do
+  // site (TEMAS.md §3). Isso fazia perder os ajustes só por espiar outro tema.
+  // Passa a haver uma GAVETA: ao sair de um tema guarda-se o que ele tinha; ao
+  // voltar, devolve-se.
+  //
+  // ⚠️ Onde vive, e porquê: em `site.theme_memory`, que é campo LOCAL do
+  // registo `site` — **nunca sai no `site.json` publicado** (13 §5.2 lista o
+  // que a rede recebe, e isto não está lá). Guardar na rede os ajustes de
+  // temas que o dono NÃO usa seria publicar dado inútil e alargar a superfície
+  // à toa. Vai no BACKUP (decisão dele: "no backup, junto com o site"), que é
+  // o que faz a memória sobreviver ao Tails desligar e viajar para outra
+  // máquina.
+  const MAX_TEMAS_LEMBRADOS = 20;
+
+  // → { <id do tema>: { <opção>: valor } }, já pela lista branca
+  function memoriaDe(site) {
+    const m = site && site.theme_memory;
+    if (!m || typeof m !== 'object') return {};
+    const saida = {};
+    for (const id of Object.keys(m).sort().slice(0, MAX_TEMAS_LEMBRADOS)) {
+      if (!RE_ID.test(id)) continue;
+      const o = SiteJson.lerOpcoesTema(m[id]);
+      if (Object.keys(o).length) saida[id] = o;
+    }
+    return saida;
+  }
+
+  // A troca de tema, num sítio só: guarda o que o tema que sai tinha, devolve
+  // o que o tema que entra tinha da última vez. Devolve o `theme` novo e a
+  // gaveta nova — quem grava é a tela.
+  // ⚠️ Guarda-se pelo id do tema que ESTÁ no `site`, mesmo que este app não o
+  // conheça: um dia o tema volta a existir e os ajustes ainda lá estão.
+  function trocar(site, tema) {
+    const antigo = idDe(site);
+    const novo = tema.manifesto.id;
+    const memoria = memoriaDe(site);
+    if (antigo !== novo) {
+      const opcoes = SiteJson.lerOpcoesTema(site && site.theme && site.theme.options);
+      if (Object.keys(opcoes).length) memoria[antigo] = opcoes;
+      else delete memoria[antigo];
+    }
+    // Ficar no mesmo tema não mexe em nada — nem na versão gravada, que é a do
+    // tema com que o site foi publicado.
+    if (antigo === novo) return { theme: site.theme, theme_memory: memoria, lembrou: false };
+    const guardadas = memoria[novo] || {};
+    delete memoria[novo];              // saiu da gaveta: está em uso outra vez
+    return { theme: { id: novo, version: tema.manifesto.version, options: guardadas },
+      theme_memory: memoria, lembrou: Object.keys(guardadas).length > 0 };
+  }
+
+  return Object.freeze({ registar, porId, padrao, todos, idDe, de, conhecido, resolver, memoriaDe, trocar, MAX_TEMAS_LEMBRADOS });
 })();

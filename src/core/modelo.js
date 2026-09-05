@@ -137,6 +137,11 @@ const Modelo = (function () {
       blog: { prefix: PREFIXO_BLOG, title: 'Blog' },
       menu: [{ type: 'blog' }],
       theme: { id: 'padrao', version: 1, options: {} },
+      // 2026-09-05 — a gaveta de ajustes por tema (`Temas.trocar`): os valores
+      // dos temas que NÃO estão em uso, para voltarem quando o dono voltar a
+      // eles. Campo LOCAL: não sai no `site.json` publicado (13 §6.1 lista o
+      // que a rede recebe), mas vai no BACKUP.
+      theme_memory: {},
       donations: { lightning_address: '', support_block: false, footer_credit: true },
       privacy: { show_publish_time: false },
       discovery: { canonical_base: null },

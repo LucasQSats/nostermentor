@@ -37,6 +37,7 @@ const SUITES = [
   ['telas/t6_midia', require('./telas/t6_midia.test.js')],
   ['telas/t7_config', require('./telas/t7_config.test.js')],
   ['telas/t11_ajuda', require('./telas/t11_ajuda.test.js')],
+  ['telas/t12_temas', require('./telas/t12_temas.test.js')],
   // Medição de escala, não aceite: só corre quando pedida por NOSTERMENTOR_SUITES.
   ['telas/escala', require('./telas/escala.test.js')],
   ['rede/bostil', require('./rede/bostil.test.js')],

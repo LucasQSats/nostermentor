@@ -276,21 +276,17 @@
       const C = T.aparencia;
       rascunho.theme = Object.assign({ id: 'padrao', version: 1, options: {} }, rascunho.theme || {});
       if (!rascunho.theme.options || typeof rascunho.theme.options !== 'object') rascunho.theme.options = {};
-      // 12 — a troca de tema. A lista vem do registo (core/temas.js); o
-      // escolhido vai para `site.theme.id`, a `version` passa a ser a do
-      // manifesto dele e as opções voltam a vazio — são do tema, não do site.
-      // Ficar no mesmo tema não toca em nada (a `version` gravada é a do tema
-      // com que o site foi publicado, e só a troca a atualiza).
+      // 12 — ESCOLHER o tema deixou de ser daqui em 2026-09-05: o `<select>`
+      // de quatro linhas virou a galeria de T12, a pedido do dono. Esta aba
+      // ficou com o que é ajuste do tema EM USO — as cores e medidas que o
+      // manifesto dele declara — e com o logo do cabeçalho, que é campo do
+      // SITE (13 §3) e não do tema. O nome do tema em uso fica visível aqui
+      // porque é ele que decide quais opções aparecem logo abaixo.
       const temaAtual = Temas.de(rascunho);
-      const selTema = h('select', { id: 't7-tema-escolha' }, Temas.todos().map(t => h('option', { value: t.manifesto.id, selected: t.manifesto.id === temaAtual.manifesto.id }, t.manifesto.nome)));
-      selTema.value = temaAtual.manifesto.id;
-      selTema.addEventListener('change', function () {
-        const t = Temas.porId(selTema.value); if (!t) return;
-        rascunho.theme = { id: t.manifesto.id, version: t.manifesto.version, options: {} };
-        marcarSujo(); render();
-      });
-      painel.appendChild(h('div', {}, h('label', { for: 't7-tema-escolha' }, C.tema), selTema,
-        h('span', { id: 't7-tema' }, ' ' + C.tema + ': ' + temaAtual.manifesto.nome), h('p', { class: 'apoio' }, C.temaApoio)));
+      painel.appendChild(h('div', {},
+        h('p', {}, h('strong', {}, C.tema + ': '), h('span', { id: 't7-tema' }, temaAtual.manifesto.nome), ' ',
+          h('button', { type: 'button', class: 'ligacao', id: 't7-ir-temas', onclick: function () { Shell.ir('t12'); } }, C.temaTrocar)),
+        h('p', { class: 'apoio' }, C.temaApoio)));
       if (!Temas.conhecido(rascunho)) painel.appendChild(h('p', { class: 'alerta', id: 't7-tema-desconhecido' }, texto(C.temaDesconhecido, { id: rascunho.theme.id })));
 
       // --- 38: o logo do cabeçalho ------------------------------------------
@@ -369,7 +365,10 @@
       }
       avisarLogo();
       painel.appendChild(h('div', { class: 'acoes' }, h('button', { type: 'button', id: 't7-previa', class: 'secundario', onclick: previa }, C.previa)));
-      painel.appendChild(h('p', { class: 'apoio', id: 't7-temas-outros' }, C.outros));
+      // O convite para a galeria já está no topo desta aba ("Ver todos os
+      // temas →"); repeti-lo aqui era dizer duas vezes a mesma coisa. O
+      // parágrafo fica, vazio, porque a suíte o procura pelo id.
+      if (C.outros) painel.appendChild(h('p', { class: 'apoio', id: 't7-temas-outros' }, C.outros));
 
       // Pré-visualização isolada (02 G.2, 14 §0.8): iframe sem
       // allow-same-origin, com o CSS embutido e as imagens locais em data:.

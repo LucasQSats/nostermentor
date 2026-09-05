@@ -42,7 +42,7 @@ folha de estilo se agarra.
 
 Cada tema vive num único arquivo, `src/tema/<id>/tema.js`, e termina por se
 registar: `Temas.registar(TemaX)`. É só isso que o app precisa para o
-oferecer na aba *Aparência* — a montagem (`./monta_app.sh`) apanha todos os
+oferecer na tela **Temas** — a montagem (`./monta_app.sh`) apanha todos os
 arquivos de `src/tema/`, e o registo (`src/core/temas.js`) é a única porta
 entre o app e os temas. Existem quatro, e são os exemplos de referência:
 
@@ -82,10 +82,21 @@ O manifesto:
 
 O `site.json` publicado guarda `theme: { id, version, options }`: o id do
 tema, a versão com que o site foi publicado, e os valores que o dono escolheu.
-Ao trocar de tema na aba *Aparência*, o app grava o id novo, a `version` do
-manifesto dele e **opções vazias** — as opções são do tema, não do site.
+Ao trocar de tema na tela **Temas**, o app grava o id novo e a `version` do
+manifesto dele. As opções **são do tema, não do site**: as do tema anterior
+não vão com ele. ✅ **Desde 2026-09-05 elas não se perdem** — ficam guardadas
+numa gaveta local (`site.theme_memory`, que vai no backup e **nunca** no
+`site.json` publicado) e **voltam sozinhas** se o dono voltar a este tema.
+Para quem escreve um tema isto é transparente: continua a receber em
+`options` só o que é seu.
 Um `id` que este app não conhece não impede a publicação: o site sai com o
-Padrão e a aba diz qual tema falta.
+Padrão e a tela diz qual tema falta.
+
+⚠️ **O `nome` e o `autor` do manifesto passaram a ser visíveis** (2026-09-05):
+a tela Temas mostra um cartão por tema com o nome, o autor, a versão e uma
+**pré-visualização do site de quem está a escolher**, gerada com o seu tema.
+Vale a pena que o `nome` seja curto e que o `autor` seja como quer ser
+creditado — é o que aparece no cartão.
 
 ## 4. Os oito moldes
 
@@ -371,9 +382,17 @@ dois motores, e compara os hashes. Um tema que falhe aí falha em produção.
   inventa um**: quando houver, virá com a evidência que o justifica.
 - **`engine_min` ainda não é conferido**: só existe a versão 1 do motor.
 - **A troca de tema existe desde 2026-09-05**: o gerador lê `site.theme.id`
-  pelo registo, a aba *Aparência* tem o seletor, e a prévia usa o tema
-  escolhido. O que ela não faz: guardar as opções do tema anterior para
-  quando se volta a ele (voltam ao padrão).
+  pelo registo e a prévia usa o tema escolhido. Nesse mesmo dia a escolha
+  mudou de sítio: era um `<select>` na aba *Aparência* e passou a ser a tela
+  **Temas**, uma galeria com um cartão e uma pré-visualização por tema (a aba
+  *Aparência* ficou com os ajustes do tema em uso). ✅ **E desde o mesmo dia
+  ela guarda as opções de cada tema**: trocar e voltar devolve o que estava
+  (secção 3).
+- **Não há como enviar um tema pelo painel.** A tela Temas tem o cartão
+  "Enviar um tema" **desligado**, e diz porquê: sem o validador acima, um tema
+  de fora poderia buscar um recurso a um servidor e entregar-lhe o IP de cada
+  leitor do site (secção 8). Enquanto isso, um tema novo entra como os quatro
+  que existem — um arquivo em `src/tema/<id>/tema.js`, montado com o app.
 
 Quando algum destes itens deixar de ser verdade, esta secção encolhe e a
 data do topo muda.

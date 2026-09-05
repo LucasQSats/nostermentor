@@ -96,6 +96,29 @@ module.exports = async function (ctx, u) {
     const imp2 = await Backup.importar(db, an2, { modo: 'juntar', pubkey: ch.pubkey, npub: ch.npub });
     const dep2 = await lerTudo();
     out.juntar = { imp: { novos: imp2.novos, atualizados: imp2.atualizados, iguais: imp2.iguais, locais: imp2.locais, sobrescritos: imp2.sobrescritos, renomeados: imp2.renomeados, vazio: imp2.bancoEstavaVazio }, titulos: dep2.pages.map(x => x.title).sort(), slugs: dep2.pages.map(x => x.slug).sort(), meta: Object.fromEntries(dep2.meta.map(m => [m.key, m.value])) };
+    // 2026-09-05 — a gaveta de ajustes por tema sobrevive ao backup (decisão
+    // dele: "no backup, junto com o site"), passa por lista branca na volta, e
+    // em "Juntar" a desta máquina ganha.
+    {
+      const s2 = await db.get('site', 'site');
+      s2.theme = { id: 'jornal', version: 1, options: { colunas: 'uma' } };
+      s2.theme_memory = { padrao: { esquema: 'escuro' }, 'ID MAU!': { x: 1 }, moderno: { mau: { fundo: 1 }, cantos: 'suaves' } };
+      await db.put('site', s2, 'site');
+      const exG = await Backup.exportar(db, { completo: false, pubkey: ch.pubkey, npub: ch.npub });
+      const jG = JSON.parse(exG.texto);
+      out.gaveta = { noArquivo: jG.theme_options, dentroDoSite: 'theme_memory' in jG.site,
+        noSiteJson: SiteJson.escrever({ site: s2, pages: [], posts: [], media: [] }).indexOf('theme_memory') !== -1 };
+      // substituir: a gaveta do arquivo entra tal e qual (já filtrada)
+      const anG = Backup.analisar(exG.texto, { pubkey: ch.pubkey });
+      await Backup.importar(db, anG, { modo: 'substituir', pubkey: ch.pubkey, npub: ch.npub });
+      out.gaveta.aposSubstituir = (await db.get('site', 'site')).theme_memory;
+      // juntar: local ganha, e o que só existe no arquivo entra
+      const s3 = await db.get('site', 'site');
+      s3.theme_memory = { padrao: { esquema: 'claro' }, diario: { paginado: 'nao' } };
+      await db.put('site', s3, 'site');
+      await Backup.importar(db, Backup.analisar(exG.texto, { pubkey: ch.pubkey }), { modo: 'juntar', pubkey: ch.pubkey, npub: ch.npub });
+      out.gaveta.aposJuntar = (await db.get('site', 'site')).theme_memory;
+    }
     // base64 ida e volta com bytes "difíceis"
     const dif = new Uint8Array(70000); for (let i = 0; i < dif.length; i++) dif[i] = (i * 31) & 255;
     const b64 = await Backup.blobParaBase64(new Blob([dif]));
@@ -107,7 +130,7 @@ module.exports = async function (ctx, u) {
   await it('exportar: nome nostermentor-backup-<npub8>-<data>.json, chaves de 13 §7.1 na ordem, format/version/exported_at/app_version, meta.schema_version', () => {
     const e = r.exportado;
     assert(e.nome === 'nostermentor-backup-' + ch.npub.slice(5, 13) + '-' + e.exported_at.slice(0, 10) + '.json', e.nome);
-    assert(e.chaves.join(',') === 'format,version,exported_at,app_version,site,pages,posts,media,published,meta' && e.format === 'nostermentor-backup' && e.version === 1 && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(e.exported_at) && /^\d+\.\d+\.\d+/.test(e.app) && e.meta.schema_version === 1, JSON.stringify(e));
+    assert(e.chaves.join(',') === 'format,version,exported_at,app_version,site,pages,posts,media,published,theme_options,meta' && e.format === 'nostermentor-backup' && e.version === 1 && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(e.exported_at) && /^\d+\.\d+\.\d+/.test(e.app) && e.meta.schema_version === 1, JSON.stringify(e));
     assert(e.pages === 2 && e.posts === 1 && e.publishedId === man.id && e.tags.join() === 'x' && e.contagens.comArquivo === 1, JSON.stringify(e.contagens));
   });
   await it('13 §7.2: "necessário" leva bytes_base64 só da mídia que só existe aqui (m-a); "completo" também da publicada com bytes (m-b); sem bytes → null; o campo `bytes` nunca vai', () => {
@@ -143,6 +166,21 @@ module.exports = async function (ctx, u) {
     assert(r.miniBackup.semChaveNaMini, 'a miniatura ganhou uma chave `thumb_media_id` que não tinha');
     assert(r.miniBackup.semChaveQuandoInvalido, 'id inválido tinha de ser descartado sem deixar a chave para trás');
   });
+  await it('a gaveta de ajustes por tema entra no backup, volta pela lista branca e NUNCA sai no site.json; em "Juntar" a desta máquina ganha', () => {
+    const g = r.gaveta;
+    // no arquivo: campo de topo, filtrado, e nunca dentro do `site`
+    assert(JSON.stringify(g.noArquivo) === '{"moderno":{"cantos":"suaves"},"padrao":{"esquema":"escuro"}}', 'gaveta exportada: ' + JSON.stringify(g.noArquivo));
+    assert(g.dentroDoSite === false, 'a gaveta é campo de topo, não vai dentro do `site` (que é lido pela lista branca da REDE)');
+    assert(g.noSiteJson === false, 'a gaveta NUNCA pode sair no site.json publicado');
+    // substituir devolve o que estava no arquivo
+    assert(JSON.stringify(g.aposSubstituir) === '{"moderno":{"cantos":"suaves"},"padrao":{"esquema":"escuro"}}', 'após substituir: ' + JSON.stringify(g.aposSubstituir));
+    // juntar: `padrao` local (claro) ganha do arquivo (escuro); `diario` local fica; `moderno` do arquivo entra
+    assert(g.aposJuntar.padrao.esquema === 'claro', 'em "Juntar" a gaveta desta máquina ganha: ' + JSON.stringify(g.aposJuntar));
+    assert(g.aposJuntar.diario && g.aposJuntar.diario.paginado === 'nao', 'o que só existe aqui fica');
+    assert(g.aposJuntar.moderno && g.aposJuntar.moderno.cantos === 'suaves', 'o que só existe no arquivo entra');
+    return 'exportada filtrada, fora do site.json, substituir devolve, juntar funde com a local a ganhar';
+  });
+
   await it('base64 ida e volta (70.000 bytes) sem fetch', () => assert(r.b64 === true));
   await it('sem erros de página/console', () => assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros })));
   await p.pg.close();
