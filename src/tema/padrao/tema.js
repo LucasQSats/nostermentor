@@ -26,7 +26,27 @@
       Por isso o brilho percebido é a fórmula inteira 299/587/114.
    3. **Legibilidade é garantia, não sorte.** O dono escolhe uma cor livre; o
       tema afasta-a do fundo até haver distância suficiente antes de a usar
-      em texto, e escolhe preto ou branco para o texto sobre ela. */
+      em texto, e escolhe preto ou branco para o texto sobre ela.
+
+   12 (2026-09-05) — RESPONSIVIDADE MEDIDA, NÃO PROMETIDA. `test/core/responsivo`
+   mede o site gerado em 9 larguras (320 a 1920 px) nos dois motores, com o
+   conteúdo de pior caso. O que a primeira medição achou, e o que mudou aqui:
+   - tabela GFM de 7 colunas terminava em 364 px numa tela de 320 → `table`
+     rola dentro da própria caixa, como o `pre` já fazia;
+   - palavra sem espaços, URL crua e título sem espaços passavam da borda até
+     1280 px (o Firefox quebra URLs nas barras por conta própria; o Chrome
+     não — regra que não se pode assumir) → `overflow-wrap:anywhere` no corpo,
+     que também deixa o cartão da galeria encolher até ao mínimo da grelha;
+   - links de lista tinham 20 px de altura (WCAG 2.2 pede 24) → inline-block
+     com 2 px de folga em cima e em baixo; o menu já passava (27 px), porque
+     a caixa flexível engrossa os links sozinha;
+   - logo de 6:1 a 96 px ficava 280×96 numa tela de 320 (2,9:1) → altura
+     MÁXIMA em vez de altura fixa: quando a largura não chega, encolhe a
+     direito;
+   - a largura "média" (760 px) dava ~96 caracteres por linha em Georgia
+     17 px; passou a 700 (~88). A "larga" continua a 900 — é escolha
+     consciente do dono do site, e a regra de 45–90 vale para o padrão.
+   Continua sem uma única `@media`: a adaptação é fluida por construção. */
 const TemaPadrao = (function () {
   'use strict';
 
@@ -57,7 +77,7 @@ const TemaPadrao = (function () {
   });
 
   const manifesto = Object.freeze({
-    id: 'padrao', version: 3, nome: 'Padrão', autor: 'Nostermentor', engine_min: 1,
+    id: 'padrao', version: 4, nome: 'Padrão', autor: 'Nostermentor', engine_min: 1,
     options: options
   });
 
@@ -253,7 +273,7 @@ const TemaPadrao = (function () {
     'sem-serifa': 'system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Noto Sans",sans-serif'
   };
   const TAMANHOS = { pequeno: 16, medio: 17, grande: 19 };
-  const LARGURAS = { estreita: 640, media: 760, larga: 900 };
+  const LARGURAS = { estreita: 640, media: 700, larga: 900 };
   const CANTOS = { retos: '0', arredondados: '6px' };
   const CANTOS_PILULA = { retos: '3px', arredondados: '999px' };
 
@@ -267,7 +287,7 @@ const TemaPadrao = (function () {
     const fonteTexto = FONTES[v.fonte_texto];
     const fonteTitulos = v.fonte_titulos === 'igual' ? fonteTexto : FONTES[v.fonte_titulos];
     return [
-      '/* Nostermentor — tema Padrão v2. Sem fontes remotas, sem imagens externas. */',
+      '/* Nostermentor — tema Padrão v4. Sem fontes remotas, sem imagens externas. */',
       ':root{' +
         '--fundo:' + e.fundo + ';--tinta:' + e.tinta + ';--suave:' + e.suave + ';--linha:' + e.linha + ';--bloco:' + e.bloco + ';' +
         '--acento:' + v.cor_destaque + ';--acento-legivel:' + paraHex(legivelSobre(acento, fundo)) + ';' +
@@ -280,11 +300,22 @@ const TemaPadrao = (function () {
       'html{-webkit-text-size-adjust:100%}',
       // longhand de propósito: o atalho `font:` com var() já foi fonte de
       // surpresa entre motores, e aqui os bytes têm de render o mesmo em todos.
-      'body{margin:0;background:var(--fundo);color:var(--tinta);font-family:var(--fonte-texto);font-size:var(--base);line-height:1.6}',
+      // `overflow-wrap:anywhere` (e não `break-word`): só parte uma palavra
+      // quando ela não cabe de outra forma, E conta na largura mínima — é o
+      // que deixa o cartão da galeria encolher até ao mínimo da grelha em vez
+      // de a esticar. Herdado por tudo o que o Markdown produz.
+      'body{margin:0;background:var(--fundo);color:var(--tinta);font-family:var(--fonte-texto);font-size:var(--base);line-height:1.6;overflow-wrap:anywhere}',
       'a{color:var(--acento-legivel)}',
       'img,video{max-width:100%;height:auto}',
       'code,pre{font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:.92em}',
       'pre{overflow:auto;padding:12px;background:var(--bloco);border-radius:var(--canto)}',
+      // A tabela vem do Markdown sem caixa à volta, logo é ela própria que
+      // rola: `display:block` faz dela um bloco da largura da coluna, com a
+      // grelha dentro a rolar quando não cabe (7 colunas em 320 px). E volta
+      // a `overflow-wrap:normal`: com a quebra em qualquer ponto herdada do
+      // corpo, o motor preferia esmagar as células ("Seg/und/a", medido em
+      // 2026-09-05) a rolar. Dentro da tabela o estouro já está contido.
+      'table{display:block;overflow-x:auto;overflow-wrap:normal}',
       'blockquote{margin:1em 0;padding:0 0 0 1em;border-left:4px solid var(--linha);color:var(--suave)}',
       '.cabecalho,.principal,.rodape{max-width:var(--largura);margin:0 auto;padding:0 20px}',
       '.cabecalho{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px;padding-top:24px;padding-bottom:16px;border-bottom:1px solid var(--linha);font-family:var(--fonte-titulos)}',
@@ -292,7 +323,10 @@ const TemaPadrao = (function () {
       // 38 — altura fixa, largura livre: trata logo horizontal e quadrado sem
       // distorcer nem cortar. `align-self` porque o cabeçalho alinha por baseline.
       '.marca-logo{line-height:0;align-self:center}',
-      '.marca-logo img{height:var(--logo-altura);width:auto;max-width:100%;display:block}',
+      // Altura MÁXIMA, não fixa: com `width:auto;height:auto` o motor resolve
+      // as duas restrições (max-height e max-width) mantendo a proporção —
+      // com `height` fixa, a `max-width` esmagava o logo largo em tela estreita.
+      '.marca-logo img{max-height:var(--logo-altura);max-width:100%;width:auto;height:auto;display:block}',
       '.menu{display:flex;flex-wrap:wrap;gap:4px 16px}',
       '.menu a{text-decoration:none}',
       '.menu a[aria-current=page]{font-weight:700;color:var(--tinta)}',
@@ -332,6 +366,10 @@ const TemaPadrao = (function () {
       '.capa figcaption{color:var(--suave);font-size:.82em}',
       /* imagem clicável (06 §4): abre o arquivo em tamanho real, sem script */
       '.ampliar{display:inline-block;line-height:0;text-decoration:none;cursor:zoom-in}',
+      // Alvo de toque (WCAG 2.2, 2.5.8): um link de texto em Georgia 17 px tem
+      // 20 px de altura; 2 px de folga em cima e em baixo chegam aos 24.
+      // `inline-block` para a folga contar na caixa; a linha (27 px) não cresce.
+      '.lista-artigos a,.ultimos p a,.blog>p a,.cartao-titulo a{display:inline-block;padding:2px 0}',
       '.lista-artigos{list-style:none;margin:0;padding:0}',
       '.lista-artigos li{margin:0 0 1.2em}',
       '.lista-artigos h2{margin:0 0 .2em}',

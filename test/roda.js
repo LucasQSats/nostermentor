@@ -27,6 +27,7 @@ const SUITES = [
   ['core/blocos', require('./core/blocos.test.js')],
   ['core/html_colado', require('./core/html_colado.test.js')],
   ['core/backup', require('./core/backup.test.js')],
+  ['core/responsivo', require('./core/responsivo.test.js')],
   ['telas/t1_entrar', require('./telas/t1_entrar.test.js')],
   ['telas/t2_t3', require('./telas/t2_t3.test.js')],
   ['telas/t3_inicio', require('./telas/t3_inicio.test.js')],

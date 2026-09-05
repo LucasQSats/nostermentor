@@ -156,7 +156,7 @@ module.exports = async function (ctx, u) {
   });
   await it('24 (02 G.0/G.2.4): opção que não bate com o manifesto é DESCARTADA — injeção de CSS não chega à folha do leitor', () => {
     assert(!/mau\.test|url\(|@import|<style/.test(r.cssLixo), r.cssLixo.slice(0, 500));
-    assert(/--acento:#2271b1/.test(r.cssLixo) && /--fundo:#fbfbfa/.test(r.cssLixo) && /--logo-altura:44px/.test(r.cssLixo) && /--largura:760px/.test(r.cssLixo), 'não voltou ao padrão');
+    assert(/--acento:#2271b1/.test(r.cssLixo) && /--fundo:#fbfbfa/.test(r.cssLixo) && /--logo-altura:44px/.test(r.cssLixo) && /--largura:700px/.test(r.cssLixo), 'não voltou ao padrão');
     assert(r.resolvidoLixo.esquema === 'claro' && r.resolvidoLixo.cor_destaque === '#2271b1' && r.resolvidoLixo.altura_logo === 44, JSON.stringify(r.resolvidoLixo));
   });
   await it('24: a cor escolhida pelo dono nunca fica ilegível — o link afasta-se do fundo, o botão fica com a cor cheia e o texto contrasta', () => {
