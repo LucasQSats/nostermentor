@@ -386,3 +386,4 @@ const TemaPadrao = (function () {
 
   return Object.freeze({ manifesto, templates: Object.freeze({ layout, pagina, artigo, blog, etiqueta, alias, botao, galeria }), css, resolver });
 })();
+Temas.registar(TemaPadrao);

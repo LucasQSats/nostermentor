@@ -681,5 +681,55 @@ module.exports = async function (ctx, u) {
     return 'reserva conservadora: título sim, menu só com a fotografia nova';
   });
 
+  // 12 — a troca de tema na aba Aparência: a lista vem do registo, escolher
+  // outro tema troca as opções desenhadas, o aviso diz que muda todas as
+  // páginas (é HTML, não só CSS), o CSS gerado é o do tema novo, a prévia
+  // também, e o banco guarda id + versão do manifesto com opções vazias.
+  await it('12: trocar de tema na aba Aparência — as opções passam a ser as do tema novo, o aviso diz "muda todas as páginas", o site e a prévia saem com o tema escolhido', async () => {
+    const { p, ch } = await sessao();
+    await aba(p.pg, 'aparencia');
+    const lista = await p.pg.$$eval('#t7-tema-escolha option', els => els.map(e => e.value));
+    assert(lista[0] === 'padrao' && lista.includes('diario') && lista.includes('jornal') && lista.includes('moderno'), 'lista de temas: ' + lista.join(','));
+    assert(!(await p.pg.$('#t7-tema-desconhecido')), 'com o Padrão não há aviso de tema desconhecido');
+    await p.pg.selectOption('#t7-tema-escolha', 'jornal');
+    await p.pg.waitForSelector('#t7-opcao-colunas');
+    assert(/Jornal/.test(await p.pg.textContent('#t7-tema')), 'o rótulo devia dizer Jornal');
+    assert(!(await p.pg.$('#t7-opcao-fonte_texto')), 'a opção do Padrão não podia continuar desenhada');
+    await p.pg.selectOption('#t7-opcao-colunas', 'uma');
+    const aviso = await salvar(p.pg);
+    assert(/muda todas as páginas/.test(aviso), aviso);
+    const g = await homeGerada(p.pg);
+    assert(/tema Jornal v1/.test(g.css) && /--coluna:none/.test(g.css), g.css.slice(0, 200));
+    assert(/class="banca"/.test(g.home), 'a capa devia sair com o cabeçalho de banca do Jornal');
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    assert(banco.site.theme.id === 'jornal' && banco.site.theme.version === 1 && JSON.stringify(banco.site.theme.options) === '{"colunas":"uma"}', JSON.stringify(banco.site.theme));
+    await p.pg.click('#t7-previa');
+    await p.pg.waitForSelector('#previa-completa');
+    const estilo = await p.pg.frameLocator('#previa-completa').locator('style').first().textContent();
+    assert(/tema Jornal v1/.test(estilo), 'a prévia devia usar o CSS do Jornal');
+    await p.pg.close();
+    return 'padrao → jornal; opções do Jornal desenhadas; CSS e prévia do Jornal; banco {id:jornal, version:1}';
+  });
+
+  await it('12: um site cujo tema não vem com este app é gerado com o Padrão, e a aba Aparência diz isso de frente', async () => {
+    const { p, ch } = await sessao();
+    await p.pg.evaluate(async ([pubkey]) => {
+      const db = await Db.abrir(pubkey);
+      const site = await db.get('site', 'site');
+      site.theme = { id: 'tema-de-outra-pessoa', version: 7, options: { x: 'y' } };
+      await db.put('site', site, 'site'); db.fechar();
+    }, [ch.pubkey]);
+    await p.pg.goto(p.pg.url()); // recarregar a tela com o banco novo
+    await entrarCom(p.pg, ch.nsec); await esperarT2(p.pg, 30000);
+    await p.pg.click('#menu .item[data-tela="t7"]'); await p.pg.waitForSelector('#t7-painel');
+    await aba(p.pg, 'aparencia');
+    assert(/tema-de-outra-pessoa/.test(await p.pg.textContent('#t7-tema-desconhecido')), 'devia avisar qual tema falta');
+    assert((await p.pg.$eval('#t7-tema-escolha', e => e.value)) === 'padrao', 'o seletor devia mostrar o Padrão, que é o que vai gerar');
+    const g = await homeGerada(p.pg);
+    assert(/tema Padrão v4/.test(g.css), 'o site devia sair com o Padrão');
+    await p.pg.close();
+    return 'id desconhecido → aviso na tela, seletor no Padrão, site gerado com o Padrão';
+  });
+
   return R;
 };

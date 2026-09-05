@@ -602,6 +602,8 @@ const Textos = Object.freeze({
     aparencia: {
       tema: 'Tema',
       temaAtual: 'Padrão',
+      temaApoio: 'Trocar o tema muda o desenho de todas as páginas. As cores e medidas abaixo são do tema escolhido e voltam ao padrão dele quando você troca.',
+      temaDesconhecido: 'O tema "{id}" não vem com esta versão do app. Até escolher outro, o site é gerado com o tema Padrão.',
       semOpcoes: 'Este tema não tem opções para ajustar nesta versão.',
       opcoes: 'Cores, letras e medidas',
       logo: 'Logo do cabeçalho',

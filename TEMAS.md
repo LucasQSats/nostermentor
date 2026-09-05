@@ -1,10 +1,10 @@
 # Temas do Nostermentor — especificação
 
-> **RASCUNHO — 2026-09-05.** Este documento descreve o que um tema tem de ser
-> para funcionar por inteiro com o Nostermentor. Só passa de rascunho a
-> especificação quando um segundo tema, escrito por alguém que não escreveu o
-> primeiro, o tiver usado de verdade. A secção 11 diz, sem rodeios, o que o
-> app ainda não faz.
+> **RASCUNHO — 2026-09-05 (revisto no mesmo dia, depois dos três primeiros
+> temas).** Este documento descreve o que um tema tem de ser para funcionar
+> por inteiro com o Nostermentor. Só passa de rascunho a especificação quando
+> um tema escrito por alguém de fora o tiver usado de verdade. A secção 11
+> diz, sem rodeios, o que o app ainda não faz.
 
 O que se quer é simples de enunciar: **qualquer pessoa com este documento à
 frente consegue escrever o seu tema**, sem ler o código do app. Se alguma
@@ -40,13 +40,21 @@ Padrão como estão e escreve apenas a função `css(opcoes)`. Os moldes do
 Padrão já produzem HTML com todas as classes da secção 5, e é nelas que a
 folha de estilo se agarra.
 
-O tema Padrão vive num único arquivo, `src/tema/padrao/tema.js`, e é o
-exemplo de referência de tudo o que está aqui: quando este documento e o
-arquivo divergirem, o arquivo está certo e este documento tem de ser
-corrigido.
+Cada tema vive num único arquivo, `src/tema/<id>/tema.js`, e termina por se
+registar: `Temas.registar(TemaX)`. É só isso que o app precisa para o
+oferecer na aba *Aparência* — a montagem (`./monta_app.sh`) apanha todos os
+arquivos de `src/tema/`, e o registo (`src/core/temas.js`) é a única porta
+entre o app e os temas. Existem quatro, e são os exemplos de referência:
 
-⚠️ Hoje o app **não troca de tema** (secção 11). Para experimentar um tema
-agora, o caminho é editar esse arquivo e montar o app com `./monta_app.sh`.
+| id | Nome | O que é |
+|---|---|---|
+| `padrao` | Padrão | o tema de origem: sóbrio, uma coluna, oito opções |
+| `diario` | Diário | folha de caderno pautada com margem vermelha; o título numa etiqueta de capa, o menu em separadores, a data carimbada antes de cada entrada, fotografias "coladas" |
+| `jornal` | Jornal | cabeçalho de banca entre filetes, menu como barra de secções, texto em colunas que se dobram com a tela, capitular, primeira página em grelha |
+| `moderno` | Moderno | letra do sistema sem serifa, cabeçalho fixo com barra de cor, capa a toda a largura, cartões com sombra, esquema claro/escuro/automático |
+
+Quando este documento e um desses arquivos divergirem, o arquivo está certo
+e este documento tem de ser corrigido.
 
 ## 3. O pacote e o manifesto
 
@@ -66,7 +74,7 @@ O manifesto:
 | Campo | Tipo | O que é |
 |---|---|---|
 | `id` | texto | identificador do tema; é o que vai em `site.theme.id` no `site.json`. Convenção: minúsculas, dígitos e hífen, como `padrao` (o código ainda não impõe formato) |
-| `version` | inteiro | versão do tema; **sobe sempre que a folha de estilo ou um molde muda** (o Padrão está na 4). Só sobe, nunca desce |
+| `version` | inteiro | versão do tema; **sobe sempre que a folha de estilo ou um molde muda** (o Padrão está na 4; os três novos na 1). Só sobe, nunca desce |
 | `nome` | texto | o nome que o painel mostra |
 | `autor` | texto | quem o assina; "autor desconhecido" é um rótulo válido, omitir não é |
 | `engine_min` | inteiro | a versão mínima do motor de geração que o tema exige (hoje só existe a 1) |
@@ -74,6 +82,10 @@ O manifesto:
 
 O `site.json` publicado guarda `theme: { id, version, options }`: o id do
 tema, a versão com que o site foi publicado, e os valores que o dono escolheu.
+Ao trocar de tema na aba *Aparência*, o app grava o id novo, a `version` do
+manifesto dele e **opções vazias** — as opções são do tema, não do site.
+Um `id` que este app não conhece não impede a publicação: o site sai com o
+Padrão e a aba diz qual tema falta.
 
 ## 4. Os oito moldes
 
@@ -158,8 +170,10 @@ nome nenhum.
 **A regra que não se negocia: o tema valida as SUAS opções.** Os valores que
 chegam a `css(opcoes)` vêm do `site.json` que estava na rede, ou de um
 backup. São **dados**, escritos por quem os quis escrever. A função
-`resolver` compara cada valor com o manifesto e **descarta o que não bate**,
-substituindo-o pelo padrão:
+`resolver` do tema compara cada valor com o manifesto e **descarta o que não
+bate**, substituindo-o pelo padrão (os quatro temas fazem-no chamando o
+validador genérico `Temas.resolver(options, opcoes)`, que aplica estas
+regras a partir do manifesto — mas é o tema que o exporta e chama):
 
 - uma `escolha` só aceita um dos valores da lista;
 - uma `cor` só aceita exatamente `#` e seis dígitos hexadecimais;
@@ -173,9 +187,9 @@ visita, que é precisamente o buraco de privacidade que a secção 8 fecha.
 
 Responsividade aqui é **requisito de primeira classe, medido**, não
 promessa. O teste `test/core/responsivo` gera um site com conteúdo de pior
-caso, embute o CSS do tema, abre cada página em dez larguras nos dois
-motores (Firefox e Chrome) e mede. Cada regra abaixo tem o número que a
-justificou.
+caso **com cada tema registado**, embute o CSS, abre cada página em dez
+larguras nos dois motores (Firefox e Chrome) e mede. Um tema novo entra na
+medição só por se registar. Cada regra abaixo tem o número que a justificou.
 
 ### 7.1 O piso é 320 px
 
@@ -209,7 +223,7 @@ vertical: um cabeçalho alto come um terço da tela.
 | R3 | **Todo link tem pelo menos 24×24 px** de alvo em telemóvel (≤ 412 px) | caixa de cada `a` e `button`; WCAG 2.2 AA, critério 2.5.8 | links de lista com 20 px de altura; o menu passava (27 px), porque a caixa flexível engrossa os links |
 | R4 | **Nenhuma imagem sai distorcida** | proporção desenhada vs. a dos atributos `width`/`height`, tolerância de 2 % | logo de 6:1 a 96 px ficava 280×96 (2,9:1) em 320 px |
 | R5 | **Nenhum texto abaixo de 12 px** | `font-size` calculado de todo elemento com texto próprio | nenhum — passou |
-| R6 | **Entre 45 e 90 caracteres por linha** em tela larga (≥ 1000 px), **na configuração padrão** do tema | largura útil da coluna ÷ largura real de uma letra média no tipo do corpo | ~96 com a largura "média" de 760 px em Georgia 17 px |
+| R6 | **Entre 45 e 90 caracteres por linha** em tela larga (≥ 1000 px), **na configuração padrão** do tema | largura do primeiro parágrafo de texto corrido (o primeiro fragmento, para contar a COLUNA num tema com colunas) ÷ largura real de uma letra média no tipo do corpo | ~96 com a largura "média" de 760 px em Georgia 17 px. Hoje: Padrão ~88, Diário ~85, Jornal ~75 (em colunas), Moderno ~84 |
 
 A configuração padrão é a que o tema entrega sem o dono tocar em nada. As
 outras são escolha dele: a largura "larga" do Padrão dá ~95 caracteres com
@@ -262,11 +276,12 @@ tema pode usar `@media` à vontade.
 NOSTERMENTOR_SUITES=core/responsivo test/roda.sh
 ```
 
-Corre nos dois motores, em cerca de 25 s, e deixa na pasta de resultados
-as capturas de 320, 390, 768 e 1280 px de cada página e um JSON com todas
-as medidas. Nenhum número substitui o olho: **olhe para as capturas.**
-Hoje o teste mede o tema Padrão; quando a troca de tema existir, medirá o
-tema escolhido.
+Corre nos dois motores, em cerca de 100 s para quatro temas, e deixa na
+pasta de resultados as capturas de 320, 390, 768 e 1280 px de cada página
+de cada tema (`responsivo-<tema>-<página>-<largura>-<motor>.png`) e um JSON
+com todas as medidas. Nenhum número substitui o olho: **olhe para as
+capturas.** Foi a captura, não o número, que apanhou a tabela esmagada no
+Padrão e as etiquetas coladas no Jornal.
 
 ## 8. Segurança e privacidade — o porquê de cada regra
 
@@ -277,8 +292,8 @@ não decretadas.
    são texto para o Mustache preencher, a folha é texto para o site levar.
    As duas funções de um tema, `resolver` e `css`, correm dentro do app —
    por isso um tema **instalado pela rede** só poderá existir depois de
-   haver um validador (secção 11); até lá, os temas são os que vêm com o
-   app.
+   haver um validador (secção 11); até lá, os temas são os quatro que vêm
+   com o app.
 2. **Zero recursos externos.** Nenhuma URL absoluta em `src`, `href`,
    `url()` ou `@import` da folha. O motivo é o leitor: uma fonte do Google,
    um ícone de um CDN, um pixel de estatística — cada um deles **entrega ao
@@ -330,8 +345,11 @@ dois motores, e compara os hashes. Um tema que falhe aí falha em produção.
 
 1. **Montar e correr as duas suítes** que julgam o tema:
    `NOSTERMENTOR_SUITES=core/gerador,core/responsivo test/roda.sh`.
-   A primeira prova o determinismo e a ausência de recursos externos; a
-   segunda, a responsividade da secção 7.
+   A primeira percorre todos os temas registados e prova, de cada um: os
+   oito moldes, o CSS sem recurso externo, o lixo nas opções a voltar ao
+   padrão, os mesmos bytes em qualquer ordem de entrada, o HTML sem script,
+   as classes de contrato e os mesmos caminhos gerados. A segunda, a
+   responsividade da secção 7. Um tema registado entra nas duas sozinho.
 2. **Procurar à mão o que o validador ainda não procura:** `http`, `url(`,
    `@import`, `<script`, `on[a-z]+=`, `javascript:` na saída de
    `css(opcoes)` e nos moldes.
@@ -343,18 +361,19 @@ dois motores, e compara os hashes. Um tema que falhe aí falha em produção.
 
 ## 11. O que ainda não existe (e este documento não finge que existe)
 
-- **O app não troca de tema.** O gerador chama o tema Padrão diretamente
-  (10 pontos, mais 2 no painel) e ninguém lê `site.theme.id`. Este
-  documento descreve o contrato que essa troca vai respeitar; a troca em si
-  é trabalho por fazer.
-- **Não há validador de pacote.** As regras da secção 8 são cumpridas pelo
-  tema Padrão por construção e conferidas pela suíte; não há ainda código
-  que as aplique a um tema vindo de fora.
+- **Não há validador de pacote.** As regras da secção 8 são cumpridas
+  pelos quatro temas por construção e conferidas pela suíte; não há ainda
+  código que as aplique a um tema vindo de fora. Por isso **só os temas que
+  vêm com o app existem**: o registo é preenchido pelos arquivos de
+  `src/tema/`, na montagem.
 - **Não há instalação de tema pela rede**, nem formato de pacote na rede
   definido. Nenhum kind de evento foi escolhido, e este documento **não
   inventa um**: quando houver, virá com a evidência que o justifica.
-- **O painel de opções** já é genérico, mas só conheceu até hoje as oito
-  opções do Padrão.
+- **`engine_min` ainda não é conferido**: só existe a versão 1 do motor.
+- **A troca de tema existe desde 2026-09-05**: o gerador lê `site.theme.id`
+  pelo registo, a aba *Aparência* tem o seletor, e a prévia usa o tema
+  escolhido. O que ela não faz: guardar as opções do tema anterior para
+  quando se volta a ele (voltam ao padrão).
 
 Quando algum destes itens deixar de ser verdade, esta secção encolhe e a
 data do topo muda.

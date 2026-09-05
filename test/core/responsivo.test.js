@@ -133,32 +133,33 @@ module.exports = async function (ctx, u) {
     }
 
     const dados = { site, pages, posts, media: [capa, logo] };
-    const g = await Gerador.gerarSite(dados);
     // Caminho que não foi gerado é erro NOMEADO, não `null` a rebentar mais
     // à frente dentro de `Gerador.previa` — diz qual faltou e quais existem.
     const pegar = (gg, path) => { const a = gg.arquivos.find(x => x.path === path); if (!a) throw new Error('caminho não gerado: ' + path + ' — gerados: ' + gg.arquivos.map(x => x.path).join(' ')); return a.texto; };
-    const t = (path) => pegar(g, path);
     const uris = { '/img/capa.png': svg(1600, 900, '#8899aa'), '/img/logo.png': svg(1200, 200, '#aa8866') };
 
-    // duas configurações: o padrão, e o extremo que as opções permitem
-    const extremo = { esquema: 'escuro', tamanho_texto: 'grande', largura: 'larga', cantos: 'arredondados', altura_logo: 96, cor_destaque: '#c81e5a', fonte_texto: 'sem-serifa', fonte_titulos: 'serifa' };
-    const g2 = await Gerador.gerarSite(Object.assign({}, dados, { site: Object.assign({}, site, { theme: { id: 'padrao', options: extremo } }) }));
-    const t2 = (path) => pegar(g2, path);
-
-    return {
-      padrao: {
-        home: Gerador.previa(t('/index.html'), uris, {}),
-        artigo: Gerador.previa(t('/blog/' + Modelo.slug(titulos[0]) + '.html'), uris, {}),
-        blog: Gerador.previa(t('/blog/index.html'), uris, {}),
-        etiqueta: Gerador.previa(t('/blog/etiqueta/' + Modelo.slug('fermentação natural') + '.html'), uris, {})
-      },
-      extremo: {
-        home: Gerador.previa(t2('/index.html'), uris, extremo),
-        artigo: Gerador.previa(t2('/blog/' + Modelo.slug(titulos[0]) + '.html'), uris, extremo)
-      },
-      temImgRemota: t('/index.html').indexOf('https://terceiro.test/pixel.png') !== -1,
-      temTabela: t('/index.html').indexOf('<table>') !== -1
-    };
+    // 12 — TODOS os temas registados, cada um em duas configurações: a padrão
+    // (opções vazias) e o EXTREMO que o manifesto dele permite, derivado do
+    // próprio manifesto (escolha → a última; medida → o máximo; cor → um
+    // rosa forte). É o que faz um tema novo entrar na medição sem tocar aqui.
+    const extremoDe = (m) => { const o = {}; for (const n of Object.keys(m.options || {})) { const d = m.options[n]; o[n] = d.tipo === 'escolha' ? d.opcoes[d.opcoes.length - 1][0] : d.tipo === 'medida' ? d.max : d.tipo === 'cor' ? '#c81e5a' : d.padrao; } return o; };
+    const saida = { temas: {}, temImgRemota: false, temTabela: false };
+    for (const tema of Temas.todos()) {
+      const id = tema.manifesto.id, extremo = extremoDe(tema.manifesto);
+      const g = await Gerador.gerarSite(Object.assign({}, dados, { site: Object.assign({}, site, { theme: { id: id, version: tema.manifesto.version, options: {} } }) }));
+      const g2 = await Gerador.gerarSite(Object.assign({}, dados, { site: Object.assign({}, site, { theme: { id: id, version: tema.manifesto.version, options: extremo } }) }));
+      const t = (path) => pegar(g, path), t2 = (path) => pegar(g2, path);
+      saida.temas[id] = {
+        home: Gerador.previa(t('/index.html'), uris, {}, tema),
+        artigo: Gerador.previa(t('/blog/' + Modelo.slug(titulos[0]) + '.html'), uris, {}, tema),
+        blog: Gerador.previa(t('/blog/index.html'), uris, {}, tema),
+        etiqueta: Gerador.previa(t('/blog/etiqueta/' + Modelo.slug('fermentação natural') + '.html'), uris, {}, tema),
+        'home-extremo': Gerador.previa(t2('/index.html'), uris, extremo, tema),
+        'artigo-extremo': Gerador.previa(t2('/blog/' + Modelo.slug(titulos[0]) + '.html'), uris, extremo, tema)
+      };
+      if (id === 'padrao') { saida.temImgRemota = t('/index.html').indexOf('https://terceiro.test/pixel.png') !== -1; saida.temTabela = t('/index.html').indexOf('<table>') !== -1; }
+    }
+    return saida;
   });
 
   // --- a medição, numa página por largura ---------------------------------
@@ -239,14 +240,20 @@ module.exports = async function (ctx, u) {
       // .principal, sem o padding) dividida pela largura MEDIDA de um
       // caractere médio no tipo de letra do corpo — não uma estimativa de
       // "meio em por letra", que varia com a família e daria 96 onde são 85.
-      const principal = document.querySelector('.principal');
-      if (principal) {
-        const cs = getComputedStyle(principal);
-        out.colunaPx = Math.round(principal.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
+      // A LINHA que o leitor lê: o primeiro parágrafo de texto corrido
+      // (não o de data nem o resumo). `getClientRects()[0]` é o primeiro
+      // fragmento — num tema com colunas (Jornal) é a largura da COLUNA, que
+      // é o que interessa; num tema sem colunas é o próprio parágrafo.
+      // Página sem parágrafo corrido (as listagens) fica com colunaCh = 0 e
+      // fora da regra dos 45–90: não há linha de leitura para medir.
+      const par = Array.from(document.querySelectorAll('.principal p')).find(p => !p.className && p.textContent.trim().length > 40);
+      if (par) {
+        const r = par.getClientRects()[0];
+        out.colunaPx = Math.round(r ? r.width : par.getBoundingClientRect().width);
         const sonda = document.createElement('span');
         sonda.textContent = 'O padeiro acorda antes do sol e amassa a farinha com água, sal e fermento, como o pai lhe ensinou há trinta anos.';
         sonda.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap';
-        principal.appendChild(sonda);
+        par.appendChild(sonda);
         out.charPx = Math.round(sonda.getBoundingClientRect().width / sonda.textContent.length * 100) / 100;
         sonda.remove();
         out.colunaCh = Math.round(out.colunaPx / out.charPx);
@@ -258,12 +265,13 @@ module.exports = async function (ctx, u) {
     return m;
   }
 
-  const paginas = [['home', sitio.padrao.home], ['artigo', sitio.padrao.artigo], ['blog', sitio.padrao.blog], ['etiqueta', sitio.padrao.etiqueta],
-    ['home-extremo', sitio.extremo.home], ['artigo-extremo', sitio.extremo.artigo]];
+  // uma "página" é `<tema>/<página>` — o relatório diz qual tema falhou
+  const paginas = [];
+  for (const id of Object.keys(sitio.temas)) for (const nomePg of Object.keys(sitio.temas[id])) paginas.push([id + '/' + nomePg, sitio.temas[id][nomePg]]);
   const medidas = [];
   for (const [nomePg, html] of paginas) {
     for (const [w, h, rotulo, telefone] of TELAS) {
-      const cap = (CAPTURAR.indexOf(w) !== -1) ? 'responsivo-' + nomePg + '-' + w : null;
+      const cap = (CAPTURAR.indexOf(w) !== -1) ? 'responsivo-' + nomePg.replace('/', '-') + '-' + w : null;
       const m = await medir(html, w, h, cap);
       medidas.push({ pagina: nomePg, largura: w, rotulo, telefone, m });
     }
@@ -308,8 +316,9 @@ module.exports = async function (ctx, u) {
     const padrao = largas.filter(x => x.pagina.indexOf('-extremo') === -1);
     const maus = padrao.filter(x => x.m.colunaCh < 45 || x.m.colunaCh > 90);
     if (maus.length) throw new Error(resumo(maus, x => `${x.pagina}@${x.largura}: ~${x.m.colunaCh} caracteres (${x.m.colunaPx}px ÷ ${x.m.charPx}px por letra)`));
-    const ex = largas.find(x => x.pagina === 'home-extremo' && x.largura === 1280), pd = padrao.find(x => x.pagina === 'home' && x.largura === 1280);
-    return `padrão ~${pd.m.colunaCh} caracteres (${pd.m.colunaPx}px); largura "larga" com texto grande ~${ex.m.colunaCh} (${ex.m.colunaPx}px, informativo)`;
+    const em1280 = largas.filter(x => x.largura === 1280 && x.pagina.endsWith('/artigo'));
+    return em1280.map(x => `${x.pagina.split('/')[0]} ~${x.m.colunaCh} caracteres (${x.m.colunaPx}px)`).join('; ') + ' — extremos informativos: ' +
+      largas.filter(x => x.largura === 1280 && x.pagina.endsWith('/artigo-extremo')).map(x => `${x.pagina.split('/')[0]} ~${x.m.colunaCh}`).join(', ');
   }, R);
 
   await it('o conteúdo do dono chega ao HTML com imagem remota e tabela (base da medição)', async () => {
@@ -317,7 +326,7 @@ module.exports = async function (ctx, u) {
     if (!sitio.temTabela) throw new Error('a tabela GFM não foi gerada — o pior caso não foi medido');
     const semImagem = medidas.filter(x => x.m.quebradas > 0);
     if (semImagem.length) throw new Error('imagens por carregar na hora de medir: ' + resumo(semImagem, x => `${x.pagina}@${x.largura} ${x.m.quebradas}/${x.m.imagens}`));
-    return `${medidas.length} medições, todas com as ${medidas[0].m.imagens}+ imagens carregadas`;
+    return `${Object.keys(sitio.temas).length} temas (${Object.keys(sitio.temas).join(', ')}), ${medidas.length} medições, todas com as imagens carregadas`;
   }, R);
 
   await p.pg.close();

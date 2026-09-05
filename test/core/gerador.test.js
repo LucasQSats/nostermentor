@@ -196,6 +196,67 @@ module.exports = async function (ctx, u) {
   });
   await it('previaCorpo: CSS embutido (sem <link>), imagem local trocada por data: URI (E4)', () => assert(/<style>/.test(r.previa) && !/<link rel="stylesheet"/.test(r.previa) && /src="data:image\/png;base64,AAAA"/.test(r.previa), r.previa.slice(-300)));
   await it('primeiroParagrafo: texto simples do primeiro <p>', () => assert(r.paragrafo === 'Este é o primeiro parágrafo.', r.paragrafo));
+  // 12 — a troca de tema: `site.theme.id` escolhe; desconhecido cai no
+  // Padrão; e TODO tema registado cumpre o que TEMAS.md exige do pacote —
+  // 8 moldes, CSS sem recurso externo, bytes determinísticos, opções
+  // inválidas descartadas (as mesmas provas que o Padrão já dava).
+  const rt = await p.pg.evaluate(async () => {
+    const out = { temas: {}, ids: Temas.todos().map(t => t.manifesto.id) };
+    const site = Modelo.sitePadrao('a'.repeat(64), 'npub1teste'); site.title = 'Meu Site';
+    const capa = { id: 'm-capa', path: '/img/capa.png', mime: 'image/png', size: 4, sha256: 'b'.repeat(64), width: 1600, height: 900, alt: 'Capa', caption: 'Legenda', bytes: null, status: 'published', servers: [], removal: null, metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload', created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null };
+    const pg = Modelo.novaPagina('Sobre'); pg.id = 'p-1'; pg.status = 'published'; pg.body = 'Olá.\n\n[[botao: Fale -> /contato]]\n\n[[artigos: 2, com-capa]]'; pg.cover_media_id = 'm-capa';
+    const a1 = Modelo.novoArtigo('Um'); a1.id = 'a-1'; a1.date = '2026-08-01T00:00:00Z'; a1.body = 'Corpo um.'; a1.tags = ['receitas']; a1.cover_media_id = 'm-capa'; a1.status = 'published';
+    const a2 = Modelo.novoArtigo('Dois'); a2.id = 'a-2'; a2.date = '2026-08-02T00:00:00Z'; a2.body = 'Corpo dois.'; a2.tags = ['receitas']; a2.status = 'published';
+    site.home = { mode: 'page', page_id: 'p-1', latest_posts: 2 };
+    const MOLDES = ['layout', 'pagina', 'artigo', 'blog', 'etiqueta', 'alias', 'botao', 'galeria'];
+    for (const tema of Temas.todos()) {
+      const id = tema.manifesto.id, m = tema.manifesto;
+      const dados = { site: Object.assign({}, site, { theme: { id: id, version: m.version, options: {} } }), pages: [pg], posts: [a1, a2], media: [capa] };
+      const g = await Gerador.gerarSite(dados);
+      const d2 = JSON.parse(JSON.stringify(dados)); d2.posts.reverse();
+      const g2 = await Gerador.gerarSite(d2);
+      const css = g.arquivos.find(a => a.path === '/tema/estilo.css').texto;
+      // lixo em TODAS as opções do manifesto
+      const lixo = {}; for (const n of Object.keys(m.options)) lixo[n] = '"><style>@import url(https://mau.test/x)';
+      const cssLixo = tema.css(lixo), cssPadrao = tema.css({});
+      const resolvido = tema.resolver(lixo);
+      out.temas[id] = {
+        moldes: MOLDES.filter(k => typeof tema.templates[k] === 'string' && tema.templates[k].length > 10).length,
+        marcador: new RegExp('tema ' + m.nome + ' v' + m.version).test(css),
+        limpo: !/url\(|@import|https?:/.test(css) && !/url\(|@import|https?:|mau\.test|<style/.test(cssLixo),
+        lixoVoltaAoPadrao: cssLixo === cssPadrao,
+        resolvidoTodos: Object.keys(m.options).every(n => resolvido[n] === m.options[n].padrao),
+        determinista: JSON.stringify(g.hashes) === JSON.stringify(g2.hashes),
+        caminhos: g.arquivos.map(a => a.path).sort().join(' '),
+        // `\son[a-z]+=`: atributo de evento, não o "on" de dentro de `content=`
+        semScript: g.arquivos.filter(a => a.mime === 'text/html').every(a => !/<script|\son[a-z]+=|javascript:/i.test(a.texto)),
+        classes: ['cabecalho', 'marca', 'menu', 'principal', 'rodape', 'pagina', 'artigo', 'blog', 'lista-artigos', 'cta', 'botao', 'galeria', 'cartoes', 'cartao'].filter(c => !g.arquivos.some(a => a.mime === 'text/html' && a.texto.indexOf('class="' + c) === -1 && new RegExp('class="[^"]*\\b' + c + '\\b').test(a.texto))).length,
+        home: g.arquivos.find(a => a.path === '/index.html').texto
+      };
+    }
+    const gx = await Gerador.gerarSite({ site: Object.assign({}, site, { theme: { id: 'nao-existe', version: 9, options: {} } }), pages: [pg], posts: [a1, a2], media: [capa] });
+    out.desconhecidoCaiNoPadrao = /tema Padrão v4/.test(gx.arquivos.find(a => a.path === '/tema/estilo.css').texto);
+    out.previaJornal = /tema Jornal v1/.test(Gerador.previa('<link rel="stylesheet" href="/tema/estilo.css">', {}, {}, Temas.porId('jornal')));
+    out.previaSemTema = /tema Padrão v4/.test(Gerador.previa('<link rel="stylesheet" href="/tema/estilo.css">', {}, {}));
+    return out;
+  });
+  await it('12: quatro temas registados (Padrão primeiro), cada um com 8 moldes, CSS limpo, lixo descartado, bytes determinísticos e HTML sem script; id desconhecido cai no Padrão; a prévia usa o tema pedido', () => {
+    assert(rt.ids.join(',') === 'padrao,diario,jornal,moderno', rt.ids.join(','));
+    for (const id of rt.ids) {
+      const t = rt.temas[id];
+      assert(t.moldes === 8, id + ': ' + t.moldes + ' moldes');
+      assert(t.marcador, id + ': o CSS não tem o comentário de versão');
+      assert(t.limpo, id + ': CSS com recurso externo ou lixo');
+      assert(t.lixoVoltaAoPadrao && t.resolvidoTodos, id + ': opção inválida não voltou ao padrão');
+      assert(t.determinista, id + ': bytes diferentes em ordem diferente');
+      assert(t.semScript, id + ': HTML com script');
+      assert(/class="pagina"|class="pagina /.test(t.home) && /class="menu"/.test(t.home) && /class="botao"/.test(t.home) && /class="cartoes"/.test(t.home) && /<a class="marca/.test(t.home), id + ': classes de contrato em falta na capa');
+    }
+    assert(rt.temas.diario.caminhos === rt.temas.padrao.caminhos && rt.temas.jornal.caminhos === rt.temas.padrao.caminhos && rt.temas.moderno.caminhos === rt.temas.padrao.caminhos, 'os caminhos gerados não podem depender do tema');
+    assert(rt.desconhecidoCaiNoPadrao, 'id desconhecido devia cair no Padrão');
+    assert(rt.previaJornal && rt.previaSemTema, 'previa(html, uris, opcoes, tema)');
+    return rt.ids.join(', ') + ' — 8 moldes, CSS limpo e determinístico em todos';
+  });
   await it('sem erros de página/console', () => assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros })));
   R.push({ nome: `hash do site de exemplo neste motor (comparar entre motores): ${r.shaTotal.slice(0, 16)}`, ok: true, detalhe: r.shaTotal, ms: 0 });
   await p.pg.close();

@@ -128,13 +128,13 @@ const Gerador = (function () {
   }
   // 37 — `[[botao: Texto -> /destino]]`. A seta considerada é a ÚLTIMA: é mais
   // provável um rótulo com "->" do que um endereço com "->".
-  function blocoBotao(args) {
+  function blocoBotao(ctx, args) {
     const i = String(args).lastIndexOf('->');
     if (i === -1) return null;
     const rotulo = String(args).slice(0, i).trim();
     const destino = hrefSeguro(String(args).slice(i + 2));
     if (!rotulo || !destino) return null;
-    return Mustache.render(TemaPadrao.templates.botao, { texto: rotulo, href: destino.href, externo: destino.externo });
+    return Mustache.render(temaDe(ctx).templates.botao, { texto: rotulo, href: destino.href, externo: destino.externo });
   }
   // 30 — `[[artigos: 6, com-capa, com-resumo, etiqueta=receitas]]`. Cada pedaço
   // é opcional e o que não se reconhece é ignorado (o marcador continua a
@@ -180,11 +180,11 @@ const Gerador = (function () {
       return { href: item.href, titulo: item.titulo, data: item.data, data_iso: item.data_iso,
         resumo: o.resumo ? item.resumo : '', capa: o.capa ? capaDaGaleria(ctx, post) : null };
     });
-    return Mustache.render(TemaPadrao.templates.galeria, { tem_artigos: artigos.length > 0, artigos: artigos });
+    return Mustache.render(temaDe(ctx).templates.galeria, { tem_artigos: artigos.length > 0, artigos: artigos });
   }
   function blocoHtml(ctx, b) {
     let html = null;
-    if (b.nome === 'botao') html = blocoBotao(b.args);
+    if (b.nome === 'botao') html = blocoBotao(ctx, b.args);
     else if (b.nome === 'artigos' && ctx) html = blocoArtigos(ctx, b.args);
     // Argumentos que não dão bloco nenhum: devolver o que ele escreveu, para o
     // erro aparecer na prévia em vez de a linha desaparecer em silêncio.
@@ -371,7 +371,8 @@ const Gerador = (function () {
     const slugsEtiqueta = new Set(etiquetas.map(e => e.slug));
     const hrefEtiqueta = function (nome) { const sl = Modelo.slug(nome); return sl && slugsEtiqueta.has(sl) ? Modelo.caminhoDe('etiqueta', sl) : null; };
     return { site, pages, posts, media, porIdMedia, homePage, hrefPagina, hrefPost, hrefBlog, menu, mostrarHora, resumoDe, itemLista,
-      etiquetas, hrefEtiqueta, logo: logoDe(site, porIdMedia), opcoes: opcoesDe(site), lang: site.language || 'pt-BR' };
+      etiquetas, hrefEtiqueta, logo: logoDe(site, porIdMedia), opcoes: opcoesDe(site), lang: site.language || 'pt-BR',
+      tema: Temas.de(site) };
   }
 
   // 38 — o logo do cabeçalho. Campo do SITE, não do tema (13 §3): trocar de
@@ -390,12 +391,16 @@ const Gerador = (function () {
   // (06 §5.3): passa o objeto inteiro e é o tema que valida e descarta o que
   // não bate com o manifesto dele.
   function opcoesDe(site) { const t = site && site.theme; return (t && t.options && typeof t.options === 'object') ? t.options : {}; }
+  // 12 — o tema que vai desenhar: pelo `site.theme.id`, via registo
+  // (core/temas.js); desconhecido cai no Padrão. Os blocos recebem `ctx`
+  // nulo quando se renderiza um RESUMO (texto), e aí qualquer tema serve.
+  function temaDe(ctx) { return (ctx && ctx.tema) || Temas.padrao(); }
 
   function layout(ctx, o) {
     preparar();
     const site = ctx.site;
     const doacoes = (site.donations && site.donations.support_block && site.donations.lightning_address) ? { lightning_address: site.donations.lightning_address } : null;
-    return Mustache.render(TemaPadrao.templates.layout, {
+    return Mustache.render(ctx.tema.templates.layout, {
       lang: ctx.lang, titulo_pagina: o.tituloPagina, descricao: o.descricao || '', site_titulo: site.title || '', logo: ctx.logo,
       menu: ctx.menu.map(m => ({ href: m.href, rotulo: m.rotulo, externo: m.externo, atual: !!o.atualId && m.id === o.atualId })),
       conteudo: o.conteudo, doacoes: doacoes, credito: !(site.donations && site.donations.footer_credit === false)
@@ -415,7 +420,7 @@ const Gerador = (function () {
     const ehHome = ctx.homePage && page.id === ctx.homePage.id;
     const n = ehHome ? (Number.isInteger(ctx.site.home.latest_posts) ? ctx.site.home.latest_posts : 0) : 0;
     const ultimos = n > 0 ? { blog_titulo: (ctx.site.blog && ctx.site.blog.title) || 'Blog', blog_href: ctx.hrefBlog, artigos: ctx.posts.slice(0, n).map(ctx.itemLista) } : null;
-    const conteudo = Mustache.render(TemaPadrao.templates.pagina, { titulo: page.title, corpo: corpo, ultimos: ultimos, capa: capaDe(ctx, page) });
+    const conteudo = Mustache.render(ctx.tema.templates.pagina, { titulo: page.title, corpo: corpo, ultimos: ultimos, capa: capaDe(ctx, page) });
     return layout(ctx, { tituloPagina: ehHome ? (ctx.site.title || page.title) : tituloPagina(ctx, page.title), descricao: page.description || (ehHome ? ctx.site.description : '') || primeiroParagrafo(corpo), conteudo: conteudo, atualId: page.id });
   }
   function htmlArtigo(ctx, post) {
@@ -425,12 +430,12 @@ const Gerador = (function () {
     // não produz slug ("!!!"), continua `<span>`: um href vazio seria pior que
     // não haver link.
     const tags = Array.isArray(post.tags) ? post.tags.filter(t => typeof t === 'string' && t).map(t => ({ nome: t, href: ctx.hrefEtiqueta(t) })) : [];
-    const conteudo = Mustache.render(TemaPadrao.templates.artigo, Object.assign({ titulo: post.title, corpo: corpo, tem_tags: tags.length > 0, tags: tags, capa: capa }, datas(post.date, ctx.mostrarHora)));
+    const conteudo = Mustache.render(ctx.tema.templates.artigo, Object.assign({ titulo: post.title, corpo: corpo, tem_tags: tags.length > 0, tags: tags, capa: capa }, datas(post.date, ctx.mostrarHora)));
     return layout(ctx, { tituloPagina: tituloPagina(ctx, post.title), descricao: post.description || ctx.resumoDe(post), conteudo: conteudo, atualId: 'blog' });
   }
   function htmlBlog(ctx, ehHome) {
     const titulo = (ctx.site.blog && ctx.site.blog.title) || 'Blog';
-    const conteudo = Mustache.render(TemaPadrao.templates.blog, { blog_titulo: titulo, tem_artigos: ctx.posts.length > 0, artigos: ctx.posts.map(ctx.itemLista) });
+    const conteudo = Mustache.render(ctx.tema.templates.blog, { blog_titulo: titulo, tem_artigos: ctx.posts.length > 0, artigos: ctx.posts.map(ctx.itemLista) });
     return layout(ctx, { tituloPagina: ehHome ? (ctx.site.title || titulo) : tituloPagina(ctx, titulo), descricao: ctx.site.description || '', conteudo: conteudo, atualId: 'blog' });
   }
   // 40 — a página de uma etiqueta. Os artigos vêm da ordem de `ctx.posts`
@@ -439,13 +444,13 @@ const Gerador = (function () {
   function htmlEtiqueta(ctx, et) {
     const ids = new Set(et.ids);
     const artigos = ctx.posts.filter(p => ids.has(p.id)).map(ctx.itemLista);
-    const conteudo = Mustache.render(TemaPadrao.templates.etiqueta, {
+    const conteudo = Mustache.render(ctx.tema.templates.etiqueta, {
       etiqueta: et.nome, blog_titulo: (ctx.site.blog && ctx.site.blog.title) || 'Blog', blog_href: ctx.hrefBlog,
       tem_artigos: artigos.length > 0, artigos: artigos
     });
     return layout(ctx, { tituloPagina: tituloPagina(ctx, 'Etiqueta: ' + et.nome), descricao: '', conteudo: conteudo, atualId: 'blog' });
   }
-  function htmlAlias(ctx, titulo, destino) { preparar(); return Mustache.render(TemaPadrao.templates.alias, { lang: ctx.lang, titulo: titulo, destino: destino }); }
+  function htmlAlias(ctx, titulo, destino) { preparar(); return Mustache.render(ctx.tema.templates.alias, { lang: ctx.lang, titulo: titulo, destino: destino }); }
 
   // HTML de um registro (para "Ver como ficará" e para o published_hash)
   function htmlDe(dados, registro, tipo) {
@@ -480,7 +485,7 @@ const Gerador = (function () {
     // abaixo faz o PRIMEIRO caminho ganhar, e um artigo nunca pode perder o
     // seu endereço para uma etiqueta.
     for (const et of ctx.etiquetas) add(Modelo.caminhoDe('etiqueta', et.slug), htmlEtiqueta(ctx, et), 'text/html', 'etiqueta', null, true);
-    add(caminhoCss(), TemaPadrao.css(ctx.opcoes), 'text/css', 'tema', null);
+    add(caminhoCss(), ctx.tema.css(ctx.opcoes), 'text/css', 'tema', null);
     add(Modelo.caminhoDe('site_json'), SiteJson.escrever({ site: ctx.site, pages: ctx.pages, posts: ctx.posts, media: ctx.media.filter(m => m.origin !== 'network') }), 'application/json', 'site_json', null);
     // caminhos únicos: um alias nunca pode sobrepor um caminho real (o primeiro vence — páginas e artigos entram antes dos seus aliases)
     const vistos = new Set(), unicos = [];
@@ -500,8 +505,8 @@ const Gerador = (function () {
     const rot = String(src).slice(0, 60).replace(/[<>&"']/g, '');
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120"><rect width="100%" height="100%" fill="#dcdcde"/><text x="50%" y="50%" font-family="sans-serif" font-size="13" fill="#50575e" text-anchor="middle" dominant-baseline="middle">' + rot + '</text></svg>');
   }
-  function previa(html, dataUris, opcoes) {
-    let s = html.replace(linkCss(), '<style>\n' + TemaPadrao.css(opcoes) + '</style>');
+  function previa(html, dataUris, opcoes, tema) {
+    let s = html.replace(linkCss(), '<style>\n' + (tema || Temas.padrao()).css(opcoes) + '</style>');
     s = s.replace(/(<img\b[^>]*\bsrc=")([^"]*)(")/g, function (tudo, a, src, z) {
       if (dataUris && dataUris[src]) return a + dataUris[src] + z;
       if (/^data:/i.test(src)) return tudo;
@@ -512,12 +517,12 @@ const Gerador = (function () {
   // Só o corpo (o editor, enquanto se digita): artigo/página mínimos com o CSS
   // do tema. `ctx` (opcional) é o que faz a galeria aparecer na prévia lateral
   // com os artigos reais — sem ele o marcador desenha vazio.
-  function previaCorpo(titulo, markdown, dataUris, opcoes, ctx) {
+  function previaCorpo(titulo, markdown, dataUris, opcoes, ctx, tema) {
     const corpo = renderizarCorpo(markdown, ctx || null);
     const html = '<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n<title>' + escapar(titulo) + '</title>\n' + linkCss() + '\n</head>\n<body>\n<main class="principal">\n<article class="pagina">\n<h1>' + escapar(titulo) + '</h1>\n' + corpo + '\n</article>\n</main>\n</body>\n</html>\n';
-    return previa(html, dataUris, opcoes);
+    return previa(html, dataUris, opcoes, tema || (ctx && ctx.tema) || null);
   }
 
-  return Object.freeze({ caminhoCss, PURIFY, escapar, imagensClicaveis, renderizarCorpo, primeiroParagrafo, sha256Hex, contexto, opcoesDe, htmlDe, gerarSite, previa, previaCorpo,
+  return Object.freeze({ caminhoCss, PURIFY, escapar, imagensClicaveis, renderizarCorpo, primeiroParagrafo, sha256Hex, contexto, opcoesDe, temaDe, htmlDe, gerarSite, previa, previaCorpo,
     extrairBlocos, hrefSeguro, opcoesArtigos, temGaleria, BLOCOS, limparHtmlColado, grupoRemovido });
 })();

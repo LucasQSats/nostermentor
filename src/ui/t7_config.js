@@ -276,11 +276,22 @@
       const C = T.aparencia;
       rascunho.theme = Object.assign({ id: 'padrao', version: 1, options: {} }, rascunho.theme || {});
       if (!rascunho.theme.options || typeof rascunho.theme.options !== 'object') rascunho.theme.options = {};
-      painel.appendChild(h('p', { id: 't7-tema' }, C.tema + ': ' + (TemaPadrao.manifesto.nome || C.temaAtual)));
-      // `theme.version` fica no que estava: é a versão do tema com que o site
-      // foi gravado, e hoje ninguém a lê — quem vai passar a lê-la é a troca de
-      // tema (pendência 12). Sincronizá-la agora sujaria todos os sites que
-      // existem por uma comparação que ninguém faz.
+      // 12 — a troca de tema. A lista vem do registo (core/temas.js); o
+      // escolhido vai para `site.theme.id`, a `version` passa a ser a do
+      // manifesto dele e as opções voltam a vazio — são do tema, não do site.
+      // Ficar no mesmo tema não toca em nada (a `version` gravada é a do tema
+      // com que o site foi publicado, e só a troca a atualiza).
+      const temaAtual = Temas.de(rascunho);
+      const selTema = h('select', { id: 't7-tema-escolha' }, Temas.todos().map(t => h('option', { value: t.manifesto.id, selected: t.manifesto.id === temaAtual.manifesto.id }, t.manifesto.nome)));
+      selTema.value = temaAtual.manifesto.id;
+      selTema.addEventListener('change', function () {
+        const t = Temas.porId(selTema.value); if (!t) return;
+        rascunho.theme = { id: t.manifesto.id, version: t.manifesto.version, options: {} };
+        marcarSujo(); render();
+      });
+      painel.appendChild(h('div', {}, h('label', { for: 't7-tema-escolha' }, C.tema), selTema,
+        h('span', { id: 't7-tema' }, ' ' + C.tema + ': ' + temaAtual.manifesto.nome), h('p', { class: 'apoio' }, C.temaApoio)));
+      if (!Temas.conhecido(rascunho)) painel.appendChild(h('p', { class: 'alerta', id: 't7-tema-desconhecido' }, texto(C.temaDesconhecido, { id: rascunho.theme.id })));
 
       // --- 38: o logo do cabeçalho ------------------------------------------
       // Campo do SITE (13 §3), não do tema: trocar de tema não pode apagar a
@@ -307,7 +318,7 @@
       // nome de opção nenhum — só sabe desenhar os TIPOS (`escolha`, `cor`,
       // `medida`, texto). Um tema de terceiro que declare outras opções cai
       // aqui sem uma linha nova. Quem valida o VALOR é o tema, ao montar o CSS.
-      const opcoes = TemaPadrao.manifesto.options || {};
+      const opcoes = temaAtual.manifesto.options || {};
       const nomes = Object.keys(opcoes);
       if (!nomes.length) painel.appendChild(h('p', { class: 'apoio', id: 't7-tema-sem-opcoes' }, C.semOpcoes));
       else {
@@ -374,7 +385,7 @@
         } catch (e) { html = null; }
         if (!html) { Shell.modal({ titulo: C.previaTitulo, conteudo: h('p', { class: 'apoio' }, C.previaVazia) }); return; }
         const iframe = h('iframe', { id: 'previa-completa', sandbox: 'allow-scripts', title: C.previaTitulo });
-        iframe.srcdoc = Gerador.previa(html, await Editor.dataUrisDe(midias), Gerador.opcoesDe(rascunho));
+        iframe.srcdoc = Gerador.previa(html, await Editor.dataUrisDe(midias), Gerador.opcoesDe(rascunho), Temas.de(rascunho));
         Shell.modal({ titulo: C.previaTitulo, conteudo: iframe, largo: true });
       }
     }
