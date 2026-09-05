@@ -146,7 +146,7 @@ module.exports = async function (ctx, u) {
     return 'os cinco atalhos chegam onde 14 T3 diz';
   });
 
-  await it('endereços (14 T3 cartão 5): os TRÊS gateways, cada um com o endereço completo e um QR gerado aqui dentro — desenhado, com zona de silêncio, e sem buscar nada de fora', async () => {
+  await it('endereços (14 T3 cartão 5): os TRÊS gateways, cada um com o endereço completo e um QR gerado aqui dentro — desenhado, com zona de silêncio, sem buscar nada de fora; e "Copiar" nunca fica mudo', async () => {
     f.relay('a-vazio-qr', { modo: 'vazio', eventos: [] });
     const { p, ch } = await siteNovo([f.ws('a-vazio-qr')]);
     await irAoInicio(p.pg);
@@ -199,6 +199,16 @@ module.exports = async function (ctx, u) {
     assert(margens.every(x => x === 0), 'há módulo pintado na zona de silêncio: ' + JSON.stringify(margens));
     assert(e.imagens === 0, 'o cartão tem <img> — o QR tem de ser desenhado aqui, não buscado');
     assert(/nunca foi publicado/.test(e.aviso), e.aviso);
+    // "Copiar endereço" é um botão que o dono vai carregar no Tor Browser, e
+    // ali a área de transferência pode simplesmente não estar disponível. O
+    // que se exige NÃO é que a cópia funcione — é que a tela **diga qual dos
+    // dois aconteceu** e nunca fique muda: silêncio depois de um clique é o
+    // pior desfecho, porque ele não sabe se copiou.
+    await p.pg.click('#cartao-enderecos li.endereco:first-child .copiar-endereco');
+    await p.pg.waitForSelector('#cartao-enderecos li.endereco:first-child .endereco-aviso:not([hidden])', { timeout: 5000 });
+    const copiaDiz = (await p.pg.textContent('#cartao-enderecos li.endereco:first-child .endereco-aviso')).trim();
+    assert(copiaDiz === 'Endereço copiado.' || copiaDiz === 'Não consegui copiar. Selecione o endereço e copie à mão.',
+      'a tela não disse o que aconteceu ao copiar: ' + JSON.stringify(copiaDiz));
     // 54 — o painel inteiro estoura a 320 px desde antes deste cartão, e se
     // ele é para telefone ou só para computador é decisão de produto por
     // tomar. Aqui não se julga isso: mede-se se o cartão novo PIOROU o
@@ -234,7 +244,7 @@ module.exports = async function (ctx, u) {
       + larguras[320].scroll + ' com o cartão e ' + larguras[320].semOCartao + ' sem ele (54: o estouro não é dele)';
   });
 
-  await it('cartões 2, 3 e 5 (14 T3): contagens por estado, backup vermelho com "N não exportadas" e a linha da mídia só local, e os CINCO artigos mais recentes por data com o estado e "editar"', async () => {
+  await it('cartões 2, 3 e 6 (14 T3): contagens por estado, backup vermelho com "N não exportadas" e a linha da mídia só local, e os CINCO artigos mais recentes por data com o estado e "editar"', async () => {
     f.relay('b-vazio', { modo: 'vazio', eventos: [] });
     const { p, ch } = await siteNovo([f.ws('b-vazio')]);
     await p.pg.evaluate(async (pubkey) => {
