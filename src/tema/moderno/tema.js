@@ -139,15 +139,11 @@ const TemaModerno = (function () {
 
   function resolver(opcoes) { return Temas.resolver(options, opcoes); }
 
-  function paraRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
-  function paraHex(c) { return '#' + c.map(n => n.toString(16).padStart(2, '0')).join(''); }
-  function brilho(c) { return Math.round((299 * c[0] + 587 * c[1] + 114 * c[2]) / 1000); }
-  function misturar(a, b, p) { return [0, 1, 2].map(i => Math.round((a[i] * (100 - p) + b[i] * p) / 100)); }
-  function legivelSobre(acento, fundo) {
-    const alvo = brilho(fundo) >= 128 ? [0, 0, 0] : [255, 255, 255], bf = brilho(fundo);
-    for (let p = 0; p <= 100; p += 5) { const c = misturar(acento, alvo, p); if (Math.abs(brilho(c) - bf) >= 125) return c; }
-    return alvo;
-  }
+  // As contas de cor vivem no registo (`Temas.cor`, core/temas.js): estavam
+  // copiadas dentro de cada tema e mudaram de sítio em 2026-09-05, quando o
+  // app passou a ter 21 temas. Mesma fórmula inteira, mesmos bytes.
+  const C = Temas.cor;
+  const paraRgb = C.paraRgb, paraHex = C.paraHex, brilho = C.brilho, legivelSobre = C.legivelSobre;
 
   const CLARO = { fundo: '#ffffff', tinta: '#0f172a', suave: '#64748b', linha: '#e2e8f0', bloco: '#f1f5f9', cartao: '#ffffff', sombra: 'rgba(15,23,42,.08)' };
   const ESCURO = { fundo: '#0b1020', tinta: '#e5e7eb', suave: '#9ca3af', linha: '#1f2937', bloco: '#111827', cartao: '#111827', sombra: 'rgba(0,0,0,.5)' };

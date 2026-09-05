@@ -81,140 +81,12 @@ const TemaPadrao = (function () {
     options: options
   });
 
-  // Layout de toda página HTML. Contexto (todo pré-calculado pelo gerador —
-  // logic-less): lang, titulo_pagina, descricao, site_titulo, logo {src, alt,
-  // largura, altura} | null, menu[] {href, rotulo, externo, atual}, conteudo
-  // (HTML já sanitizado), doacoes {lightning_address} | null, credito (bool).
-  // 38 — o logo SUBSTITUI o título no cabeçalho e o título vai para o `alt`:
-  // o leitor vê a marca, o buscador e o leitor de ecrã continuam a ler o nome
-  // do site (03 §1.1). Sem logo, o cabeçalho é o texto de sempre.
-  const layout = [
-    '<!doctype html>',
-    '<html lang="{{lang}}">',
-    '<head>',
-    '<meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    '<title>{{titulo_pagina}}</title>',
-    '{{#descricao}}<meta name="description" content="{{descricao}}">',
-    '{{/descricao}}<link rel="stylesheet" href="/tema/estilo.css">',
-    '</head>',
-    '<body>',
-    '<header class="cabecalho">',
-    '{{#logo}}<a class="marca marca-logo" href="/index.html"><img src="{{src}}" alt="{{alt}}"{{#largura}} width="{{largura}}" height="{{altura}}"{{/largura}}></a>',
-    '{{/logo}}{{^logo}}<a class="marca" href="/index.html">{{site_titulo}}</a>',
-    '{{/logo}}<nav class="menu" aria-label="Menu">{{#menu}}<a href="{{href}}"{{#externo}} rel="external noopener noreferrer"{{/externo}}{{#atual}} aria-current="page"{{/atual}}>{{rotulo}}</a>{{/menu}}</nav>',
-    '</header>',
-    '<main class="principal">',
-    '{{{conteudo}}}',
-    '</main>',
-    '<footer class="rodape">',
-    '{{#doacoes}}<section class="apoie"><h2>Apoie este site</h2><p>Endereço Lightning: <code>{{lightning_address}}</code></p></section>',
-    '{{/doacoes}}{{#credito}}<p class="credito">Publicado com Nostermentor</p>',
-    '{{/credito}}</footer>',
-    '</body>',
-    '</html>',
-    ''
-  ].join('\n');
-
-  // Página fixa. Contexto: titulo, corpo (HTML sanitizado), ultimos
-  // {blog_titulo, blog_href, artigos[] {href, titulo, data, data_iso}} | null,
-  // capa {src, alt, largura, altura, legenda} | null.
-  // 35 — a capa CHEGA aqui e este tema não a desenha, de propósito: a decisão
-  // do dono (2026-08-31) é que ela seja dado para os temas que virão. Um tema
-  // que a queira só precisa de acrescentar o bloco `{{#capa}}`.
-  const pagina = [
-    '<article class="pagina">',
-    '<h1>{{titulo}}</h1>',
-    '{{{corpo}}}',
-    '</article>',
-    '{{#ultimos}}<section class="ultimos">',
-    '<h2>{{blog_titulo}}</h2>',
-    '<ul class="lista-artigos">{{#artigos}}<li><a href="{{href}}">{{titulo}}</a> <time datetime="{{data_iso}}">{{data}}</time></li>',
-    '{{/artigos}}</ul>',
-    '<p><a href="{{blog_href}}">Todos os artigos</a></p>',
-    '</section>',
-    '{{/ultimos}}',
-    ''
-  ].join('\n');
-
-  // Artigo. Contexto: titulo, data, data_iso, tem_tags, tags[] {nome},
-  // capa {src, alt, largura, altura, legenda} | null, corpo.
-  const artigo = [
-    '<article class="artigo">',
-    '<h1>{{titulo}}</h1>',
-    '<p class="meta"><time datetime="{{data_iso}}">{{data}}</time>{{#tem_tags}} · {{#tags}}{{#href}}<a class="etiqueta" href="{{href}}">{{nome}}</a>{{/href}}{{^href}}<span class="etiqueta">{{nome}}</span>{{/href}} {{/tags}}{{/tem_tags}}</p>',
-    '{{#capa}}<figure class="capa"><a class="ampliar" href="{{src}}" target="_blank" rel="noopener"><img src="{{src}}" alt="{{alt}}"{{#largura}} width="{{largura}}" height="{{altura}}"{{/largura}}></a>{{#legenda}}<figcaption>{{legenda}}</figcaption>{{/legenda}}</figure>',
-    '{{/capa}}{{{corpo}}}',
-    '</article>',
-    ''
-  ].join('\n');
-
-  // Listagem do blog. Contexto: blog_titulo, tem_artigos, artigos[]
-  // {href, titulo, data, data_iso, resumo}.
-  const blog = [
-    '<section class="blog">',
-    '<h1>{{blog_titulo}}</h1>',
-    '{{^tem_artigos}}<p class="vazio">Nenhum artigo ainda.</p>',
-    '{{/tem_artigos}}<ul class="lista-artigos">{{#artigos}}<li><h2><a href="{{href}}">{{titulo}}</a></h2><p class="meta"><time datetime="{{data_iso}}">{{data}}</time></p>{{#resumo}}<p class="resumo">{{resumo}}</p>{{/resumo}}</li>',
-    '{{/artigos}}</ul>',
-    '</section>',
-    ''
-  ].join('\n');
-
-  // 40 — a página de uma etiqueta: `/blog/etiqueta/<slug>.html`. Contexto:
-  // etiqueta (o nome a mostrar), blog_titulo, blog_href, tem_artigos,
-  // artigos[] {href, titulo, data, data_iso, resumo}. É a listagem do blog
-  // filtrada — de propósito com a mesma classe `.blog`, para um tema que
-  // desenhe a listagem receber esta de graça.
-  const etiqueta = [
-    '<section class="blog etiqueta-pagina">',
-    '<h1>Etiqueta: {{etiqueta}}</h1>',
-    '{{^tem_artigos}}<p class="vazio">Nenhum artigo com esta etiqueta.</p>',
-    '{{/tem_artigos}}<ul class="lista-artigos">{{#artigos}}<li><h2><a href="{{href}}">{{titulo}}</a></h2><p class="meta"><time datetime="{{data_iso}}">{{data}}</time></p>{{#resumo}}<p class="resumo">{{resumo}}</p>{{/resumo}}</li>',
-    '{{/artigos}}</ul>',
-    '<p><a href="{{blog_href}}">{{blog_titulo}}</a></p>',
-    '</section>',
-    ''
-  ].join('\n');
-
-  // 37 — o CTA. Contexto: texto, href, externo. É LINK com aparência de botão:
-  // o gerador já validou que o href é do próprio site ou http(s) (nada aqui
-  // passa pelo DOMPurify, porque molde de tema é dado do app, não do dono).
-  const botao = [
-    '<p class="cta"><a class="botao" href="{{href}}"{{#externo}} rel="external noopener noreferrer"{{/externo}}>{{texto}}</a></p>',
-    ''
-  ].join('\n');
-
-  // 30 — a galeria de artigos, o bloco que o marcador `[[artigos: …]]` produz.
-  // Contexto: tem_artigos, artigos[] {href, titulo, data, data_iso, resumo,
-  // capa {src, alt, largura, altura, href} | null}. Sem JS: é grelha CSS e
-  // links (clicável sim, carrossel não — 06 §5.3.2 (c)).
-  const galeria = [
-    '<section class="galeria">',
-    '{{^tem_artigos}}<p class="vazio">Nenhum artigo ainda.</p>',
-    '{{/tem_artigos}}<ul class="cartoes">{{#artigos}}<li class="cartao">{{#capa}}<a class="cartao-capa" href="{{href}}"><img src="{{src}}" alt="{{alt}}"{{#largura}} width="{{largura}}" height="{{altura}}"{{/largura}} loading="lazy"></a>',
-    '{{/capa}}<h3 class="cartao-titulo"><a href="{{href}}">{{titulo}}</a></h3><p class="meta"><time datetime="{{data_iso}}">{{data}}</time></p>{{#resumo}}<p class="resumo">{{resumo}}</p>{{/resumo}}</li>',
-    '{{/artigos}}</ul>',
-    '</section>',
-    ''
-  ].join('\n');
-
-  // Stub de redirecionamento para caminhos antigos (13 §4.0 aliases; L1 de 08).
-  // Contexto: lang, titulo, destino.
-  const alias = [
-    '<!doctype html>',
-    '<html lang="{{lang}}">',
-    '<head>',
-    '<meta charset="utf-8">',
-    '<meta http-equiv="refresh" content="0; url={{destino}}">',
-    '<title>{{titulo}}</title>',
-    '</head>',
-    '<body>',
-    '<p>Esta página mudou de endereço: <a href="{{destino}}">{{destino}}</a></p>',
-    '</body>',
-    '</html>',
-    ''
-  ].join('\n');
+  // Os oito moldes deste tema são os MOLDES BASE do app (`Temas.moldes`, em
+  // core/temas.js): estavam aqui e mudaram de sítio em 2026-09-05, byte a
+  // byte, quando o app passou de quatro para vinte e um temas. O Padrão usa-os
+  // como estão — é dele que saíram —, e qualquer tema pode partir deles e
+  // trocar só o molde que quiser. As classes que a folha de estilo abaixo
+  // persegue são as que esses moldes escrevem (TEMAS.md §5).
 
   // --- opções → valores seguros -------------------------------------------
   // Regra 1 do cabeçalho: nada que não bate com o manifesto entra no CSS.
@@ -239,28 +111,15 @@ const TemaPadrao = (function () {
   }
 
   // --- cor: só inteiros (regra 2 do cabeçalho) ----------------------------
-  const BRANCO = [255, 255, 255], PRETO = [0, 0, 0];
-  // 125 é o limiar de "brightness difference" da técnica AERT do W3C — número
-  // conhecido, não inventado aqui. Escolhido por ser calculável só com
-  // inteiros: o critério da WCAG 2 (razão de contraste 4,5:1) precisa de
-  // `Math.pow(x, 2.4)`, cuja precisão a spec do JS NÃO fixa — e isto entra em
-  // arquivo publicado, onde os bytes têm de bater entre motores (13 §5.2).
-  const DISTANCIA_MIN = 125;
-  const CLARO = 128;                    // meio da escala: acima disto a cor pede texto preto
-  function paraRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
-  function paraHex(c) { return '#' + c.map(n => n.toString(16).padStart(2, '0')).join(''); }
-  function brilho(c) { return Math.round((299 * c[0] + 587 * c[1] + 114 * c[2]) / 1000); }
-  function misturar(a, b, p) { return [0, 1, 2].map(i => Math.round((a[i] * (100 - p) + b[i] * p) / 100)); }
-  // Afasta o acento do fundo em passos de 5% até dar para ler. Determinístico
-  // e limitado: no pior caso devolve o extremo (preto ou branco).
-  function legivelSobre(acento, fundo) {
-    const alvo = brilho(fundo) >= CLARO ? PRETO : BRANCO, bf = brilho(fundo);
-    for (let p = 0; p <= 100; p += 5) {
-      const c = misturar(acento, alvo, p);
-      if (Math.abs(brilho(c) - bf) >= DISTANCIA_MIN) return c;
-    }
-    return alvo;
-  }
+  // As funções e as duas constantes que as regem (125, o limiar de
+  // "brightness difference" da técnica AERT do W3C; 128, o meio da escala)
+  // viviam aqui e passaram para `Temas.cor` em 2026-09-05, quando o app foi
+  // de 4 para 21 temas e cada um trazia a sua cópia. A fórmula é a mesma,
+  // inteira, e os bytes gerados são os mesmos — conferido pelo sha256 do
+  // site de exemplo da suíte, que não mudou.
+  const C = Temas.cor;
+  const CLARO = C.CLARO;
+  const paraRgb = C.paraRgb, paraHex = C.paraHex, brilho = C.brilho, legivelSobre = C.legivelSobre;
 
   // --- tabelas de valor: escolha → CSS ------------------------------------
   const ESQUEMAS = {
@@ -384,6 +243,6 @@ const TemaPadrao = (function () {
     ].join('\n');
   }
 
-  return Object.freeze({ manifesto, templates: Object.freeze({ layout, pagina, artigo, blog, etiqueta, alias, botao, galeria }), css, resolver });
+  return Object.freeze({ manifesto, templates: Temas.moldes, css, resolver });
 })();
 Temas.registar(TemaPadrao);

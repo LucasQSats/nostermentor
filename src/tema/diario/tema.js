@@ -140,16 +140,11 @@ const TemaDiario = (function () {
 
   function resolver(opcoes) { return Temas.resolver(options, opcoes); }
 
-  // cor: só inteiros (TEMAS.md §9)
-  function paraRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
-  function paraHex(c) { return '#' + c.map(n => n.toString(16).padStart(2, '0')).join(''); }
-  function brilho(c) { return Math.round((299 * c[0] + 587 * c[1] + 114 * c[2]) / 1000); }
-  function misturar(a, b, p) { return [0, 1, 2].map(i => Math.round((a[i] * (100 - p) + b[i] * p) / 100)); }
-  function legivelSobre(acento, fundo) {
-    const alvo = brilho(fundo) >= 128 ? [0, 0, 0] : [255, 255, 255], bf = brilho(fundo);
-    for (let p = 0; p <= 100; p += 5) { const c = misturar(acento, alvo, p); if (Math.abs(brilho(c) - bf) >= 125) return c; }
-    return alvo;
-  }
+  // As contas de cor vivem no registo (`Temas.cor`, core/temas.js): estavam
+  // copiadas dentro de cada tema e mudaram de sítio em 2026-09-05, quando o
+  // app passou a ter 21 temas. Mesma fórmula inteira, mesmos bytes.
+  const C = Temas.cor;
+  const paraRgb = C.paraRgb, paraHex = C.paraHex, brilho = C.brilho, legivelSobre = C.legivelSobre;
 
   const TONS = {
     branco: { papel: '#ffffff', pauta: '#c9d6ea', tinta: '#1d2327', suave: '#5f6670' },
