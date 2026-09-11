@@ -5,6 +5,8 @@
 //      download chave-<npub8>.txt, "Entrar" só depois;
 //   3. a nsec não fica em localStorage/IndexedDB/URL/título/DOM depois de
 //      "Entrar" (varredura), nem depois de "Trancar".
+// E, desde 2026-09-11 (troca para a paleta Tinta): todo botão ATIVO da barra
+// do topo tem contraste de texto >= 4,5:1, nos dois estados do contador.
 const fs = require('fs');
 const { abrir, varrer, nsecDeTeste, coletor, assert } = require('../util.js');
 
@@ -270,6 +272,42 @@ module.exports = async function (ctx, u) {
     assert(m2.larguraDoc <= m2.janela && m2.botaoVisivel, 'moldura: ' + JSON.stringify(m2));
     await p.pg.close();
     return `T1 ${m1.larguraDoc}px, moldura ${m2.larguraDoc}px em janela de ${m1.janela}px`;
+  });
+
+
+  // Nasceu da troca de paleta de 2026-09-11: o botão "Backup em dia" tinha o
+  // texto com a MESMA cor do fundo (o `.ok` da cor do texto e o `.contador.ok`
+  // do fundo passaram a usar o mesmo token) — e antes disso já estava em 1,88:1.
+  // Nenhum caso media cor; só a captura apanhou. Botão desativado fica de fora
+  // (a WCAG isenta-o, e o painel pinta-o a 50 %).
+  await it('barra do topo: todo botão ativo tem contraste de texto >= 4,5:1 — com "Backup em dia" e depois com um rascunho por publicar', async () => {
+    const p = await abrir(ctx, u.url);
+    await p.pg.click('#btn-gerar'); await p.pg.check('#copiei'); await p.pg.click('#entrar-nova');
+    await p.pg.waitForSelector('#moldura');
+    const medir = () => p.pg.evaluate(() => {
+      const rgb = (s) => { const m = /rgba?\(([^)]+)\)/.exec(s || ''); if (!m) return null; const v = m[1].split(',').map(Number); return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 }; };
+      const lin = (x) => { x /= 255; return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+      const lum = (c) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+      const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+      const chao = rgb(getComputedStyle(document.getElementById('barra')).backgroundColor);
+      return Array.from(document.querySelectorAll('#barra button')).filter(b => !b.disabled && b.offsetParent !== null).map(b => {
+        const cs = getComputedStyle(b); let fundo = rgb(cs.backgroundColor);
+        if (!fundo || fundo.a === 0) fundo = chao;
+        return { id: b.id, classe: b.className, texto: b.textContent.trim(), contraste: Math.round(cr(rgb(cs.color), fundo) * 100) / 100 };
+      });
+    });
+    const inicio = await medir();
+    await p.pg.click('#menu .item[data-tela="t5"]'); await p.pg.waitForSelector('#novo-registro');
+    await p.pg.click('#novo-registro'); await p.pg.fill('#ed-titulo', 'Contraste da barra'); await p.pg.click('#ed-salvar');
+    await p.pg.waitForFunction(() => /pendente/.test(document.getElementById('btn-backup').className));
+    const depois = await medir();
+    const backup = (l) => l.find(b => b.id === 'btn-backup') || {};
+    assert(/\bok\b/.test(backup(inicio).classe) && /pendente/.test(backup(depois).classe), 'o caso não viu os dois estados do contador: ' + JSON.stringify({ inicio, depois }));
+    const ruins = inicio.concat(depois).filter(b => !(b.contraste >= 4.5));
+    assert(ruins.length === 0, 'contraste abaixo de 4,5:1 — ' + JSON.stringify(ruins));
+    await p.pg.close();
+    const min = Math.min(...inicio.concat(depois).map(b => b.contraste));
+    return `${inicio.length} botões no início, ${depois.length} com rascunho; menor contraste ${min}:1`;
   });
 
   return R;

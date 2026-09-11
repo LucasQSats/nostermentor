@@ -14,13 +14,13 @@
      navegador que não entender SVG fica sem ícone, que é o que já acontece
      hoje. A letra é um caminho, não um `<text>`: dentro de um favicon não há
      garantia de fonte nenhuma. -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='12'%20fill='%232271b1'/%3E%3Cpath%20d='M16%2048V16h8l16%2022V16h8v32h-8l-16-22v22z'%20fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='12'%20fill='%232a3f7e'/%3E%3Cpath%20d='M16%2048V16h8l16%2022V16h8v32h-8l-16-22v22z'%20fill='%23fff'/%3E%3C/svg%3E">
 <style>
-:root{--fundo:#f4f5f7;--papel:#fff;--tinta:#1d2327;--suave:#646970;--linha:#dcdcde;--acento:#2271b1;--acento-escuro:#135e96;--erro:#b32d2e;--erro-fundo:#fcf0f1;--alerta-fundo:#fcf9e8;--alerta-borda:#dba617;--ok:#00a32a}
+:root{--fundo:#f7f4ee;--papel:#fff;--tinta:#1c1b19;--suave:#5f5a51;--linha:#e2dcd0;--acento:#2a3f7e;--acento-escuro:#1d2c5c;--erro:#931a26;--erro-fundo:#fae5e7;--erro-borda:#efb1b8;--erro-escuro:#701420;--alerta:#8f6400;--alerta-fundo:#faf4e5;--alerta-borda:#d4a23a;--ok:#1b7e5d;--ok-fundo:#e6faf3;--ok-borda:#9ed8c3;--destaque:#eceff7;--borda-campo:#8a8478;--rascunho-fundo:#edeae3;--cabecalho-tabela:#f3f0ea;--barra:#18203a;--barra-txt:#eef0f6;--barra-suave:#bfc6da;--marca-clara:#aebdea}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%}
 body{background:var(--fundo);color:var(--tinta);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Noto Sans",sans-serif}
-#semjs{max-width:760px;margin:40px auto;padding:20px 24px;border:3px solid #d63638;background:#fff;font-size:17px}
+#semjs{max-width:760px;margin:40px auto;padding:20px 24px;border:3px solid var(--erro);background:#fff;font-size:17px}
 #semjs p{margin:0 0 10px}
 #semjs-titulo{font-size:22px}
 .semjs-noscript{max-width:760px;margin:0 auto;color:var(--suave)}
@@ -29,12 +29,12 @@ button{cursor:pointer;border:1px solid var(--acento);background:var(--acento);co
 button:hover{background:var(--acento-escuro)}
 button:disabled{cursor:not-allowed;opacity:.5}
 button.secundario{background:#fff;color:var(--acento)}
-button.secundario:hover{background:#f0f6fc}
+button.secundario:hover{background:var(--destaque)}
 button.ligacao{background:none;border:0;color:var(--acento);text-decoration:underline;padding:0}
 button.ligacao:hover{background:none;color:var(--acento-escuro)}
 a{color:var(--acento)}
 code{font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:.95em}
-code.chave{display:block;padding:10px;background:#f0f0f1;border:1px solid var(--linha);word-break:break-all;user-select:all;font-size:15px}
+code.chave{display:block;padding:10px;background:var(--rascunho-fundo);border:1px solid var(--linha);word-break:break-all;user-select:all;font-size:15px}
 .cartao{background:var(--papel);border:1px solid var(--linha);border-radius:4px;padding:18px 20px}
 .cartao h2{margin:0 0 12px;font-size:18px}
 .erro{color:var(--erro);background:var(--erro-fundo);border-left:4px solid var(--erro);padding:8px 12px;margin:10px 0}
@@ -46,29 +46,29 @@ code.chave{display:block;padding:10px;background:#f0f0f1;border:1px solid var(--
 .duas-colunas{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .linha{display:flex;gap:6px;align-items:center}
 .linha input{flex:1;min-width:0}
-input[type=password],input[type=text]{padding:7px 9px;border:1px solid #8c8f94;border-radius:3px;width:100%}
+input[type=password],input[type=text]{padding:7px 9px;border:1px solid var(--borda-campo);border-radius:3px;width:100%}
 label{display:block;margin-bottom:6px}
 label.inline{display:inline-flex;gap:6px;align-items:center;margin:8px 0}
 .acoes{margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 #moldura{display:grid;grid-template-columns:190px 1fr;grid-template-rows:auto auto 1fr auto;min-height:100vh}
-#barra{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:8px 16px;background:#1d2327;color:#f0f0f1}
+#barra{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--barra);color:var(--barra-txt)}
 #barra .site{font-weight:600}
-#barra code{color:#c3c4c7}
+#barra code{color:var(--barra-suave)}
 #barra .espaco{flex:1}
 #barra button{padding:5px 12px}
-#barra button.secundario{background:transparent;color:#f0f0f1;border-color:#8c8f94}
+#barra button.secundario{background:transparent;color:var(--barra-txt);border-color:var(--marca-clara)}
 #faixa{grid-column:1/-1;padding:8px 16px;background:var(--alerta-fundo);border-bottom:1px solid var(--alerta-borda)}
 #faixa.erro{background:var(--erro-fundo);border-color:var(--erro);color:var(--erro);margin:0}
 #menu{background:#fff;border-right:1px solid var(--linha);padding:10px 0;display:flex;flex-direction:column}
 #menu .item{display:block;text-align:left;padding:8px 18px;color:var(--tinta);background:none;border:0;border-radius:0}
-#menu .item:hover{background:#f0f6fc}
+#menu .item:hover{background:var(--destaque)}
 #menu .item.atual{background:var(--acento);color:#fff}
 #conteudo{padding:20px 24px;overflow:auto}
 #conteudo h1{font-size:22px;margin:0 0 14px}
 #rodape{grid-column:1/-1;padding:6px 16px;border-top:1px solid var(--linha);color:var(--suave);font-size:13px;display:flex;gap:16px;align-items:center}
-.contador.pendente{background:#d63638;border-color:#d63638}
-.contador.ok{background:var(--ok);border-color:var(--ok)}
-.contador.nada{background:#50575e;border-color:#50575e}
+.contador.pendente{background:var(--erro);border-color:var(--erro)}
+.contador.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.contador.nada{background:var(--suave);border-color:var(--suave)}
 #t2,#t3{max-width:1100px}
 .passos{margin:12px 0;padding-left:22px}
 .passos li{margin:6px 0}
@@ -117,7 +117,7 @@ label.inline{display:inline-flex;gap:6px;align-items:center;margin:8px 0}
 .endereco-completo{display:block;word-break:break-all;font-size:.85em;color:var(--suave);margin:0 0 6px}
 .acoes-endereco{display:flex;gap:16px;flex-wrap:wrap;margin:0}
 .endereco-aviso{margin:6px 0 0}
-.cartao.apoie{grid-column:1/-1;background:#f0f6fc}
+.cartao.apoie{grid-column:1/-1;background:var(--destaque)}
 #faixa button.ligacao{margin-left:6px}
 /* M3 — listas (T4/T5) */
 .cabeca-lista{display:flex;align-items:center;gap:16px;margin-bottom:10px}
@@ -126,18 +126,18 @@ label.inline{display:inline-flex;gap:6px;align-items:center;margin:8px 0}
 .filtros{display:flex;flex-wrap:wrap;gap:4px}
 .filtros .filtro{background:none;border:0;color:var(--acento);padding:3px 8px;border-radius:3px}
 .filtros .filtro.atual{background:var(--acento);color:#fff}
-#busca{padding:6px 9px;border:1px solid #8c8f94;border-radius:3px;min-width:220px}
+#busca{padding:6px 9px;border:1px solid var(--borda-campo);border-radius:3px;min-width:220px}
 table.lista{width:100%;border-collapse:collapse;background:var(--papel);border:1px solid var(--linha);font-size:14px}
 table.lista th,table.lista td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--linha);vertical-align:top}
-table.lista th{background:#f6f7f7;font-weight:600}
+table.lista th{background:var(--cabecalho-tabela);font-weight:600}
 table.lista tr.removida td.titulo{text-decoration:line-through;color:var(--suave)}
 table.lista .acoes-linha button.ligacao{margin-right:10px}
 table.lista td.data{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap;color:var(--suave)}
 .estado{display:inline-block;padding:1px 8px;border-radius:10px;font-size:13px;border:1px solid transparent}
-.estado.draft{background:#f0f0f1;color:#50575e}
-.estado.published{background:#edfaef;color:#007017;border-color:#b8e6bf}
-.estado.modified{background:var(--alerta-fundo);color:#8a6d00;border-color:var(--alerta-borda)}
-.estado.removed{background:var(--erro-fundo);color:var(--erro);border-color:#f1acac}
+.estado.draft{background:var(--rascunho-fundo);color:var(--suave)}
+.estado.published{background:var(--ok-fundo);color:var(--ok);border-color:var(--ok-borda)}
+.estado.modified{background:var(--alerta-fundo);color:var(--alerta);border-color:var(--alerta-borda)}
+.estado.removed{background:var(--erro-fundo);color:var(--erro);border-color:var(--erro-borda)}
 .selo{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--acento);color:var(--acento);border-radius:3px;font-size:12px}
 .confirmacao{background:var(--alerta-fundo);border:1px solid var(--alerta-borda);padding:8px 10px;border-radius:3px;margin:4px 0}
 .confirmacao .alerta{margin:0 0 8px;background:none;border:0;padding:0}
@@ -149,14 +149,14 @@ table.lista td.data{font-family:ui-monospace,Menlo,Consolas,monospace;white-spac
 .editor-campos label{margin:10px 0 4px;font-weight:600}
 .editor-campos label.inline{font-weight:400}
 .editor-campos .apoio{margin:2px 0 0}
-.editor-campos textarea{width:100%;padding:7px 9px;border:1px solid #8c8f94;border-radius:3px;font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:14px;line-height:1.45}
+.editor-campos textarea{width:100%;padding:7px 9px;border:1px solid var(--borda-campo);border-radius:3px;font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:14px;line-height:1.45}
 /* 51 — a caixa do HTML colado: monoespaçada como a do corpo, e a crescer com
    o modal largo, porque HTML de layout chega em blocos, não em linhas. */
 .html-modal{display:flex;flex-direction:column;min-height:0}
-#html-fonte{width:100%;padding:7px 9px;border:1px solid #8c8f94;border-radius:3px;font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;line-height:1.45;resize:vertical}
+#html-fonte{width:100%;padding:7px 9px;border:1px solid var(--borda-campo);border-radius:3px;font-family:ui-monospace,Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;line-height:1.45;resize:vertical}
 #html-aviso code{word-break:break-all}
-.editor-campos select{width:100%;padding:6px 9px;border:1px solid #8c8f94;border-radius:3px;background:#fff}
-.editor-campos input[type=date]{padding:6px 9px;border:1px solid #8c8f94;border-radius:3px;width:100%}
+.editor-campos select{width:100%;padding:6px 9px;border:1px solid var(--borda-campo);border-radius:3px;background:#fff}
+.editor-campos input[type=date]{padding:6px 9px;border:1px solid var(--borda-campo);border-radius:3px;width:100%}
 .linha-caminho{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .linha-caminho label{margin:10px 0 4px}
 .linha-caminho .caminho{display:inline-flex;align-items:center;gap:2px;flex:1;min-width:220px}
@@ -190,7 +190,7 @@ table.lista td.data{font-family:ui-monospace,Menlo,Consolas,monospace;white-spac
 /* M3 — backup (T9) */
 #t9{max-width:1100px}
 .resumo-import p{margin:0 0 6px}
-.ok{color:#007017}
+.ok{color:var(--ok)}
 a.botao-link{display:inline-block;border:1px solid var(--acento);background:var(--acento);color:#fff;border-radius:3px;padding:7px 14px;text-decoration:none}
 a.botao-link:hover{background:var(--acento-escuro)}
 #exp-estimativa{margin-top:8px}
@@ -206,7 +206,7 @@ input[type=search]{font:inherit}
 #t7{max-width:1100px}
 .abas{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--linha);margin:0 0 14px}
 .abas .aba{background:none;border:0;border-bottom:3px solid transparent;color:var(--acento);padding:8px 14px;border-radius:0}
-.abas .aba:hover{background:#f0f6fc}
+.abas .aba:hover{background:var(--destaque)}
 .abas .aba.atual{border-bottom-color:var(--acento);color:var(--tinta);font-weight:600}
 #t7-painel h3{margin:20px 0 6px;font-size:15px}
 #t7-painel > *:first-child{margin-top:0}
@@ -214,7 +214,7 @@ input[type=search]{font:inherit}
 #t7-painel label{margin:10px 0 4px;font-weight:600}
 #t7-painel label.inline{font-weight:400;margin:8px 0}
 #t7-painel .apoio{margin:2px 0 0}
-#t7-painel textarea,#t7-painel select{width:100%;padding:7px 9px;border:1px solid #8c8f94;border-radius:3px;background:#fff}
+#t7-painel textarea,#t7-painel select{width:100%;padding:7px 9px;border:1px solid var(--borda-campo);border-radius:3px;background:#fff}
 #t7-painel textarea{font:inherit}
 #t7-painel input[type=number]{width:90px}
 #t7-painel input[type=color]{width:60px;padding:2px;height:32px}
@@ -252,13 +252,13 @@ button.perigoso{background:var(--erro);border-color:var(--erro)}
 #t6-lista .sem-mini{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border:1px dashed var(--linha);border-radius:2px;color:var(--suave);font-size:11px;text-transform:uppercase}
 #t6-lista td p{margin:2px 0 0}
 #t6-lista .onde{display:inline-block}
-.alerta-inline{color:#8a6d00}
+.alerta-inline{color:var(--alerta)}
 #t6-lista tr.colide td{background:var(--erro-fundo)}
 /* 44 — filtros, busca e paginação (biblioteca e modais do editor). */
 .barra-colecao{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0}
 .barra-colecao .chips{display:flex;gap:6px;flex-wrap:wrap}
 button.chip{background:var(--papel);color:var(--acento);border:1px solid var(--linha);border-radius:14px;padding:4px 12px;font-size:13px}
-button.chip:hover{background:#f0f6fc;color:var(--acento-escuro)}
+button.chip:hover{background:var(--destaque);color:var(--acento-escuro)}
 button.chip.atual{background:var(--acento);color:#fff;border-color:var(--acento)}
 input.busca{min-width:200px;flex:0 1 260px;padding:6px 10px;border:1px solid var(--linha);border-radius:3px;font-size:14px}
 .paginacao{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0 0}
@@ -268,7 +268,7 @@ input.busca{min-width:200px;flex:0 1 260px;padding:6px 10px;border:1px solid var
 /* 43 — o resumo e o botão ficam ACIMA da lista, e a lista rola dentro de si:
    com dezenas de arquivos o botão deixava de estar à vista. */
 .barra-resumo{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
-  padding:10px 12px;margin:12px 0;background:#f0f6fc;border:1px solid var(--linha);border-radius:4px}
+  padding:10px 12px;margin:12px 0;background:var(--destaque);border:1px solid var(--linha);border-radius:4px}
 .barra-resumo p{margin:0}
 .barra-resumo .acoes{margin:0}
 #t6a-pendentes{max-height:40vh;overflow-y:auto;border:1px solid var(--linha);border-radius:4px;padding:0 12px}
@@ -299,7 +299,7 @@ button.ver-mini:hover{background:var(--papel);color:var(--acento-escuro)}
 #t6-relato ul.relato li{padding:1px 0}
 #t6-relato ul.reconferido{border-left:3px solid var(--acento);padding-left:8px;margin-top:4px}
 #t6a .pre.cache{color:var(--suave)}
-button.perigoso:hover{background:#8a2224;border-color:#8a2224}
+button.perigoso:hover{background:var(--erro-escuro);border-color:var(--erro-escuro)}
 /* T12 — a galeria de temas (14 T12). Grade fluida com `auto-fill`, como a
    `.grade-capas`: adapta-se sozinha do piso de 320 px à tela larga, sem uma
    única `@media` — a mesma regra que TEMAS.md §7 impõe aos temas.
@@ -317,7 +317,7 @@ button.perigoso:hover{background:#8a2224;border-color:#8a2224}
    escrita pelo JS a cada cartão, a partir da largura real da moldura. */
 .tema-iframe{position:absolute;top:0;left:0;width:var(--previa-larg,1100px);height:calc(var(--previa-larg,1100px)*3/4);border:0;transform:scale(var(--previa-escala,.2545));transform-origin:0 0;pointer-events:none}
 .tema-capa{position:absolute;inset:0;width:100%;background:none;border:0;padding:0;cursor:pointer}
-.tema-capa:hover{background:rgba(34,113,177,.12)}
+.tema-capa:hover{background:rgba(42,63,126,.12)}
 .tema-capa:focus-visible{outline:2px solid var(--acento);outline-offset:-2px}
 .tema-sem-previa{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;margin:0}
 .tema-cartao .tema-nome{margin:10px 14px 2px}
