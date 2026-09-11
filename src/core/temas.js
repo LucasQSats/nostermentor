@@ -178,10 +178,13 @@ const Temas = (function () {
   // O jogo completo, para `Object.assign({}, Temas.moldes, {…})`.
   const moldes = Object.freeze({ layout, pagina, artigo, blog, etiqueta, alias, botao, galeria });
 
+  // o bech32 do NIP-19: "npub1" e mais 58 caracteres do alfabeto do bech32
+  const RE_NPUB = /^npub1[023456789acdefghjklmnpqrstuvwxyz]{58}$/;
   function registar(tema) {
     const m = tema && tema.manifesto;
     if (!m || typeof m.id !== 'string' || !RE_ID.test(m.id)) throw new Error('tema sem id válido');
     if (!tema.templates || typeof tema.css !== 'function' || typeof tema.resolver !== 'function') throw new Error('tema incompleto: ' + m.id);
+    if (m.exclusivo !== undefined && !(typeof m.exclusivo === 'string' && RE_NPUB.test(m.exclusivo))) throw new Error('tema com "exclusivo" que não é uma npub: ' + m.id);
     if (porId(m.id)) return;
     lista.push(tema);
   }
@@ -189,6 +192,17 @@ const Temas = (function () {
   function padrao() { return porId('padrao') || lista[0] || null; }
   // Padrão primeiro; os outros por id (ordem estável, sem locale).
   function todos() { return lista.slice().sort((a, b) => (a.manifesto.id === 'padrao' ? -1 : b.manifesto.id === 'padrao' ? 1 : a.manifesto.id < b.manifesto.id ? -1 : a.manifesto.id > b.manifesto.id ? 1 : 0)); }
+  // Os temas que a GALERIA (T12) oferece a quem entrou com esta npub. Um tema
+  // com `exclusivo` no manifesto só aparece para a npub escrita nele — é
+  // assim que o site oficial do projeto tem um tema que ninguém mais escolhe
+  // (decisão do dono, 2026-09-11: "exclusivo e não aparece em mais nenhum
+  // lugar"). ⚠️ É a GALERIA que filtra, não o gerador: o tema continua
+  // registrado e desenha qualquer site cujo `site.theme.id` o nomeie. Esconder
+  // da escolha não é proibir o uso — nem precisa ser, porque o estilo de
+  // qualquer site publicado já está à vista de quem o abrir. Os testes que
+  // medem os temas (gerador, responsividade) usam `todos()`, e é de
+  // propósito: o tema exclusivo passa pelas MESMAS provas que os outros.
+  function visiveisPara(npub) { return todos().filter(t => !t.manifesto.exclusivo || t.manifesto.exclusivo === npub); }
   function idDe(site) { const t = site && site.theme; return t && typeof t.id === 'string' ? t.id : 'padrao'; }
   function de(site) { return porId(idDe(site)) || padrao(); }
   function conhecido(site) { return !!porId(idDe(site)); }
@@ -296,5 +310,5 @@ const Temas = (function () {
       theme_memory: memoria, lembrou: Object.keys(guardadas).length > 0 };
   }
 
-  return Object.freeze({ registar, porId, padrao, todos, idDe, de, conhecido, resolver, moldes, cor, memoriaDe, trocar, MAX_TEMAS_LEMBRADOS });
+  return Object.freeze({ registar, porId, padrao, todos, visiveisPara, idDe, de, conhecido, resolver, moldes, cor, memoriaDe, trocar, MAX_TEMAS_LEMBRADOS });
 })();

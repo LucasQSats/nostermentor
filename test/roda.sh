@@ -10,6 +10,12 @@
 #                                    são reportados como PULADOS.
 #   NOSTERMENTOR_SCRATCH             pasta de trabalho (padrão: $TMPDIR)
 #   NOSTERMENTOR_SUITES              só estas suítes (lista separada por vírgula)
+#   NOSTERMENTOR_MOTORES             só estes motores (ex.: chrome) — para afinar;
+#                                    nunca fechar trabalho com um motor só (02 §F)
+#   NOSTERMENTOR_TEMAS               core/responsivo mede só estes temas (lista
+#                                    separada por vírgula) — para afinar UM tema sem
+#                                    esperar a hora dos 21; nunca fechar trabalho com
+#                                    o filtro ligado
 #   CHROME                           binário do Chrome (padrão: /usr/bin/google-chrome)
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"

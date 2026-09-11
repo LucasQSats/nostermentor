@@ -1,7 +1,9 @@
 # Temas do Nostermentor — especificação
 
 > **RASCUNHO — 2026-09-05 (terceira revisão do dia: os três primeiros temas,
-> a galeria, e agora a leva que levou o app de 4 a 21 temas).** Este documento
+> a galeria, e agora a leva que levou o app de 4 a 21 temas); 2026-09-11: o
+> campo `exclusivo` do manifesto, o `inicio` do molde de página e o filtro de
+> medição por tema.** Este documento
 > descreve o que um tema tem de ser para funcionar por inteiro com o
 > Nostermentor. Só passa de rascunho a especificação quando um tema escrito
 > por alguém de fora o tiver usado de verdade. A seção 11 diz, sem rodeios,
@@ -70,7 +72,11 @@ oferecer na tela **Temas** — a montagem (`./monta_app.sh`) pega todos os
 arquivos de `src/tema/`, e o registro (`src/core/temas.js`) é a única porta
 entre o app e os temas.
 
-O app traz **21 temas**. Os quatro primeiros são os exemplos de referência
+O app traz **21 temas** para todos — e, desde 2026-09-11, um vigésimo segundo,
+**Nostermentor**, reservado ao site oficial do projeto pelo campo `exclusivo`
+(seção 3): não aparece na tela Temas de mais ninguém, e por isso não está na
+tabela abaixo. É também o exemplo de um tema que usa o `inicio` (seção 4) para
+fazer da capa uma vitrine. Os quatro primeiros são os exemplos de referência
 mais completos (todos trocam moldes); os restantes mostram até onde se chega
 sem trocar nenhum:
 
@@ -135,6 +141,7 @@ O manifesto:
 | `autor` | texto | quem o assina; "autor desconhecido" é um rótulo válido, omitir não é |
 | `engine_min` | inteiro | a versão mínima do motor de geração que o tema exige (hoje só existe a 1) |
 | `options` | objeto | as opções que o painel desenha, na ordem em que aparecem — seção 6 |
+| `exclusivo` | texto (opcional) | uma **npub**: só quem entra no painel com ela vê o tema na tela **Temas** (desde 2026-09-11 — é o caso do tema do site oficial do projeto). Esconder da escolha não é proibir o uso: o gerador desenha com o tema qualquer site que o nomeie. Ausente, todos o veem |
 
 O `site.json` publicado guarda `theme: { id, version, options }`: o id do
 tema, a versão com que o site foi publicado, e os valores que o dono escolheu.
@@ -165,7 +172,7 @@ contexto: **tudo o que o molde precisa chega pré-calculado.**
 | Molde | Produz | Contexto que recebe |
 |---|---|---|
 | `layout` | a página HTML inteira, de `<!doctype>` a `</html>` | `lang`, `titulo_pagina`, `descricao`, `site_titulo`, `logo{src,alt,largura,altura}` ou `null`, `favicon{src,tipo}` ou `null`, `menu[]{href,rotulo,externo,atual}`, `conteudo` (HTML já pronto, vindo de um dos moldes abaixo), `doacoes{lightning_address}` ou `null`, `credito` (booleano) |
-| `pagina` | o miolo de uma página fixa | `titulo`, `corpo` (HTML sanitizado do Markdown), `ultimos{blog_titulo,blog_href,artigos[]{href,titulo,data,data_iso}}` ou `null`, `capa{src,alt,largura,altura,legenda}` ou `null` |
+| `pagina` | o miolo de uma página fixa | `titulo`, `corpo` (HTML sanitizado do Markdown), `ultimos{blog_titulo,blog_href,artigos[]{href,titulo,data,data_iso}}` ou `null`, `capa{src,alt,largura,altura,legenda}` ou `null`, `inicio` (booleano: esta página é a capa do site — desde 2026-09-11; um tema pode desenhar a capa como vitrine e as outras páginas como texto de ler, a partir do mesmo Markdown) |
 | `artigo` | o miolo de um artigo | `titulo`, `data`, `data_iso`, `tem_tags`, `tags[]{nome,href}` (`href` é `null` quando a etiqueta não tem página), `capa{…}` ou `null`, `corpo` |
 | `blog` | a listagem do blog | `blog_titulo`, `tem_artigos`, `artigos[]{href,titulo,data,data_iso,resumo}` |
 | `etiqueta` | a listagem de uma etiqueta | `etiqueta` (nome a mostrar), `blog_titulo`, `blog_href`, `tem_artigos`, `artigos[]{…}` como no blog |
@@ -389,6 +396,10 @@ NOSTERMENTOR_SUITES=core/responsivo test/roda.sh
 
 Corre nos dois motores e mede **6 páginas × 10 larguras × 2 motores por
 tema** — 120 medições por tema, **1260 páginas por motor** com 21 temas.
+`NOSTERMENTOR_TEMAS=<id>` (desde 2026-09-11) mede só esse tema — o site de
+pior caso é gerado para todos, mas só esse tema é medido: uns 30 segundos
+por motor em vez de perto de uma hora. A mesma regra do motor: ⚠️ nunca fechar
+trabalho com o filtro ligado.
 `NOSTERMENTOR_MOTORES=chrome` corre num motor só, o que serve para afinar um
 tema; ⚠️ **nunca fechar trabalho com um motor só** — metade das correções de
 tema deste projeto vieram de o Firefox e o Chrome discordarem (§7.4).

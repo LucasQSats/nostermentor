@@ -70,7 +70,9 @@ module.exports = async function (ctx, u) {
       temUsar: !!e.querySelector('.tema-usar'),
       atual: e.classList.contains('atual')
     })));
-    const doRegisto = await p.pg.evaluate(() => Temas.todos().map(t => t.manifesto.id));
+    // `visiveisPara` e não `todos` (2026-09-11): o tema exclusivo do site
+    // oficial está registrado mas não é desta npub — o caso seguinte mede isso.
+    const doRegisto = await p.pg.evaluate(() => Temas.visiveisPara(Shell.sessao().npub).map(t => t.manifesto.id));
     assert(cartoes.length === doRegisto.length, 'um cartão por tema do registro: ' + cartoes.length + ' vs ' + doRegisto.length);
     assert(cartoes.map(c => c.id).join(',') === doRegisto.join(','), 'ordem: ' + cartoes.map(c => c.id).join(','));
     const emUso = cartoes.filter(c => c.emUso);
@@ -78,10 +80,48 @@ module.exports = async function (ctx, u) {
     assert(emUso[0].atual && !emUso[0].temUsar, 'o tema em uso não oferece "Usar este tema"');
     assert(cartoes.filter(c => c.temUsar).length === doRegisto.length - 1, 'todos os outros oferecem "Usar este tema"');
     // o nome vem do manifesto, não de uma lista escrita à mão no painel
-    const nomes = await p.pg.evaluate(() => Temas.todos().map(t => t.manifesto.nome));
+    const nomes = await p.pg.evaluate(() => Temas.visiveisPara(Shell.sessao().npub).map(t => t.manifesto.nome));
     assert(cartoes.map(c => c.nome).join(',') === nomes.join(','), 'os nomes vêm do manifesto: ' + cartoes.map(c => c.nome).join(','));
     await p.pg.close();
     return cartoes.length + ' cartões (' + cartoes.map(c => c.id).join(',') + '), "Em uso" só no padrao';
+  });
+
+  // 2026-09-11 — o tema EXCLUSIVO (o do site oficial do projeto; decisão do
+  // dono: "exclusivo e não aparece em mais nenhum lugar"). Duas metades, porque
+  // cada uma sozinha passaria com o filtro quebrado: (1) esta sessão, que é
+  // outra npub, não vê o tema oficial; (2) um tema exclusivo DESTA npub,
+  // registrado aqui, aparece para ela. Sem a (2), uma galeria que escondesse todos
+  // os exclusivos — inclusive do próprio dono — passaria.
+  await it('tema exclusivo: só a npub que o manifesto nomeia o vê na galeria, e o gerador continua a conhecê-lo', async () => {
+    const { p } = await sessao();
+    const r = await p.pg.evaluate(() => {
+      const eu = Shell.sessao().npub;
+      const excl = Temas.todos().filter(t => t.manifesto.exclusivo).map(t => ({ id: t.manifesto.id, de: t.manifesto.exclusivo }));
+      return { eu, excl, visiveis: Temas.visiveisPara(eu).map(t => t.manifesto.id),
+        doDono: excl.map(x => Temas.visiveisPara(x.de).some(t => t.manifesto.id === x.id)),
+        conhecidos: excl.map(x => Temas.conhecido({ theme: { id: x.id } })) };
+    });
+    assert(r.excl.length >= 1, 'devia haver um tema exclusivo registrado (o do site oficial)');
+    const cartoes = await p.pg.$$eval('.tema-cartao[data-tema]', els => els.map(e => e.getAttribute('data-tema')));
+    for (const x of r.excl) {
+      assert(x.de !== r.eu, 'a sessão de teste não pode ser a dona do tema ' + x.id);
+      assert(cartoes.indexOf(x.id) === -1 && r.visiveis.indexOf(x.id) === -1, 'o tema exclusivo ' + x.id + ' apareceu na galeria de outra npub');
+    }
+    assert(r.doDono.every(Boolean), 'para a npub dona, o tema exclusivo tem de estar na lista: ' + JSON.stringify(r.doDono));
+    assert(r.conhecidos.every(Boolean), 'esconder da galeria não é proibir: o gerador tem de continuar a conhecer o tema exclusivo');
+    // (2) um tema exclusivo DESTA npub, registrado agora: a galeria, montada de novo, mostra esse tema
+    await p.pg.evaluate(() => {
+      const base = Temas.porId('padrao');
+      Temas.registar(Object.freeze({ manifesto: Object.freeze(Object.assign({}, base.manifesto, { id: 'teste-exclusivo', nome: 'Teste exclusivo', exclusivo: Shell.sessao().npub })),
+        templates: base.templates, css: base.css, resolver: base.resolver }));
+      Shell.ir('t3');
+    });
+    await irAGaleria(p.pg);
+    const depois = await p.pg.$$eval('.tema-cartao[data-tema]', els => els.map(e => e.getAttribute('data-tema')));
+    assert(depois.indexOf('teste-exclusivo') !== -1, 'o tema exclusivo desta npub devia aparecer para ela: ' + depois.join(','));
+    for (const x of r.excl) assert(depois.indexOf(x.id) === -1, 'e o do site oficial continua escondido: ' + depois.join(','));
+    await p.pg.close();
+    return r.excl.map(x => x.id).join(',') + ' escondido desta npub; um exclusivo desta npub aparece para ela (' + depois.length + ' cartões)';
   });
 
   // O caso que justifica gerar o site quatro vezes em vez de trocar só o CSS.
@@ -103,7 +143,7 @@ module.exports = async function (ctx, u) {
     // o CSS de cada prévia é o do seu tema…
     const porTema = {};
     for (const pv of previas) porTema[pv.id] = pv.srcdoc;
-    const assinaturas = await p.pg.evaluate(() => { const o = {}; for (const t of Temas.todos()) o[t.manifesto.id] = t.css({}).slice(0, 40); return o; });
+    const assinaturas = await p.pg.evaluate(() => { const o = {}; for (const t of Temas.visiveisPara(Shell.sessao().npub)) o[t.manifesto.id] = t.css({}).slice(0, 40); return o; });
     for (const id of Object.keys(assinaturas)) assert(porTema[id].indexOf(assinaturas[id]) !== -1, 'a prévia de ' + id + ' devia trazer o CSS de ' + id);
     // …e o HTML segue os MOLDES, não o CSS. A regra tem dois lados, e os dois
     // importam para a tela:

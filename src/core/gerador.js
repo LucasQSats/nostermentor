@@ -434,7 +434,11 @@ const Gerador = (function () {
     const ehHome = ctx.homePage && page.id === ctx.homePage.id;
     const n = ehHome ? (Number.isInteger(ctx.site.home.latest_posts) ? ctx.site.home.latest_posts : 0) : 0;
     const ultimos = n > 0 ? { blog_titulo: (ctx.site.blog && ctx.site.blog.title) || 'Blog', blog_href: ctx.hrefBlog, artigos: ctx.posts.slice(0, n).map(ctx.itemLista) } : null;
-    const conteudo = Mustache.render(ctx.tema.templates.pagina, { titulo: page.title, corpo: corpo, ultimos: ultimos, capa: capaDe(ctx, page) });
+    // 2026-09-11 — `inicio`: esta página é a capa do site (`site.home`). Com
+    // ele, um tema pode desenhar a página inicial como vitrine e as outras
+    // como texto de ler, a partir do MESMO Markdown — sem pedir ao dono uma
+    // única classe no conteúdo. Campo aditivo: nenhum molde dos 21 temas o lê.
+    const conteudo = Mustache.render(ctx.tema.templates.pagina, { titulo: page.title, corpo: corpo, ultimos: ultimos, capa: capaDe(ctx, page), inicio: !!ehHome });
     return layout(ctx, { tituloPagina: ehHome ? (ctx.site.title || page.title) : tituloPagina(ctx, page.title), descricao: page.description || (ehHome ? ctx.site.description : '') || primeiroParagrafo(corpo), conteudo: conteudo, atualId: page.id });
   }
   function htmlArtigo(ctx, post) {

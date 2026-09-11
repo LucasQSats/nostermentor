@@ -43,6 +43,13 @@ const TELAS = [
 const CAPTURAR = [320, 390, 768, 1280];
 const ALVO_MIN = 24;   // WCAG 2.2 AA (2.5.8): alvo de toque mínimo 24x24 CSS px
 const FONTE_MIN = 12;  // abaixo disto é texto que ninguém lê em celular
+// NOSTERMENTOR_TEMAS=a,b — mede SÓ estes temas (2026-09-11). A suíte inteira
+// leva perto de uma hora com 21 temas nos dois motores; ao afinar UM tema,
+// esperar isso a cada ajuste é o que faz ninguém olhar para as capturas. O
+// site de pior caso é gerado para todos (custa segundos); o que o filtro
+// poupa são as medições. ⚠️ Nunca fechar trabalho com o filtro ligado: o
+// resultado de cada caso diz quantos e quais temas mediu, para não enganar.
+const FILTRO_TEMAS = process.env.NOSTERMENTOR_TEMAS ? process.env.NOSTERMENTOR_TEMAS.split(',').map(s => s.trim()).filter(Boolean) : null;
 
 module.exports = async function (ctx, u) {
   const { R, it } = coletor();
@@ -161,6 +168,7 @@ module.exports = async function (ctx, u) {
     }
     return saida;
   });
+  if (FILTRO_TEMAS) for (const id of Object.keys(sitio.temas)) if (FILTRO_TEMAS.indexOf(id) === -1) delete sitio.temas[id];
 
   // --- a medição, numa página por largura ---------------------------------
   // ⚠️ O CONTEXTO É RECICLADO, e não é otimização: é o que faz a suíte acabar.
@@ -388,6 +396,7 @@ module.exports = async function (ctx, u) {
     }
     return out;
   });
+  if (FILTRO_TEMAS) for (const id of Object.keys(semLogo)) if (FILTRO_TEMAS.indexOf(id) === -1) delete semLogo[id];
 
   const maus = [];
   for (const id of Object.keys(semLogo)) {

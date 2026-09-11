@@ -128,7 +128,10 @@
       // quem garante que a igualdade de moldes implica igualdade de HTML —
       // se isso deixar de ser verdade, ele falha antes desta memória mentir.
       const porMoldes = new Map();
-      for (const t of Temas.todos()) {
+      // `visiveisPara` e não `todos`: um tema com `exclusivo` no manifesto só
+      // aparece para a npub dele (o do site oficial do projeto, 2026-09-11). A
+      // galeria nem gera a prévia de um tema que não vai mostrar.
+      for (const t of Temas.visiveisPara(s.npub)) {
         if (sinal.aborted) return;
         const id = t.manifesto.id;
         try {
@@ -255,7 +258,7 @@
     function render() {
       Shell.limpar(grade);
       const atual = Temas.idDe(rascunho);
-      for (const t of Temas.todos()) grade.appendChild(cartaoDe(t, t.manifesto.id === atual));
+      for (const t of Temas.visiveisPara(s.npub)) grade.appendChild(cartaoDe(t, t.manifesto.id === atual));
       grade.appendChild(cartaoEnviar());
       const desconhecido = !Temas.conhecido(rascunho);
       pDesconhecido.hidden = !desconhecido;
