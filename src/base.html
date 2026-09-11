@@ -7,14 +7,15 @@
 <meta name="nostermentor-version" content="__APP_VERSION__">
 <title>Nostermentor</title>
 <!-- O ícone da aba do PAINEL (não o do site do dono, que é escolhido em
-     Configurações › Aparência). Embutido como `data:` e desenhado à mão: o
-     app é um arquivo só e não pode buscar imagem nenhuma — nem no disco, nem
-     na rede. `img-src 'self' data: blob:` na CSP acima é o que o autoriza.
-     SVG e não PNG porque cabe em duas linhas e fica nítido em tela densa;
-     navegador que não entender SVG fica sem ícone, que é o que já acontece
-     hoje. A letra é um caminho, não um `<text>`: dentro de um favicon não há
+     Configurações › Aparência). É o ícone do logotipo do projeto — o "traço",
+     escolhido em 2026-09-11: um quadrado na cor Tinta com o N de uma linha só
+     na cor do papel. Embutido como `data:`: o app é um arquivo só e não pode
+     buscar imagem nenhuma — nem no disco, nem na rede. `img-src 'self' data:
+     blob:` na CSP acima é o que o autoriza. SVG e não PNG porque cabe numa
+     linha e fica nítido em tela densa; navegador que não entender SVG fica sem
+     ícone. O desenho é um caminho, não um `<text>`: dentro de um favicon não há
      garantia de fonte nenhuma. -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='12'%20fill='%232a3f7e'/%3E%3Cpath%20d='M16%2048V16h8l16%2022V16h8v32h-8l-16-22v22z'%20fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='13'%20fill='%232A3F7E'/%3E%3Cg%20transform='translate(32%2032)%20scale(.74)%20translate(-32%20-32)'%3E%3Cpath%20d='M11%2052V17L41%2051V23C41%2014%2047%2011%2053%2012'%20fill='none'%20stroke='%23F7F4EE'%20stroke-width='8'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 :root{--fundo:#f7f4ee;--papel:#fff;--tinta:#1c1b19;--suave:#5f5a51;--linha:#e2dcd0;--acento:#2a3f7e;--acento-escuro:#1d2c5c;--erro:#931a26;--erro-fundo:#fae5e7;--erro-borda:#efb1b8;--erro-escuro:#701420;--alerta:#8f6400;--alerta-fundo:#faf4e5;--alerta-borda:#d4a23a;--ok:#1b7e5d;--ok-fundo:#e6faf3;--ok-borda:#9ed8c3;--destaque:#eceff7;--borda-campo:#8a8478;--rascunho-fundo:#edeae3;--cabecalho-tabela:#f3f0ea;--barra:#18203a;--barra-txt:#eef0f6;--barra-suave:#bfc6da;--marca-clara:#aebdea}
 *{box-sizing:border-box}
