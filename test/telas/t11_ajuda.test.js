@@ -4,8 +4,10 @@
 // "como abrir" leva o Tails primeiro e repete, palavra por palavra, o que a
 // bancada mediu (Documentos a cada sessão — P19; Safest não arranca — P22;
 // F5 no arranque mudo — P28; o aviso "Could not read the contents of
-// amnesia" é inofensivo — P27); a de "apoiar" diz a verdade enquanto não há
-// endereço de doação, em vez de mostrar um placeholder; "Sobre" mostra a
+// amnesia" é inofensivo — P27); a de "apoiar" mostra o endereço Lightning e o
+// contato do projeto tal como estão em Textos.projeto (o contato como link para
+// fora, em aba nova e sem referrer) e diz a verdade sobre o que ainda não
+// existe (o site oficial), em vez de mostrar um placeholder; "Sobre" mostra a
 // versão real do app, a licença, o código e as cinco bibliotecas com versão
 // e licença; o rodapé e o cartão de T3 abrem direto na aba certa; e a tela
 // funciona ANTES de T2 acabar — quem clica "Ajuda" com o site a carregar não
@@ -91,10 +93,27 @@ module.exports = async function (ctx, u) {
     await p.pg.close();
   });
 
-  await it('"Apoiar" e "Sobre": sem endereço de doação a tela diz isso (não mostra placeholder); Sobre traz a versão REAL do app, a licença MIT, o código e as cinco bibliotecas com versão e licença', async () => {
+  await it('"Apoiar" e "Sobre": o endereço Lightning do projeto aparece como está em Textos.projeto e o contato é um link https para fora, em aba nova e sem referrer; sem site oficial a tela diz isso (não mostra placeholder); Sobre traz a versão REAL do app, a licença MIT, o código e as cinco bibliotecas com versão e licença', async () => {
     const { p } = await comAjuda();
     const apoio = await abaTexto(p.pg, 'apoio');
-    assert(/O endereço para doações ainda não está publicado/.test(apoio) && /site oficial ainda não está publicado/.test(apoio), apoio.slice(0, 200));
+    // O endereço vem de um lugar só (Textos.projeto) e sai em <code>, sem
+    // placeholder nem texto de "ainda não publicado" ao lado.
+    const ln = await p.pg.evaluate(() => {
+      const e = document.getElementById('t11-lightning');
+      return { projeto: Textos.projeto.lightning, texto: e.textContent, code: (e.querySelector('code') || {}).textContent };
+    });
+    assert(/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(ln.projeto), 'Textos.projeto.lightning não parece um endereço Lightning: ' + JSON.stringify(ln.projeto));
+    assert(ln.code === ln.projeto && /^Doação em Lightning:/.test(ln.texto), JSON.stringify(ln));
+    assert(!/O endereço para doações ainda não está publicado/.test(apoio), 'com endereço, a tela não pode dizer que ele não existe');
+    // O contato é um endereço de FORA: link https, aba nova, e sem contar ao
+    // destino de onde veio o clique — como o do repositório em "Sobre".
+    const ct = await p.pg.evaluate(() => {
+      const a = document.querySelector('#t11-contato a');
+      return a && { href: a.getAttribute('href'), texto: a.textContent, alvo: a.getAttribute('target'), rel: a.getAttribute('rel'), projeto: Textos.projeto.contato };
+    });
+    assert(ct && ct.href === ct.projeto && /^https:\/\/[^\s]+$/.test(ct.href) && ct.texto.length > 0, 'o contato tem de ser o link de Textos.projeto: ' + JSON.stringify(ct));
+    assert(ct.alvo === '_blank' && /noopener/.test(ct.rel) && /noreferrer/.test(ct.rel), 'o contato abre em aba nova e sem referrer: ' + JSON.stringify(ct));
+    assert(/site oficial ainda não está publicado/.test(apoio), apoio.slice(0, 200));
     assert(/grátis e aberto, com licença MIT/.test(apoio) && /Publicado com Nostermentor/.test(apoio), 'falta o texto de A1');
     const sobre = await abaTexto(p.pg, 'sobre');
     await p.pg.screenshot({ path: u.captura('t11-sobre'), fullPage: true });

@@ -924,7 +924,9 @@ const Textos = Object.freeze({
       lightningRotulo: 'Doação em Lightning:',
       semLightning: 'O endereço para doações ainda não está publicado. Quando estiver, aparece aqui.',
       siteRotulo: 'Site oficial do projeto:',
-      semSite: 'O site oficial ainda não está publicado.'
+      semSite: 'O site oficial ainda não está publicado.',
+      contatoRotulo: 'Dúvidas, relatos de erro e sugestões:',
+      contatoNome: '@LucasQSats no X'
     },
     sobre: {
       titulo: 'Sobre',
@@ -950,8 +952,9 @@ const Textos = Object.freeze({
   projeto: {
     licenca: 'MIT',
     repositorio: 'https://github.com/LucasQSats/nostermentor',
-    lightning: '',
-    site: ''
+    lightning: 'actualquote735@walletofsatoshi.com',
+    site: '',
+    contato: 'https://x.com/LucasQSats'
   },
 
   stub: {

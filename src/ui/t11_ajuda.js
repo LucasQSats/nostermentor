@@ -89,6 +89,10 @@
         ? [A.siteRotulo, ' ', h('a', { href: P.site, target: '_blank', rel: 'noopener noreferrer' }, P.site)]
         : h('span', { class: 'apoio' }, A.semSite)));
       for (const p of paragrafos(A.paragrafos)) painel.appendChild(p);
+      // O contato do projeto vem depois de "conte o que quebrou": é por ali
+      // que se conta. Endereço de fora, em aba nova, como o do repositório.
+      if (P.contato) painel.appendChild(h('p', { id: 't11-contato' }, A.contatoRotulo + ' ',
+        h('a', { href: P.contato, target: '_blank', rel: 'noopener noreferrer' }, A.contatoNome)));
     }
     function painelSobre() {
       const S = T.sobre;
