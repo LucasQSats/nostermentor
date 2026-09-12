@@ -56,8 +56,11 @@ const MOTORES = [
   ['firefox', firefox, {}],
   ['chrome', chromium, { executablePath: process.env.CHROME || '/usr/bin/google-chrome' }],
 ].filter(([nome]) => !SO_MOTOR || SO_MOTOR.includes(nome));
-const NPUB_BOSTIL = process.env.NOSTERMENTOR_NPUB_TESTE || 'npub10xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqpkge6d';  // exemplo sem dono: o ponto gerador da secp256k1
-const PUBKEY_BOSTIL = process.env.NOSTERMENTOR_PUBKEY_TESTE || '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+// O endereço do nsite de ensaio vem da nsec de teste (util.js, enderecoDeTeste):
+// não fica escrito aqui, e sem a nsec cai numa chave de exemplo sem dono.
+const ENDERECO_TESTE = require('./util.js').enderecoDeTeste();
+const NPUB_BOSTIL = ENDERECO_TESTE.npub;
+const PUBKEY_BOSTIL = ENDERECO_TESTE.pubkey;
 
 (async () => {
   let falhas = 0, total = 0, pulados = 0;

@@ -82,6 +82,29 @@ function nsecDeTeste() {
   return linha || null;
 }
 
+// Endereço público do nsite de ensaio, DERIVADO da nsec de teste quando ela
+// existe — assim nenhum endereço fica escrito no repositório e os dois nunca
+// se desencontram. Sem a nsec fica uma chave de EXEMPLO sem dono (o ponto
+// gerador da secp256k1, a chave pública de sk=1), que basta aos casos que só
+// precisam de uma npub válida; os que precisam do site real já se pulam
+// sozinhos, pela mesma ausência. A nsec não sai desta função.
+const NPUB_EXEMPLO = 'npub10xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqpkge6d';
+const PUBKEY_EXEMPLO = '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+function enderecoDeTeste() {
+  const nsec = nsecDeTeste();
+  if (!nsec) return { npub: NPUB_EXEMPLO, pubkey: PUBKEY_EXEMPLO };
+  try {
+    const nip19 = require('nostr-tools/nip19');
+    const { getPublicKey } = require('nostr-tools/pure');
+    const d = nip19.decode(nsec);
+    if (d.type !== 'nsec') return { npub: NPUB_EXEMPLO, pubkey: PUBKEY_EXEMPLO };
+    const pubkey = getPublicKey(d.data);
+    return { npub: nip19.npubEncode(pubkey), pubkey };
+  } catch (e) {
+    return { npub: NPUB_EXEMPLO, pubkey: PUBKEY_EXEMPLO };
+  }
+}
+
 function coletor() {
   const R = [];
   const it = async (nome, fn) => {
@@ -144,4 +167,4 @@ async function lerBanco(pg, pubkey) {
   }, pubkey);
 }
 
-module.exports = { novaPagina, abrir, varrer, nsecDeTeste, coletor, assert, RE_NSEC, entrarCom, semearSite, esperarT2, lerBanco };
+module.exports = { novaPagina, abrir, varrer, nsecDeTeste, enderecoDeTeste, coletor, assert, RE_NSEC, entrarCom, semearSite, esperarT2, lerBanco };
