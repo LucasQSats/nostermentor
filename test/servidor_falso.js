@@ -9,7 +9,13 @@
 //   https://127.0.0.1:<porta>/<sha256>        → blob do servidor Blossom PADRÃO
 //   https://127.0.0.1:<porta>/<nome>/<sha256> → blob do servidor de `blossom(nome, cfg)`
 // Persona de relay:   { modo: 'ok'|'vazio'|'mudo'|'fecha'|'recusa'|'lixo'|'lento',
-//                       eventos: [], atrasoMs, subErrado, escrita: 'aceita'|'recusa'|'duplicada'|'muda' }
+//                       eventos: [], atrasoMs, subErrado, escrita: 'aceita'|'recusa'|'duplicada'|'muda',
+//                       auth: false|'ler'|'escrever'|'ambos' }
+// `auth` (NIP-42, 2026-09-12): o relay manda ["AUTH", <desafio>] ao conectar e
+// recusa com `auth-required:` até receber um ["AUTH", <22242>] válido — que é
+// como um relay de caixa de entrada protege as mensagens do dono. Confere as
+// tags `relay` e `challenge` e a assinatura, como a spec manda. É a persona
+// que prova o caminho todo sem depender de relay de verdade.
 // Persona de Blossom: { exigeAuth, tiposRecusados: [], maxBytes, preflight: 'normal'|'sempre200'|'nao_implementa',
 //                       remocao: 'ok'|'recusa'|'ausente', semXReason, semCorsNoErro, atrasoMs, descritorErrado }
 // WebSocket mínimo (RFC 6455): quadros de texto mascarados do cliente, close, ping.
@@ -24,6 +30,14 @@ function casa(f, e) {
   if (f.ids && !f.ids.includes(e.id)) return false;
   if (Number.isInteger(f.since) && e.created_at < f.since) return false;
   if (Number.isInteger(f.until) && e.created_at > f.until) return false;
+  // Filtro por tag (`#p`, `#e`…), NIP-01. Até 2026-09-14 o falso ignorava esse
+  // filtro e devolvia envelope de qualquer destinatário; a escuta ao vivo precisa
+  // que ele seja respeitado, porque é pelo `#p` que o relay decide a quem EMPURRAR.
+  for (const k of Object.keys(f)) {
+    if (k.length !== 2 || k[0] !== '#') continue;
+    const vals = Array.isArray(f[k]) ? f[k] : [];
+    if (!(e.tags || []).some(t => Array.isArray(t) && t[0] === k[1] && vals.includes(t[1]))) return false;
+  }
   return true;
 }
 
@@ -224,6 +238,45 @@ function iniciar(certDir) {
       const enviarBruto = (texto) => { try { socket.write(quadro(texto)); } catch (e) {} };
       const enviar = (obj) => enviarBruto(JSON.stringify(obj));
       if (persona.modo === 'fecha') { try { socket.write(Buffer.from([0x88, 0x02, 0x03, 0xe8])); } catch (e) {} socket.end(); return; }
+      // 61 (2026-09-14) — as assinaturas ABERTAS desta conexão. Um relay de
+      // verdade mantém o REQ vivo depois do EOSE e empurra o que casar com o
+      // filtro (NIP-01; medido no auth.nostr1.com e no nos.lol no mesmo dia). É
+      // o que a escuta ao vivo da T13 precisa provar sem rede.
+      const ligacao = { socket, abertas: new Map(), enviar };
+      persona.ligadas = persona.ligadas || new Set();
+      persona.ligadas.add(ligacao);
+      socket.on('close', () => persona.ligadas.delete(ligacao));
+      // NIP-42: o desafio vale enquanto esta CONEXÃO viver, e vai imediatamente — a spec
+      // deixa o relay mandá-lo antes de qualquer pedido, e é o que os relays
+      // de caixa de entrada fazem na prática (medido em 2026-09-12).
+      const sessaoAuth = { desafio: null, identificado: null };
+      if (persona.auth) {
+        sessaoAuth.desafio = crypto.randomBytes(16).toString('hex');
+        persona.desafios = (persona.desafios || []).concat([sessaoAuth.desafio]);
+        enviar(['AUTH', sessaoAuth.desafio]);
+      }
+      function exigeAuthPara(acao) {
+        const a = persona.auth;
+        return a === 'ambos' || a === acao;
+      }
+      // → true se aceitou. Recusa com o motivo em `persona.recusasAuth`.
+      function conferirAuthDeRelay(ev) {
+        const anota = (m) => { persona.recusasAuth = (persona.recusasAuth || []).concat([m]); return false; };
+        if (!ev || typeof ev !== 'object') return anota('sem evento');
+        if (ev.kind !== 22242) return anota('kind != 22242');
+        if (verifyEvent && !verifyEvent(ev)) return anota('assinatura inválida');
+        const tags = Array.isArray(ev.tags) ? ev.tags : [];
+        const val = (n) => { const t = tags.find(x => Array.isArray(x) && x[0] === n); return t ? String(t[1]) : null; };
+        const desafio = val('challenge'), url = val('relay');
+        if (!desafio) return anota('sem tag challenge');
+        if (desafio !== sessaoAuth.desafio) return anota('desafio errado');
+        if (!url) return anota('sem tag relay');
+        const agora = Math.floor(Date.now() / 1000);
+        if (!Number.isInteger(ev.created_at) || Math.abs(agora - ev.created_at) > 600) return anota('created_at fora da janela de 10 min');
+        sessaoAuth.identificado = ev.pubkey;
+        persona.identificados = (persona.identificados || []).concat([ev.pubkey]);
+        return true;
+      }
       let buf = Buffer.alloc(0);
       socket.on('data', (d) => {
         buf = Buffer.concat([buf, d]);
@@ -235,11 +288,42 @@ function iniciar(certDir) {
           if (q.opcode !== 1) continue;
           let msg; try { msg = JSON.parse(q.payload.toString('utf8')); } catch (e) { continue; }
           persona.recebidas = persona.recebidas || []; persona.recebidas.push(msg);
-          if (msg[0] === 'REQ') responderReq(persona, msg[1], msg.slice(2), enviar, enviarBruto);
-          else if (msg[0] === 'EVENT') receberEvento(persona, msg[1], enviar);
+          if (msg[0] === 'AUTH') {
+            // ⚠️ É AQUI que o 22242 chega — num ["AUTH", ev], nunca num
+            // ["EVENT", ev]. Um cliente que o mande como EVENT leva
+            // `auth-required` no próprio pedido de identificação.
+            const ev = msg[1];
+            if (conferirAuthDeRelay(ev)) enviar(['OK', ev && ev.id, true, '']);
+            else enviar(['OK', (ev && ev.id) || '', false, 'invalid: identificação recusada']);
+          }
+          else if (msg[0] === 'REQ') {
+            if (exigeAuthPara('ler') && !sessaoAuth.identificado) { enviar(['CLOSED', msg[1], 'auth-required: identifique-se para ler']); continue; }
+            responderReq(persona, msg[1], msg.slice(2), enviar, enviarBruto);
+            // Fica aberta para o que chegar depois — menos no relay mudo (que
+            // nunca responde) e no que recusa (que já a fechou com CLOSED).
+            const modo = persona.modo || 'ok';
+            if (modo !== 'mudo' && modo !== 'recusa') ligacao.abertas.set(msg[1], msg.slice(2));
+          }
+          else if (msg[0] === 'CLOSE') ligacao.abertas.delete(msg[1]);
+          else if (msg[0] === 'EVENT') {
+            if (exigeAuthPara('escrever') && !sessaoAuth.identificado) { const ev = msg[1]; enviar(['OK', (ev && ev.id) || '', false, 'auth-required: identifique-se para publicar']); continue; }
+            receberEvento(persona, msg[1], enviar);
+          }
         }
       });
     });
+
+    // Entrega `ev` a toda assinatura aberta cujo filtro case, em todas as
+    // conexões deste relay (NIP-01). → quantas entregas.
+    function empurrarA(p, ev) {
+      let n = 0;
+      for (const l of p.ligadas || []) {
+        for (const [sub, filtros] of l.abertas) {
+          if (filtros.some(f => casa(f, ev))) { l.enviar(['EVENT', sub, ev]); n++; }
+        }
+      }
+      return n;
+    }
 
     // escrita: 'aceita' (padrão) | 'recusa' | 'duplicada' | 'muda'
     function receberEvento(p, ev, enviar) {
@@ -251,6 +335,7 @@ function iniciar(certDir) {
       p.publicados = p.publicados || [];
       const jaTinha = p.publicados.some(e => e.id === ev.id);
       p.publicados.push(ev);
+      if (!jaTinha) empurrarA(p, ev);
       // substituível (NIP-01, 10000–19999): o novo apaga o anterior do mesmo kind
       if (ev.kind >= 10000 && ev.kind < 20000) p.eventos = (p.eventos || []).filter(e => !(e.kind === ev.kind && e.pubkey === ev.pubkey));
       if (ev.kind === 0 || ev.kind === 3) p.eventos = (p.eventos || []).filter(e => !(e.kind === ev.kind && e.pubkey === ev.pubkey));
@@ -291,6 +376,24 @@ function iniciar(certDir) {
         apagarBlob(nome, sha) { const s = nome ? estado.servidores.get(nome) : { blobs: estado.blobs }; return !!(s && s.blobs.delete(sha)); },
         limparBlobs() { estado.blobs.clear(); for (const s of estado.servidores.values()) s.blobs.clear(); },
         publicadosEm(nome) { const p = estado.relays.get(nome); return (p && p.publicados) || []; },
+        identificadosEm(nome) { const p = estado.relays.get(nome); return (p && p.identificados) || []; },
+        recusasAuthEm(nome) { const p = estado.relays.get(nome); return (p && p.recusasAuth) || []; },
+        // Semeia eventos num relay já criado (envelopes 1059, caixas 10050…).
+        // Não empurra nada: é o que "já estava lá" quando alguém pedir.
+        semear(nome, eventos) { const p = estado.relays.get(nome); if (p) p.eventos = (p.eventos || []).concat(eventos); return p; },
+        // 61 (2026-09-14) — outro cliente publica AGORA: guarda e empurra às
+        // assinaturas abertas que casarem. → quantas entregas houve.
+        empurrar(nome, eventos) {
+          const p = estado.relays.get(nome); if (!p) return 0;
+          let n = 0;
+          for (const ev of eventos) { p.eventos = (p.eventos || []).concat([ev]); n += empurrarA(p, ev); }
+          return n;
+        },
+        // A queda que o auth.nostr1.com faz aos 300 s sem tráfego (medido):
+        // corta todas as conexões deste relay, sem aviso de fechamento.
+        derrubar(nome) { const p = estado.relays.get(nome); let n = 0; for (const l of (p && p.ligadas) || []) { try { l.socket.destroy(); } catch (e) {} n++; } return n; },
+        ligacoesAbertas(nome) { const p = estado.relays.get(nome); return p && p.ligadas ? p.ligadas.size : 0; },
+        assinaturasAbertas(nome) { const p = estado.relays.get(nome); let n = 0; for (const l of (p && p.ligadas) || []) n += l.abertas.size; return n; },
         fechar() { for (const s of estado.sockets) { try { s.destroy(); } catch (e) {} } return new Promise(r => srv.close(() => r())); }
       });
     });

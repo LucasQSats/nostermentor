@@ -24,10 +24,21 @@ const Gerador = (function () {
   // 13 §4.0 — conteúdo é dado, nunca programa (02 G.2.3). <style>/<link>/
   // <meta>/<base> ficam fora porque poderiam puxar recurso remoto (G.2.4:
   // privacidade do leitor). Atributo style inline é permitido (não carrega nada).
+  // 61 — `nostr:` é o esquema do NIP-21, e SEM ele um link para um endereço
+  // Nostr some em silêncio: medido em 2026-09-11 nos dois motores (L9 do 08).
+  // Esta é a lista do DOMPurify 3.4.14 lida do próprio bundle fixado, com UMA
+  // entrada acrescentada no fim e mais nada mudado — a alternativa (pedir ao
+  // sanitizador que julgue um esquema que ele não conhece) não existe.
+  // ⚠️ Ao trocar a versão do DOMPurify, RELER o padrão dele e refazer esta
+  // linha: fixá-la aqui congela a lista dele no dia de hoje, e é o preço de
+  // poder acrescentar um esquema. O teste prova que `javascript:`, `data:`
+  // (fora de <img>) e `vbscript:` continuam morrendo.
+  const URI_PERMITIDAS = /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|nostr):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
   const PURIFY = Object.freeze({
     USE_PROFILES: { html: true },
     FORBID_TAGS: ['iframe', 'object', 'embed', 'style', 'link', 'meta', 'base', 'script'],
-    FORBID_ATTR: ['srcdoc']
+    FORBID_ATTR: ['srcdoc'],
+    ALLOWED_URI_REGEXP: URI_PERMITIDAS
   });
   let pronto = false;
   const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -83,8 +94,12 @@ const Gerador = (function () {
   // não passar por serializador de navegador nenhum.
   // Marcador em linha não-isolada, ou de nome desconhecido, fica texto: é o
   // que já acontecia e é o que o dono vê na prévia se escrever torto.
-  const RE_MARCADOR = /^\[\[\s*([a-z]+)\s*:\s*([\s\S]*?)\s*\]\]$/;
-  const BLOCOS = Object.freeze(['botao', 'artigos']);
+  // ⚠️ Os argumentos são OPCIONAIS desde 2026-09-12 (`[[contatos]]`): até aqui
+  // o `:` era obrigatório, e um marcador sem nada a configurar teria de ser
+  // escrito `[[contatos: ]]`, que ninguém adivinha. Sem argumentos, `args` é
+  // string vazia — que é exatamente o que `[[artigos: ]]` já produzia.
+  const RE_MARCADOR = /^\[\[\s*([a-z]+)\s*(?::\s*([\s\S]*?)\s*)?\]\]$/;
+  const BLOCOS = Object.freeze(['botao', 'artigos', 'contatos']);
   function extrairBlocos(md) {
     if (md.indexOf('[[') === -1) return { texto: md, blocos: [], token: '' };
     // O token tem de ser texto que nem o marked nem o DOMPurify tocam (só
@@ -111,19 +126,36 @@ const Gerador = (function () {
       if (/^ {4,}/.test(linha)) continue;  // bloco de código indentado
       const m = RE_MARCADOR.exec(t);
       if (!m || BLOCOS.indexOf(m[1]) === -1) continue;
-      blocos.push({ nome: m[1], args: m[2], bruto: t });
+      blocos.push({ nome: m[1], args: m[2] == null ? '' : m[2], bruto: t });
       linhas[i] = token + (blocos.length - 1) + 'x';
     }
     if (!blocos.length) return { texto: md, blocos: [], token: '' };
     return { texto: linhas.join('\n'), blocos: blocos, token: token };
   }
-  // Só caminho do próprio site (`/algo`) ou http(s). Tudo o resto — incluindo
-  // `javascript:`, `data:` e `//outro-host` — é recusado, e o marcador fica
-  // texto para o dono ver que está errado.
+  // Caminho do próprio site (`/algo`), http(s) ou — desde 2026-09-12 — um
+  // endereço Nostr (`nostr:npub1…` / `nostr:nprofile1…`). Tudo o resto —
+  // incluindo `javascript:`, `data:` e `//outro-host` — é recusado, e o
+  // marcador fica texto para o dono ver que está errado.
+  // ⚠️ O `nostr:` é julgado pela FORMA e mais nada: o bech32 não é decodificado
+  // aqui. Decodificar seria pôr uma biblioteca no caminho da única barreira
+  // daquele `<a>` — e esta função continua sendo a única (lição da 50), porque
+  // o HTML do molde do tema não passa pelo DOMPurify.
+  const RE_NOSTR = /^nostr:(?:npub1|nprofile1)[023456789acdefghjklmnpqrstuvwxyz]{20,300}$/;
+  // `mailto:` entrou em 2026-09-12, e entrou porque o e-mail é o PRIMEIRO dos
+  // oito campos de contato: sem ele, este juiz o descartava em silêncio e o
+  // canal mais usado de todos nunca chegava ao site. Foi a sonda dos 22 temas
+  // que o mostrou — a leitura do código não mostrou nada, porque cada peça
+  // estava certa por si. É aditivo: o que já passava continua passando, e um
+  // `[[botao: Escreva-me -> mailto:…]]` passa a funcionar em vez de ficar
+  // texto. O esquema já estava na lista do DOMPurify desde sempre, e não
+  // executa nada; a forma é conferida aqui mesmo assim, sem espaços nem aspas.
+  const RE_MAILTO = /^mailto:[^\s<>"']{3,300}$/;
   function hrefSeguro(u) {
     const s = String(u == null ? '' : u).trim();
     if (/^\/[^\/]/.test(s) || s === '/') return { href: s, externo: false };
     if (/^https?:\/\//i.test(s)) return { href: s, externo: true };
+    if (RE_NOSTR.test(s)) return { href: s, externo: true };
+    if (RE_MAILTO.test(s)) return { href: s, externo: true };
     return null;
   }
   // 37 — `[[botao: Texto -> /destino]]`. A seta considerada é a ÚLTIMA: é mais
@@ -134,7 +166,7 @@ const Gerador = (function () {
     const rotulo = String(args).slice(0, i).trim();
     const destino = hrefSeguro(String(args).slice(i + 2));
     if (!rotulo || !destino) return null;
-    return Mustache.render(temaDe(ctx).templates.botao, { texto: rotulo, href: destino.href, externo: destino.externo });
+    return Mustache.render(Temas.molde(temaDe(ctx), 'botao'), { texto: rotulo, href: destino.href, externo: destino.externo });
   }
   // 30 — `[[artigos: 6, com-capa, com-resumo, etiqueta=receitas]]`. Cada pedaço
   // é opcional e o que não se reconhece é ignorado (o marcador continua a
@@ -180,12 +212,30 @@ const Gerador = (function () {
       return { href: item.href, titulo: item.titulo, data: item.data, data_iso: item.data_iso,
         resumo: o.resumo ? item.resumo : '', capa: o.capa ? capaDaGaleria(ctx, post) : null };
     });
-    return Mustache.render(temaDe(ctx).templates.galeria, { tem_artigos: artigos.length > 0, artigos: artigos });
+    return Mustache.render(Temas.molde(temaDe(ctx), 'galeria'), { tem_artigos: artigos.length > 0, artigos: artigos });
+  }
+  // 61 — `[[contatos]]`, com um título opcional: `[[contatos: Fale comigo]]`.
+  // É a opção (b) que ele escolheu em 2026-09-12 (*"um bloco que possa ser
+  // inserido em qualquer página"*): funciona nos 22 temas sem tocar em nenhum,
+  // porque o molde vive no core e `Temas.molde` dá reserva a ele.
+  // Sem nenhum contato preenchido o bloco NÃO sai — nem vazio. Um `<section>`
+  // oco no meio da página seria pior do que a linha que o dono escreveu ficar
+  // à vista: assim ele vê o marcador na prévia e percebe que falta preencher.
+  // ⚠️ Desde 2026-09-14 (14 T13 decisão 31): com as mensagens ligadas, o bloco
+  // leva também o convite a escrever pelo Nostr — e passa a sair mesmo sem
+  // nenhum contato preenchido, porque passa a ter o que dizer.
+  function blocoContatos(ctx, args) {
+    const site = ctx && ctx.site ? ctx.site : null;
+    const itens = Contatos.itensParaMolde(site ? site.contacts : null, hrefSeguro, { conviteNostr: Contatos.npubDoConvite(site) });
+    if (!itens.length) return null;
+    const titulo = String(args == null ? '' : args).trim().slice(0, 100);
+    return Mustache.render(Temas.molde(temaDe(ctx), 'contatos'), { titulo: titulo, itens: itens });
   }
   function blocoHtml(ctx, b) {
     let html = null;
     if (b.nome === 'botao') html = blocoBotao(ctx, b.args);
     else if (b.nome === 'artigos' && ctx) html = blocoArtigos(ctx, b.args);
+    else if (b.nome === 'contatos' && ctx) html = blocoContatos(ctx, b.args);
     // Argumentos que não dão bloco nenhum: devolver o que ele escreveu, para o
     // erro aparecer na prévia em vez de a linha desaparecer em silêncio.
     return html == null ? '<p>' + escapar(b.bruto) + '</p>\n' : html;
@@ -196,7 +246,7 @@ const Gerador = (function () {
       const marca = ex.token + i + 'x';
       // Sem ctx (o resumo de um artigo, que é texto e não pode conter uma
       // galeria — seria recursão) a galeria some; o botão continua a valer.
-      const bloco = (!ctx && ex.blocos[i].nome === 'artigos') ? '' : blocoHtml(ctx, ex.blocos[i]);
+      const bloco = (!ctx && ex.blocos[i].nome !== 'botao') ? '' : blocoHtml(ctx, ex.blocos[i]);
       s = s.split('<p>' + marca + '</p>').join(bloco);
       s = s.split(marca).join(bloco);
     }
@@ -414,7 +464,7 @@ const Gerador = (function () {
     preparar();
     const site = ctx.site;
     const doacoes = (site.donations && site.donations.support_block && site.donations.lightning_address) ? { lightning_address: site.donations.lightning_address } : null;
-    return Mustache.render(ctx.tema.templates.layout, {
+    return Mustache.render(Temas.molde(ctx.tema, 'layout'), {
       lang: ctx.lang, titulo_pagina: o.tituloPagina, descricao: o.descricao || '', site_titulo: site.title || '', logo: ctx.logo, favicon: ctx.favicon,
       menu: ctx.menu.map(m => ({ href: m.href, rotulo: m.rotulo, externo: m.externo, atual: !!o.atualId && m.id === o.atualId })),
       conteudo: o.conteudo, doacoes: doacoes, credito: !(site.donations && site.donations.footer_credit === false)
@@ -438,7 +488,7 @@ const Gerador = (function () {
     // ele, um tema pode desenhar a página inicial como vitrine e as outras
     // como texto de ler, a partir do MESMO Markdown — sem pedir ao dono uma
     // única classe no conteúdo. Campo aditivo: nenhum molde dos 21 temas o lê.
-    const conteudo = Mustache.render(ctx.tema.templates.pagina, { titulo: page.title, corpo: corpo, ultimos: ultimos, capa: capaDe(ctx, page), inicio: !!ehHome });
+    const conteudo = Mustache.render(Temas.molde(ctx.tema, 'pagina'), { titulo: page.title, corpo: corpo, ultimos: ultimos, capa: capaDe(ctx, page), inicio: !!ehHome });
     return layout(ctx, { tituloPagina: ehHome ? (ctx.site.title || page.title) : tituloPagina(ctx, page.title), descricao: page.description || (ehHome ? ctx.site.description : '') || primeiroParagrafo(corpo), conteudo: conteudo, atualId: page.id });
   }
   function htmlArtigo(ctx, post) {
@@ -448,12 +498,12 @@ const Gerador = (function () {
     // não produz slug ("!!!"), continua `<span>`: um href vazio seria pior que
     // não haver link.
     const tags = Array.isArray(post.tags) ? post.tags.filter(t => typeof t === 'string' && t).map(t => ({ nome: t, href: ctx.hrefEtiqueta(t) })) : [];
-    const conteudo = Mustache.render(ctx.tema.templates.artigo, Object.assign({ titulo: post.title, corpo: corpo, tem_tags: tags.length > 0, tags: tags, capa: capa }, datas(post.date, ctx.mostrarHora)));
+    const conteudo = Mustache.render(Temas.molde(ctx.tema, 'artigo'), Object.assign({ titulo: post.title, corpo: corpo, tem_tags: tags.length > 0, tags: tags, capa: capa }, datas(post.date, ctx.mostrarHora)));
     return layout(ctx, { tituloPagina: tituloPagina(ctx, post.title), descricao: post.description || ctx.resumoDe(post), conteudo: conteudo, atualId: 'blog' });
   }
   function htmlBlog(ctx, ehHome) {
     const titulo = (ctx.site.blog && ctx.site.blog.title) || 'Blog';
-    const conteudo = Mustache.render(ctx.tema.templates.blog, { blog_titulo: titulo, tem_artigos: ctx.posts.length > 0, artigos: ctx.posts.map(ctx.itemLista) });
+    const conteudo = Mustache.render(Temas.molde(ctx.tema, 'blog'), { blog_titulo: titulo, tem_artigos: ctx.posts.length > 0, artigos: ctx.posts.map(ctx.itemLista) });
     return layout(ctx, { tituloPagina: ehHome ? (ctx.site.title || titulo) : tituloPagina(ctx, titulo), descricao: ctx.site.description || '', conteudo: conteudo, atualId: 'blog' });
   }
   // 40 — a página de uma etiqueta. Os artigos vêm da ordem de `ctx.posts`
@@ -462,13 +512,13 @@ const Gerador = (function () {
   function htmlEtiqueta(ctx, et) {
     const ids = new Set(et.ids);
     const artigos = ctx.posts.filter(p => ids.has(p.id)).map(ctx.itemLista);
-    const conteudo = Mustache.render(ctx.tema.templates.etiqueta, {
+    const conteudo = Mustache.render(Temas.molde(ctx.tema, 'etiqueta'), {
       etiqueta: et.nome, blog_titulo: (ctx.site.blog && ctx.site.blog.title) || 'Blog', blog_href: ctx.hrefBlog,
       tem_artigos: artigos.length > 0, artigos: artigos
     });
     return layout(ctx, { tituloPagina: tituloPagina(ctx, 'Etiqueta: ' + et.nome), descricao: '', conteudo: conteudo, atualId: 'blog' });
   }
-  function htmlAlias(ctx, titulo, destino) { preparar(); return Mustache.render(ctx.tema.templates.alias, { lang: ctx.lang, titulo: titulo, destino: destino }); }
+  function htmlAlias(ctx, titulo, destino) { preparar(); return Mustache.render(Temas.molde(ctx.tema, 'alias'), { lang: ctx.lang, titulo: titulo, destino: destino }); }
 
   // HTML de um registro (para "Ver como ficará" e para o published_hash)
   function htmlDe(dados, registro, tipo) {

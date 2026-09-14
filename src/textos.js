@@ -178,6 +178,16 @@ const Textos = Object.freeze({
       naoPublicado: 'Os endereços já existem, mas ainda não mostram nada: o site nunca foi publicado.',
       foraDoAr: 'Os endereços existem, mas o site está fora do ar — publique de novo para voltarem a mostrar alguma coisa.'
     },
+    // 61 — o cartão das mensagens. Escolha dele, 2026-09-12: a DATA da última
+    // mensagem, não uma contagem. Um número que encolhe sozinho quando o relay
+    // descarta assusta sem motivo.
+    mensagens: {
+      titulo: 'Mensagens',
+      ultima: 'Última mensagem: {d}',
+      nenhuma: 'Nenhuma mensagem ainda.',
+      desligado: 'As mensagens pelo Nostr estão desligadas.',
+      abrir: 'Abrir Contatos'
+    },
     ultimos: { titulo: 'Últimos artigos', nenhum: 'Nenhum artigo ainda.', editar: 'editar' },
     herdados: '{n} arquivos herdados de outra ferramenta (em Mídia → Arquivos herdados).',
     apoie: {
@@ -248,7 +258,7 @@ const Textos = Object.freeze({
       confirmar: 'Remover',
       cancelar: 'Cancelar'
     },
-    ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', video: 'Vídeo', lista: 'Lista', citacao: 'Citação', codigo: 'Código', botao: 'Botão', artigos: 'Artigos', html: 'HTML' },
+    ferramentas: { negrito: 'Negrito', italico: 'Itálico', titulo: 'Título', link: 'Link', imagem: 'Imagem', video: 'Vídeo', lista: 'Lista', citacao: 'Citação', codigo: 'Código', botao: 'Botão', artigos: 'Artigos', contatos: 'Contatos', html: 'HTML' },
     modelos: { negrito: 'texto em negrito', italico: 'texto em itálico', titulo: 'Título', link: 'texto do link', lista: 'item', citacao: 'citação', codigo: 'código' },
     // 37 — o CTA. O que fica escrito no texto é um marcador; o site publicado
     // recebe um link com aparência de botão, sem uma linha de script.
@@ -265,6 +275,19 @@ const Textos = Object.freeze({
     },
     // 30 — a galeria de artigos. O marcador fica no texto e o app troca-o por
     // uma grade de cartões na hora de gerar o site.
+    // 61 — o bloco `[[contatos]]`. O título é opcional de propósito: sem ele o
+    // bloco entra sem cabeçalho nenhum, e quem quiser escreve o seu em Markdown
+    // por cima.
+    contatos: {
+      titulo: 'Inserir seus contatos',
+      cabecalho: 'Título do bloco (opcional)',
+      cabecalhoPlaceholder: 'Fale comigo',
+      apoio: 'O bloco mostra as formas de contato que você preencheu em Contatos → Onde me encontrar. Se você mudar os contatos lá, todas as páginas com este bloco mudam juntas.',
+      semNada: 'Você ainda não preencheu nenhuma forma de contato. O bloco só aparece no site depois de você preencher pelo menos uma em Contatos → Onde me encontrar.',
+      irPreencher: 'Ir a Contatos',
+      inserir: 'Inserir',
+      cancelar: 'Cancelar'
+    },
     artigos: {
       titulo: 'Inserir galeria de artigos',
       quantos: 'Quantos artigos mostrar',
@@ -488,7 +511,7 @@ const Textos = Object.freeze({
       sai: 'sai do mapa do site'
     },
     eventosTitulo: 'Eventos assinados',
-    eventos: { manifest: 'Mapa do site (manifest)', kind0: 'Perfil', kind10002: 'Lista de relays', kind10063: 'Lista de servidores' },
+    eventos: { manifest: 'Mapa do site (manifest)', kind0: 'Perfil', kind10002: 'Lista de relays', kind10063: 'Lista de servidores', kind10050: 'Caixa de entrada das mensagens', kind10050Desligada: 'Aviso de que o site não recebe mais mensagens' },
     total: '{n} arquivo(s), {x} para subir, {m} relays.',
     tor: 'Pelo Tor cada conexão demora de 2 a 8 vezes mais — não feche o navegador.',
     bloqueado: 'Um arquivo não pode subir em nenhum servidor. Remova-o ou mude de servidor para poder publicar.',
@@ -782,8 +805,8 @@ const Textos = Object.freeze({
     backupPendente: 'Backup: {n} não exportadas',
     trancar: 'Trancar',
     trancarDica: 'Esquece a chave e volta à tela de entrada. O que está salvo neste navegador continua até ele fechar.',
-    menu: [['t3', 'Início'], ['t4', 'Páginas'], ['t5', 'Artigos'], ['t6', 'Mídia'], ['t12', 'Temas'], ['t7', 'Configurações'], ['t11', 'Ajuda']],
-    nomes: { t2: 'Carregando da rede', t3: 'Início', t4: 'Páginas', t5: 'Artigos', t6: 'Mídia', t7: 'Configurações', t8: 'Publicar', t9: 'Backup', t10: 'Nova versão', t11: 'Ajuda e Sobre', t12: 'Temas' },
+    menu: [['t3', 'Início'], ['t4', 'Páginas'], ['t5', 'Artigos'], ['t6', 'Mídia'], ['t13', 'Contatos'], ['t12', 'Temas'], ['t7', 'Configurações'], ['t11', 'Ajuda']],
+    nomes: { t2: 'Carregando da rede', t3: 'Início', t4: 'Páginas', t5: 'Artigos', t6: 'Mídia', t7: 'Configurações', t8: 'Publicar', t9: 'Backup', t10: 'Nova versão', t11: 'Ajuda e Sobre', t12: 'Temas', t13: 'Contatos' },
     rodapeApoio: 'Apoie o Nostermentor'
   },
 
@@ -796,6 +819,155 @@ const Textos = Object.freeze({
   // validador de pacote (02 G.2, TEMAS.md §11) aceitar tema de estranho
   // abriria um buraco de privacidade nos LEITORES do site — o texto diz isso
   // de frente em vez de esconder o botão.
+  // 14 T13 — Contatos. Duas abas, porque são dois assuntos com o mesmo nome:
+  // "Mensagens" é o que chega até o dono; "Onde me encontrar" é o que o site
+  // diz ao leitor. Na Etapa 1 a segunda aba só liga/desliga a caixa de entrada;
+  // os oito campos de contato são a Etapa 2.
+  t13: {
+    titulo: 'Contatos',
+    abas: { mensagens: 'Mensagens', onde: 'Onde me encontrar' },
+    mensagens: {
+      apoio: 'As mensagens que as pessoas mandam para o endereço Nostr do seu site. São decifradas aqui, neste navegador — nem o Nostermentor nem os relays conseguem ler o que elas dizem.',
+      desligado: 'As mensagens pelo Nostr estão desligadas. Enquanto estiverem, nenhum aplicativo consegue mandar mensagem para o seu site.',
+      ligarAgora: 'Ligar as mensagens',
+      verificar: 'Verificar agora',
+      verificando: 'Verificando…',
+      // Sem contador de não lidas, este relógio é a única defesa contra
+      // "acho que não chegou nada" — e é honesto: o que os relays já
+      // descartaram não volta.
+      verificadoEm: 'Última verificação às {h}.',
+      nuncaVerificado: 'Ainda não verifiquei as mensagens nesta sessão.',
+      retencao: 'Os relays guardam mensagem por pouco tempo: o que aparece aqui é o que eles ainda tinham.',
+      semSessao: 'Precisa estar com a chave aberta para ler as mensagens.',
+      nenhuma: 'Nenhuma mensagem ainda.',
+      nenhumaNoFiltro: 'Nenhuma conversa neste filtro.',
+      // ⚠️ No Tails o banco morre com a sessão. Ele recusou o arquivo de backup
+      // à parte, então a tela DIZ isto em vez de fingir que guarda.
+      avisoTails: 'Neste sistema o painel esquece tudo ao desligar: os apelidos, os arquivados e os bloqueios recomeçam na próxima sessão, e a lista mostra o que os relays ainda tiverem.',
+      filtros: { ativas: 'Ativas', arquivadas: 'Arquivadas', bloqueadas: 'Bloqueadas', todas: 'Todas' },
+      busca: 'Buscar por nome, endereço ou texto',
+      ordem: { recentes: 'Mais recentes primeiro', antigas: 'Mais antigas primeiro' },
+      quantas: '{n} mensagens',
+      umaSo: '1 mensagem',
+      selos: { arquivada: 'Arquivada', bloqueada: 'Bloqueada', grupo: 'Em grupo' },
+      acoes: { abrir: 'Abrir', apelido: 'Dar apelido', arquivar: 'Arquivar', desarquivar: 'Desarquivar', copiar: 'Copiar endereço', bloquear: 'Bloquear', desbloquear: 'Desbloquear', voltar: 'Voltar à lista' },
+      copiado: 'Endereço copiado.',
+      copiarFalhou: 'Não consegui copiar. Selecione o endereço e copie à mão.',
+      apelidoPergunta: 'Como você quer chamar esta pessoa aqui no painel? (só você vê)',
+      apelidoRemover: 'Deixe em branco para voltar ao nome que ela publicou.',
+      // Bloquear é LOCAL, e a tela diz isso — o envelope continua no relay.
+      bloquearAviso: 'Bloquear é só aqui no painel: a pessoa continua podendo escrever, e as mensagens dela continuam nos relays. O que muda é que você deixa de vê-las na lista.',
+      arquivarAviso: 'Arquivar tira a conversa da lista principal. Ela continua em "Arquivadas".',
+      apagadaPeloAutor: 'Esta mensagem foi apagada por quem a enviou.',
+      comArquivo: 'Mensagem com arquivo, que este painel ainda não abre.',
+      expiraEm: 'Esta mensagem desaparece em {d}.',
+      reacoes: 'Reações: {r}',
+      invalidas: '{n} mensagens chegaram com selo inválido e não foram abertas — alguém tentou se passar por outra pessoa, ou o envelope veio corrompido.',
+      antigas: 'Há {n} mensagens num formato antigo que este painel não abre.',
+      relaysSemAuth: 'Não consegui me identificar em {n} relays da sua caixa de entrada, e eles só entregam mensagens a quem se identifica.',
+      relaysMudos: 'Não consegui verificar {n} relays.',
+      // Responder
+      responder: 'Responder',
+      enviando: 'Enviando…',
+      caixaDele: 'Procurando onde esta pessoa recebe mensagens…',
+      semCaixa: 'Esta pessoa não publicou onde recebe mensagens. Pela regra do Nostr, não devo tentar enviar — a mensagem não chegaria.',
+      enviada: 'Enviada a {n} de {m} relays da caixa dela.',
+      naoEnviada: 'Não consegui enviar a nenhum relay da caixa dela. Tente de novo mais tarde.',
+      copiaFalhou: 'Enviada, mas não consegui guardar a cópia nos seus relays: ela pode não aparecer aqui na próxima sessão.',
+      // 14 T13 decisão 8 — tem de estar escrito, para não haver surpresa.
+      respondeComoSite: 'A resposta sai assinada pelo seu site, não por você como pessoa.',
+      vazia: 'Escreva alguma coisa antes de enviar.',
+      longa: 'Mensagem longa demais.',
+      grupoAviso: 'Esta mensagem foi mandada a mais de uma pessoa. O painel não responde a grupos — responder aqui fala só com quem escreveu.',
+      minha: 'você',
+      // 14 T13 decisão 26 (2026-09-14) — ao vivo. O estado fica à vista, e o
+      // aviso diz o preço: com a aba aberta, os relays sabem que o painel está aberto.
+      escuta: {
+        ligando: 'Preparando para receber as mensagens em tempo real…',
+        recebendo: 'Recebendo em tempo real: o que chegar aparece aqui sozinho, sem precisar verificar.',
+        recebendoParte: 'Recebendo em tempo real em {n} de {m} relays da sua caixa de entrada.',
+        semConexao: 'Sem conexão com os relays da sua caixa de entrada. Tentando de novo sozinho…',
+        recusou: 'Não consegui ficar conectado aos relays da sua caixa de entrada: eles recusaram a conexão. Tente "Verificar agora" mais tarde.'
+      },
+      avisoEscuta: 'Enquanto esta aba estiver aberta, o painel fica conectado aos relays da sua caixa de entrada. Em troca, esses relays sabem que o painel está aberto — e os que pedem identificação sabem também qual é o site. Pelo Tor eles não veem o seu IP; fora do Tor, veem.'
+    },
+    onde: {
+      apoio: 'O que o seu site diz ao leitor sobre como falar com você.',
+      camposTitulo: 'Formas de contato',
+      camposApoio: 'O que estiver preenchido aqui aparece no site, no lugar onde você inserir o bloco "Contatos". Deixe em branco o que não quiser mostrar.',
+      // A prévia está sempre à vista porque a validação é de propósito frouxa:
+      // as regras de nome de usuário de cada plataforma não estão em
+      // documentação confiável, e inventá-las recusaria contas legítimas.
+      previaTitulo: 'Como fica no site',
+      previaVazia: 'Preencha pelo menos uma forma de contato para ver a prévia.',
+      acrescentar: 'Acrescentar forma de contato',
+      canal: 'Canal',
+      valor: 'O que publicar',
+      rotulo: 'Nome do link',
+      rotuloApoio: 'O que o leitor vê no lugar do endereço. Em branco, aparece "Outro link".',
+      subir: 'Mover para cima',
+      descer: 'Mover para baixo',
+      remover: 'Remover',
+      invalido: 'Isto não parece um endereço válido para este canal — confira antes de salvar.',
+      usarMinhaNpub: 'Usar o endereço deste site',
+      // Como o dono põe o bloco na página. O botão da barra do editor faz isto
+      // por ele; o marcador fica escrito para quem preferir digitar.
+      comoUsar: 'Para mostrar estes contatos numa página, abra a página em Páginas ou Artigos e use o botão "Contatos" da barra do editor. Ele escreve o bloco [[contatos]] no lugar onde o cursor estiver.',
+      semNadaAinda: 'Nenhuma forma de contato ainda.',
+      salvarCampos: 'Salvar contatos',
+      camposSalvos: 'Salvo neste navegador. Só vale na rede depois de publicar.',
+      naoSalvos: 'Salvei o que estava certo. {n} não foram salvos porque o endereço não é válido para o canal escolhido — confira e salve de novo.',
+      // Os avisos por campo (plano §3.3). Nenhum é alarme: é a informação que
+      // falta a quem nunca pensou nisto (03 §1.1 item 2).
+      avisos: {
+        email: 'Endereço publicado num site é coletado por robôs de spam — a própria norma do "mailto:" avisa disso. Use um endereço só para isto.',
+        whatsapp: 'Publicar o número torna o seu telefone público, e telefone identifica a pessoa. Se o seu aplicativo gerar um link curto (wa.me/message/…) ou um nome de usuário, prefira — eles não mostram o número.',
+        telegram: 'Pelo nome de usuário ninguém vê o seu número. O link de convite que começa com "+" mostra, e por isso não é aceito aqui.',
+        instagram: 'É um perfil público: quem clicar vê o que você publica lá, e a plataforma sabe quem clicou.',
+        x: 'É um perfil público: quem clicar vê o que você publica lá, e a plataforma sabe quem clicou.',
+        nostr: 'Quem clicar só consegue escrever se tiver um aplicativo Nostr; por isso o endereço também aparece escrito no site, para copiar.',
+        signal: 'Cole o link de nome de usuário que o Signal gera — nunca o seu número.',
+        link: 'Sai exatamente como você escrever. Se for um serviço que carrega imagem ou programa, isso não entra no seu site — é só um link.'
+      },
+      // O que o dono escreve em cada canal. Curto de propósito: o exemplo
+      // ensina mais do que a regra.
+      exemplos: {
+        email: 'contato@exemplo.org',
+        whatsapp: '5511999999999 ou https://wa.me/message/ABC123',
+        telegram: 'seu_usuario',
+        instagram: 'seu_usuario',
+        x: 'seu_usuario',
+        nostr: 'npub1…',
+        signal: 'https://signal.me/#eu/…',
+        link: 'https://exemplo.org/pagina'
+      },
+      // 14 T13 decisão 28 (2026-09-14): o rótulo diz a AÇÃO e a linha de baixo, o
+      // ESTADO. Do jeito antigo o rótulo era o estado ("Desligado") e não mudava
+      // ao marcar: quem via a tela não entendia que a caixa era o interruptor.
+      receberTitulo: 'Mensagens pelo Nostr',
+      receberApoio: 'Com isto ligado, o painel publica na rede o aviso de que o seu site recebe mensagens e em quais relays — sem esse aviso, nenhum aplicativo que siga a regra do Nostr manda mensagem para você. E o bloco "Contatos" das suas páginas passa a convidar o leitor a escrever pelo Nostr, com o endereço do site.',
+      receberRotulo: 'Receber mensagens pelo Nostr',
+      estadoLigado: 'Estado: ligado.',
+      estadoDesligado: 'Estado: desligado.',
+      // Honestidade do "tirar do ar": desligar não apaga o que já foi dito. E não
+      // para todos os aplicativos — lido no código deles em 2026-09-14: o noStrudel
+      // respeita a lista sem relays; o Amethyst cai nos relays gerais do site.
+      desligarAviso: 'Ao publicar, o site passa a avisar na rede que não recebe mais mensagens, e o convite sai das suas páginas. Os aplicativos que seguem esse aviso param de enviar; outros continuam mandando para os relays gerais do site, onde o painel não olha. O que já foi enviado continua nos relays.',
+      relaysTitulo: 'Onde as mensagens chegam',
+      relaysApoio: 'De 1 a 3 relays, como o Nostr pede. Você troca esta lista em Configurações → Avançado.',
+      irAvancado: 'Ir a Configurações → Avançado',
+      semRelays: 'Nenhum relay escolhido — sem pelo menos um, o aviso não faz sentido e não é publicado.',
+      tipos: {
+        'wss://auth.nostr1.com': 'entrega as mensagens só a você, depois de você se identificar — em troca, quem escreve também precisa se identificar, e um aplicativo simples pode não conseguir',
+        'wss://nos.lol': 'aceita mensagens de qualquer aplicativo — em troca, um curioso consegue contar quantos envelopes chegaram ao seu endereço (não consegue ler nenhum)'
+      },
+      // D3 (2026-09-14): aparece DEPOIS de gravar, e só então. Antes havia um
+      // "Salvo neste navegador. Só vale na rede depois de publicar." fixo, à vista
+      // antes de qualquer clique, e um segundo "Salvo" ao lado dele depois de salvar.
+      salvo: 'Salvo neste navegador. Só vale na rede depois de publicar.'
+    }
+  },
+
   t12: {
     titulo: 'Temas',
     apoio: 'O tema decide o desenho de todas as páginas do seu site. Escolha um e veja como fica antes de publicar.',
@@ -839,14 +1011,16 @@ const Textos = Object.freeze({
     // texto é código à vista, e mais cedo ou mais tarde ele vai querer mexer
     // à mão. Explicar aqui é mais barato do que ele descobrir por tentativa.
     blocos: {
-      titulo: 'Botões e galerias de artigos',
-      intro: 'No editor de páginas e artigos, os botões "Botão" e "Artigos" escrevem no seu texto um código curto entre colchetes duplos. Na página publicada, esse código vira um botão ou uma grade de artigos.',
+      titulo: 'Botões, galerias de artigos e contatos',
+      intro: 'No editor de páginas e artigos, os botões "Botão", "Artigos" e "Contatos" escrevem no seu texto um código curto entre colchetes duplos. Na página publicada, esse código vira um botão, uma grade de artigos ou a lista das suas formas de contato.',
       regra: 'Uma regra só, e é a que mais dá erro: o código tem de ficar sozinho na sua linha. No meio de uma frase ele fica como está, à vista do leitor.',
       exemplos: [
         ['[[botao: Fale comigo -> /contato]]', 'Um botão com o texto "Fale comigo", que leva à página /contato deste site. Também aceita endereço de outro site (https://…). Qualquer outra coisa é recusada — é a mesma proteção que impede um link de executar código na máquina de quem lê.'],
         ['[[artigos: 6, com-capa]]', 'Os 6 artigos mais recentes, em cartões com a imagem de capa.'],
         ['[[artigos: 3, sem-capa, com-resumo]]', 'Os 3 mais recentes, sem imagem e com o resumo de cada um.'],
-        ['[[artigos: 4, com-capa, etiqueta=receitas]]', 'Os 4 mais recentes que tenham a etiqueta "receitas".']
+        ['[[artigos: 4, com-capa, etiqueta=receitas]]', 'Os 4 mais recentes que tenham a etiqueta "receitas".'],
+        ['[[contatos]]', 'As formas de contato que você preencheu em Contatos → Onde me encontrar. Sem nenhuma preenchida, o bloco não aparece no site e o código fica à vista para você notar.'],
+        ['[[contatos: Fale comigo]]', 'O mesmo, com um título em cima.']
       ],
       etiquetasTitulo: 'As etiquetas dos artigos',
       etiquetas: [
@@ -936,7 +1110,7 @@ const Textos = Object.freeze({
       bibliotecasTitulo: 'Bibliotecas embutidas',
       bibliotecasApoio: 'Cada uma entra no arquivo como está, e a montagem recusa gerar o app se o conteúdo de qualquer uma divergir do hash anotado.',
       bibliotecas: [
-        ['nostr-tools', '2.25.0', 'Unlicense', 'chaves, assinatura e verificação de eventos'],
+        ['nostr-tools', '2.25.0', 'Unlicense', 'chaves, assinatura e verificação de eventos, e as mensagens privadas cifradas'],
         ['DOMPurify', '3.4.14', 'Apache-2.0', 'limpeza do HTML que a pré-visualização mostra'],
         ['marked', '18.0.11', 'MIT', 'Markdown → HTML'],
         ['Mustache', '4.2.0', 'MIT', 'o tema, que vira as páginas do site'],

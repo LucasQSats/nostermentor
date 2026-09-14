@@ -30,6 +30,53 @@ function relayList(ch, relays) { return finalizeEvent({ kind: 10002, created_at:
 function serverList(ch, servers) { return finalizeEvent({ kind: 10063, created_at: agora(), tags: servers.map(s => ['server', s]), content: '' }, ch.sk); }
 function efemero(ch) { return finalizeEvent({ kind: 20169, created_at: agora(), tags: [], content: 'sonda' }, ch.sk); }
 
+// --- mensagens privadas (NIP-17), desde 2026-09-12 -------------------------
+// Montadas À MÃO, sem `nip17.wrapEvent`, por duas razões: (1) precisamos
+// controlar a data do RUMOR e a do ENVELOPE em separado — é assim que se prova
+// que a lista ordena pela do rumor; (2) precisamos forjar um selo com autor
+// diferente do miolo, que a biblioteca nunca produziria.
+const nip44 = require('nostr-tools/nip44');
+const { getEventHash } = require('nostr-tools/pure');
+
+function rumor(ch, o) {
+  o = o || {};
+  const r = { pubkey: ch.pubkey, created_at: o.created_at || agora(), kind: o.kind == null ? 14 : o.kind,
+    tags: o.tags || [['p', o.para]], content: o.content == null ? 'olá' : o.content };
+  r.id = getEventHash(r);
+  return r;
+}
+function selo(rumorObj, skAutor, paraPubkey, o) {
+  o = o || {};
+  return finalizeEvent({ kind: 13, created_at: o.created_at || agora(),
+    content: nip44.encrypt(JSON.stringify(rumorObj), nip44.getConversationKey(skAutor, paraPubkey)), tags: [] }, skAutor);
+}
+// `expiration` e a data do envelope entram aqui: reassinar um envelope PRONTO
+// não funciona (a cifra deriva da chave que o assina — armadilha 2 da Etapa 0).
+function envelope(seloObj, paraPubkey, o) {
+  o = o || {};
+  const sk = o.sk || generateSecretKey();          // a chave descartável do 1059
+  const tags = [['p', paraPubkey]];
+  if (o.expiration) tags.push(['expiration', String(o.expiration)]);
+  return finalizeEvent({ kind: o.kind || 1059, created_at: o.created_at || agora(),
+    content: nip44.encrypt(JSON.stringify(seloObj), nip44.getConversationKey(sk, paraPubkey)), tags: tags }, sk);
+}
+// A volta inteira, de quem escreve para quem recebe.
+// o: { content, kind, created_at (do RUMOR), envelopeEm (data do 1059),
+//      expiration, seloDe (chave que SELA — trocá-la forja o selo) }
+function mensagem(deCh, paraPubkey, o) {
+  o = o || {};
+  const r = rumor(deCh, { para: paraPubkey, content: o.content, kind: o.kind, created_at: o.created_at, tags: o.tags });
+  const sl = selo(r, (o.seloDe && o.seloDe.sk) || deCh.sk, paraPubkey, { created_at: o.seloEm });
+  return { rumor: r, selo: sl, envelope: envelope(sl, paraPubkey, { created_at: o.envelopeEm, expiration: o.expiration, kind: o.envelopeKind }) };
+}
+function caixaDeEntrada(ch, relays, o) {
+  o = o || {};
+  return finalizeEvent({ kind: 10050, created_at: o.created_at || agora(), tags: (relays || []).map(r => ['relay', r]), content: '' }, ch.sk);
+}
+function mensagemAntiga(deCh, paraPubkey) {   // kind 4: o painel só CONTA
+  return finalizeEvent({ kind: 4, created_at: agora(), tags: [['p', paraPubkey]], content: 'xx?iv=yy' }, deCh.sk);
+}
+
 // site.json v1 de exemplo: 2 páginas, 3 artigos, 1 mídia — ids fixos para
 // que dois manifests "da mesma origem" partilhem ids (mesclagem por id).
 function siteExemplo(ch, o) {
@@ -64,4 +111,4 @@ function pathsDoExemplo(sj, shaHtml) {
     '/img/capa.png': sj.dados.media[0].sha256, '/tema/estilo.css': sha256('css'), '/nostermentor/site.json': sj.sha256 };
 }
 
-module.exports = { chave, sha256, agora, manifest, perfil, relayList, serverList, efemero, siteExemplo, pathsDoExemplo };
+module.exports = { rumor, selo, envelope, mensagem, caixaDeEntrada, mensagemAntiga, chave, sha256, agora, manifest, perfil, relayList, serverList, efemero, siteExemplo, pathsDoExemplo };

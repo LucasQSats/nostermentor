@@ -29,8 +29,14 @@ const Temas = (function () {
   // a byte, para que o `padrao` continue a gerar exatamente os mesmos
   // arquivos (13 §5.2: mudar um byte aqui muda o sha256 de toda página
   // publicada por todos os sites que usem estes moldes).
-  // ⚠️ E é por isso que mexer num molde daqui é mexer em DOZE temas de uma
-  // vez (os que não trocam molde nenhum): qualquer alteração obriga a subir a `version` de cada tema que o use.
+  // ⚠️ E é por isso que mexer num molde daqui é mexer em MUITOS temas de uma
+  // vez (os que não trocam aquele molde): qualquer alteração obriga a subir a
+  // `version` de cada tema que o use. ⚠️ Acrescentar um molde NOVO é outra
+  // coisa e é seguro desde 2026-09-12 — `Temas.molde` dá reserva a ele, e um
+  // tema que não o conheça passa a receber este.
+  // ⚠️ Quantos temas herdam cada molde NÃO se deduz da leitura: é medido. Em
+  // 2026-09-12, 18 dos 22 partem do jogo do core (alguns trocando um molde ou
+  // outro) e quatro enumeram os oito moldes próprios.
 
 
   // Layout de toda página HTML. Contexto (todo pré-calculado pelo gerador —
@@ -49,11 +55,18 @@ const Temas = (function () {
     '<title>{{titulo_pagina}}</title>',
     '{{#descricao}}<meta name="description" content="{{descricao}}">',
     // O ícone da aba do navegador de quem lê o site. Vive no molde
-    // COMPARTILHADO de propósito: nenhum dos 21 temas substitui `layout`,
-    // logo uma linha aqui vale para todos. ⚠️ Um tema de terceiro que
-    // substitua `layout` tem de repetir esta linha, ou o site sai sem ícone
-    // (TEMAS.md §2). Sem ícone escolhido, `favicon` é nulo e não sai `<link>`
-    // nenhum: um `<link>` para o vazio custaria um pedido a cada leitor.
+    // COMPARTILHADO, e uma linha aqui vale para todo tema que herde este
+    // `layout`. ⚠️⚠️ QUE NÃO SÃO TODOS, e a linha que aqui esteve até
+    // 2026-09-12 ("nenhum dos 21 temas substitui `layout`") era FALSA: quatro
+    // temas têm layout próprio — `diario`, `jornal`, `moderno` e
+    // `nostermentor` —, e foi exatamente assim que o ícone da aba serviu 18 de
+    // 21 sem erro nenhum. A RESERVA de `Temas.molde`
+    // resolve o caso de um molde que FALTA por inteiro, mas não este: quem
+    // substitui o `layout` o substitui com o conteúdo que copiou no dia, e uma
+    // linha nova aqui não chega lá. Tema de terceiro que substitua o `layout`
+    // tem de repetir esta linha, ou o site sai sem ícone (TEMAS.md §2).
+    // Sem ícone escolhido, `favicon` é nulo e não sai `<link>` nenhum: um
+    // `<link>` para o vazio custaria um pedido a cada leitor.
     '{{/descricao}}{{#favicon}}<link rel="icon" href="{{src}}"{{#tipo}} type="{{tipo}}"{{/tipo}}>',
     '{{/favicon}}<link rel="stylesheet" href="/tema/estilo.css">',
     '</head>',
@@ -175,8 +188,55 @@ const Temas = (function () {
     ''
   ].join('\n');
 
+  // 61 — o bloco de CONTATOS, o que o marcador `[[contatos]]` produz. Contexto:
+  // titulo (string ou '' — sem ele não sai cabeçalho nenhum), itens[] {tipo,
+  // rotulo, texto, href | '', externo, codigo | ''}. O gerador já montou cada
+  // link e já o passou por `Gerador.hrefSeguro`: aqui não se decide nada.
+  // ⚠️ SEM ÍCONE, de propósito e com razão medida (plano §3.4): no Tor Browser
+  // "Muito seguro" todo SVG é desligado (P41 do 08), logo um ícone SVG
+  // desapareceria justamente para o leitor mais cauteloso — e ícones em PNG
+  // seriam oito arquivos publicados a mais.
+  // ⚠️ E sem CSS novo em tema nenhum: são `<ul>`, `<li>`, `<a>` e `<code>`, que
+  // os 22 temas já desenham. A alternativa — uma classe nova no CSS de cada
+  // tema — mudaria os bytes de `/tema/estilo.css` de TODO site publicado e
+  // obrigaria a subir a `version` dos 22 (é a conta da Etapa 3). As classes
+  // ficam escritas no HTML para o tema que quiser pegá-las (TEMAS.md §5).
+  // O Nostr sai em DOBRO — link e texto — porque é o único canal cujo link
+  // pode não fazer nada no computador de quem lê (NIP-21 não tem reserva).
+  // ⚠️ O `<br>` antes do `<code>` não é estética: num tema com
+  // `text-align: justify` (o Jornal), sem ele a linha do link deixa de ser a
+  // última do bloco e é ESTICADA — "Meu     endereço     Nostr" com buracos
+  // entre as palavras. Visto na captura da página publicada, não num teste.
+  const contatos = [
+    '<section class="contatos">',
+    '{{#titulo}}<h2>{{titulo}}</h2>',
+    '{{/titulo}}<ul class="lista-contatos">{{#itens}}<li class="contato contato-{{tipo}}"><span class="contato-canal">{{rotulo}}</span> {{#href}}<a href="{{href}}"{{#externo}} rel="external noopener noreferrer"{{/externo}}>{{texto}}</a>{{/href}}{{^href}}<span class="contato-valor">{{texto}}</span>{{/href}}{{#codigo}}<br><code class="contato-codigo">{{codigo}}</code>{{/codigo}}{{#nota}}<br><small class="contato-nota">{{nota}}</small>{{/nota}}</li>',
+    '{{/itens}}</ul>',
+    '</section>',
+    ''
+  ].join('\n');
+
   // O jogo completo, para `Object.assign({}, Temas.moldes, {…})`.
-  const moldes = Object.freeze({ layout, pagina, artigo, blog, etiqueta, alias, botao, galeria });
+  const moldes = Object.freeze({ layout, pagina, artigo, blog, etiqueta, alias, botao, galeria, contatos });
+
+  // 56 + 61 — O MOLDE QUE UM TEMA USA, com RESERVA no jogo do core. É uma
+  // função e não um acesso direto por uma razão medida em 2026-09-12: quatro
+  // dos 22 temas (`diario`, `jornal`, `moderno` e `nostermentor`) não fazem
+  // `Object.assign({}, Temas.moldes, {…})` — enumeram os oito moldes um a um,
+  // porque foram escritos antes de `Temas.moldes` existir. Um molde NOVO no
+  // core simplesmente não existia neles: o `Mustache.render` recebia
+  // `undefined` e o bloco saía vazio, sem erro nenhum, justamente nos temas
+  // mais trabalhados. É a mesma família do defeito do ícone da aba, que serviu
+  // 18 de 21 temas em silêncio.
+  // ⚠️ Isto NÃO muda um byte publicado: para os 18 temas que já herdavam o
+  // jogo, `tema.templates[nome]` continua sendo o mesmo molde; para os quatro,
+  // só passa a existir o que antes faltava. Provado pelo site de exemplo nos
+  // 22 temas, nos dois motores.
+  function molde(tema, nome) {
+    const t = tema && tema.templates;
+    const m = t && t[nome];
+    return typeof m === 'string' ? m : moldes[nome];
+  }
 
   // o bech32 do NIP-19: "npub1" e mais 58 caracteres do alfabeto do bech32
   const RE_NPUB = /^npub1[023456789acdefghjklmnpqrstuvwxyz]{58}$/;
@@ -310,5 +370,5 @@ const Temas = (function () {
       theme_memory: memoria, lembrou: Object.keys(guardadas).length > 0 };
   }
 
-  return Object.freeze({ registar, porId, padrao, todos, visiveisPara, idDe, de, conhecido, resolver, moldes, cor, memoriaDe, trocar, MAX_TEMAS_LEMBRADOS });
+  return Object.freeze({ registar, porId, padrao, todos, visiveisPara, idDe, de, conhecido, resolver, moldes, molde, cor, memoriaDe, trocar, MAX_TEMAS_LEMBRADOS });
 })();

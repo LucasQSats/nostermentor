@@ -436,6 +436,32 @@ const Editor = (function () {
       inTexto.focus();
     }
 
+    // 61 — o bloco de contatos. O marcador não leva os dados dentro: leva só o
+    // título, e os contatos saem do `site.contacts` no momento de gerar. É o
+    // que faz mudar o WhatsApp num lugar só e as páginas todas acompanharem.
+    function inserirContatos() {
+      const K = T.contatos;
+      const quantos = Contatos.normalizarLista(site.contacts).length;
+      const inTitulo = h('input', { type: 'text', id: 'contatos-titulo', placeholder: K.cabecalhoPlaceholder, autocomplete: 'off' });
+      function confirmar() {
+        // `]]` no título quebraria o próprio marcador — o mesmo tratamento do
+        // rótulo do botão.
+        const titulo = inTitulo.value.trim().replace(/\]\]/g, ']').replace(/\[\[/g, '[');
+        Shell.fecharModal();
+        inserirBloco(titulo ? '[[contatos: ' + titulo + ']]' : '[[contatos]]');
+      }
+      Shell.modal({ titulo: K.titulo, conteudo: h('div', {},
+        quantos ? null : h('p', { class: 'alerta', id: 'contatos-sem-nada' }, K.semNada),
+        h('label', { for: 'contatos-titulo' }, K.cabecalho), inTitulo,
+        h('p', { class: 'apoio' }, K.apoio),
+        h('div', { class: 'acoes' },
+          h('button', { type: 'button', id: 'contatos-confirmar', onclick: confirmar }, K.inserir),
+          quantos ? null : h('button', { type: 'button', class: 'secundario', id: 'contatos-ir',
+            onclick: function () { Shell.fecharModal(); Shell.ir('t13', { aba: 'onde' }); } }, K.irPreencher),
+          h('button', { type: 'button', class: 'secundario', id: 'contatos-cancelar', onclick: function () { Shell.fecharModal(); } }, K.cancelar))) });
+      inTitulo.focus();
+    }
+
     // 30 — a galeria de artigos. As etiquetas oferecidas são as que EXISTEM
     // (Modelo.etiquetasDe, o mesmo agrupamento por slug que gera as páginas):
     // oferecer uma etiqueta que ninguém usa daria uma galeria vazia.
@@ -597,7 +623,7 @@ const Editor = (function () {
       negrito: () => envolver('**', '**', M.negrito), italico: () => envolver('*', '*', M.italico), titulo: () => prefixarLinhas('## ', M.titulo),
       link: () => envolver('[', '](https://)', M.link), imagem: inserirImagem, video: inserirVideo, lista: () => prefixarLinhas('- ', M.lista), citacao: () => prefixarLinhas('> ', M.citacao),
       codigo: () => { const sel = taCorpo.value.slice(taCorpo.selectionStart, taCorpo.selectionEnd); if (sel.indexOf('\n') !== -1) envolver('```\n', '\n```', sel); else envolver('`', '`', M.codigo); },
-      botao: inserirBotao, artigos: inserirArtigos, html: inserirHtml
+      botao: inserirBotao, artigos: inserirArtigos, contatos: inserirContatos, html: inserirHtml
     };
     const ferramentas = h('div', { class: 'ferramentas', role: 'toolbar', 'aria-label': C.conteudo }, Object.keys(T.ferramentas).map(k =>
       h('button', { type: 'button', class: 'secundario ferramenta', 'data-acao': k, title: T.ferramentas[k], disabled: removido, onclick: function () { acoes[k](); } }, T.ferramentas[k])));

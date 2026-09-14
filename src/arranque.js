@@ -7,7 +7,7 @@
     NT: function () { return NT; }, DOMPurify: function () { return DOMPurify; },
     marked: function () { return marked; }, Mustache: function () { return Mustache; },
     Textos: function () { return Textos; }, Chave: function () { return Chave; }, Modelo: function () { return Modelo; },
-    Relay: function () { return Relay; }, Blossom: function () { return Blossom; }, Db: function () { return Db; },
+    Relay: function () { return Relay; }, Mensagens: function () { return Mensagens; }, Blossom: function () { return Blossom; }, Db: function () { return Db; },
     SiteJson: function () { return SiteJson; }, Saude: function () { return Saude; }, Rede: function () { return Rede; },
     Despublicar: function () { return Despublicar; },
     TemaPadrao: function () { return TemaPadrao; }, Gerador: function () { return Gerador; }, Backup: function () { return Backup; },

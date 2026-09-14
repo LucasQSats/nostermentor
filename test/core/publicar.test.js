@@ -32,7 +32,7 @@ module.exports = async function (ctx, u) {
     const gerado = await Gerador.gerarSite(dados);`;
 
   const naPagina = (corpo, arg) => p.pg.evaluate(new Function('arg', `return (async () => {
-    const RELAYS = arg.relays, SERVIDORES = arg.servidores, RECUSA = arg.RECUSA, MUDO = arg.MUDO, DUP = arg.DUP, NOVO = arg.NOVO, SO_MIDIA = arg.SO_MIDIA;
+    const RELAYS = arg.relays, SERVIDORES = arg.servidores, RECUSA = arg.RECUSA, MUDO = arg.MUDO, DUP = arg.DUP, NOVO = arg.NOVO, SO_MIDIA = arg.SO_MIDIA, VELHA = arg.VELHA;
     ${SEMENTE} ${corpo} })()`), arg);
   const infra = { relays: [f.ws('p-ok'), f.ws('p-ok2')], servidores: [f.url('b1'), f.url('b2')] };
 
@@ -298,6 +298,36 @@ module.exports = async function (ctx, u) {
     assert(r.k2.kind === 10002 && r.k2.tags.every(t => t === 'r') && r.k3.kind === 10063 && r.k3.tags.every(t => t === 'server'), JSON.stringify([r.k2, r.k3]));
     assert(!r.iguais.kind0 && !r.iguais.kind10002 && !r.iguais.kind10063, 'sem mudança, nenhum metadado: ' + JSON.stringify(r.iguais));
     assert(r.mudou.kind10002 === true && r.mudou.kind0 === false, 'só a lista de relays mudou: ' + JSON.stringify(r.mudou));
+  });
+
+  // Decisão de 2026-09-14: desligar as mensagens retira a caixa da rede com um
+  // 10050 SEM relays — e quem nunca ligou continua sem 10050 nenhum.
+  await it('desligar com uma caixa na rede: sai um 10050 SEM relays, também nos relays da caixa antiga, e o contador acende; já vazia ou nunca publicada, nada sai', async () => {
+    f.relay('p-caixa-velha', { escrita: 'aceita', eventos: [] });
+    const r = await naPagina(`
+      const velha = assinar(Mensagens.modeloCaixa([VELHA]));
+      const vazia = assinar(Mensagens.modeloCaixa([]));
+      site.messages = { enabled: false, relays: [VELHA] };
+      const base = { paths: Object.assign({}, gerado.hashes), servers: {}, site_config: SiteJson.assinaturaSite(site) };
+      const pub = (k) => Object.assign({}, base, { metadata_events: { kind10050: k } });
+      const desligar = Publicar.planear({ dados, gerado, published: pub(velha) });
+      const jaVazia = Publicar.planear({ dados, gerado, published: pub(vazia) });
+      const nunca = Publicar.planear({ dados, gerado, published: pub(null) });
+      const res = await Publicar.executar({ plano: desligar, site, assinar, servidores: SERVIDORES, relays: RELAYS, timeoutMs: 3000 });
+      const caixa = res.metadados.find(m => m.kind === 10050);
+      return { desligar: { k: desligar.eventos.kind10050, desligada: desligar.caixa_desligada, anterior: desligar.caixa_anterior },
+        jaVazia: jaVazia.eventos.kind10050, nunca: nunca.eventos.kind10050, rotuloNunca: nunca.caixa_desligada,
+        pendente: [pub(velha), pub(vazia), pub(null)].map(p => Publicar.configPendente(site, p, [])),
+        desfecho: res.desfecho, tags: caixa ? caixa.evento.tags : null, alvos: caixa ? caixa.resultados.map(x => x.url) : [] };`,
+      Object.assign({ VELHA: f.ws('p-caixa-velha') }, infra));
+    assert(r.desligar.k === true && r.desligar.desligada === true && r.desligar.anterior.length === 1, 'desligar com a caixa na rede tem de publicar o aviso: ' + JSON.stringify(r.desligar));
+    assert(r.jaVazia === false && r.nunca === false && r.rotuloNunca === false, 'já vazia ou nunca publicada não publica nada: ' + JSON.stringify(r));
+    assert(r.pendente.join() === 'true,false,false', 'o contador tem de acender só quando há caixa a retirar: ' + JSON.stringify(r.pendente));
+    assert(r.desfecho === 'publicado' && Array.isArray(r.tags) && r.tags.length === 0, 'o 10050 publicado tem de sair sem relays: ' + JSON.stringify([r.desfecho, r.tags]));
+    assert(r.alvos.includes(f.ws('p-caixa-velha')) && infra.relays.every(u => r.alvos.includes(u)), 'o aviso tem de ir à caixa antiga e aos relays de publicação: ' + JSON.stringify(r.alvos));
+    const naVelha = f.publicadosEm('p-caixa-velha');
+    assert(naVelha.some(e => e.kind === 10050 && e.tags.length === 0), 'a caixa antiga não recebeu o 10050 sem relays: ' + JSON.stringify(naVelha.map(e => [e.kind, e.tags.length])));
+    return 'aviso em ' + r.alvos.length + ' relays · contador ' + r.pendente.join('/');
   });
 
   await it('ORDEM DE SEGURANÇA: um arquivo que nenhum servidor aceita → desfecho falta_servidor, NENHUM manifest assinado, nenhum relay tocado', async () => {

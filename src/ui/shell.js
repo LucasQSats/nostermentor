@@ -49,6 +49,24 @@ const Shell = (function () {
     if (!sessao) throw new Error('sem sessão: não há chave para assinar');
     return Chave.assinar(modelo, sessao.sk);
   }
+  // 61 — as mensagens privadas. A `sk` NUNCA sai daqui: a tela pede o trabalho
+  // feito, não a chave. `abrirEnvelopes` decifra o que veio da rede;
+  // `embrulhar` monta os dois envelopes de uma resposta; `assinarAuth` é o
+  // 22242 do NIP-42, e só existe enquanto há sessão — que é exatamente a regra
+  // "só se identifica quem tem chave na memória" (14 T13 decisão 5).
+  function abrirEnvelopes(envelopes) {
+    if (!sessao) throw new Error('sem sessão: não há chave para decifrar');
+    return Mensagens.abrirVarias(envelopes, sessao.sk, sessao.pubkey);
+  }
+  function embrulhar(texto, destinoPubkey, opts) {
+    if (!sessao) throw new Error('sem sessão: não há chave para assinar');
+    return Mensagens.montarResposta(texto, sessao.sk, destinoPubkey, opts);
+  }
+  function assinarAuth(url, desafio) {
+    if (!sessao) return null;
+    return Chave.assinar(Mensagens.modeloAuth(url, desafio), sessao.sk);
+  }
+
   function obterDados() { return dados; }
   function definirDados(d) { if (!sessao) throw new Error('sem sessão'); dados = d; }
 
@@ -220,6 +238,7 @@ const Shell = (function () {
     h: h, limpar: limpar,
     registrar: registrar, ir: ir, telaAtual: function () { return telaAtual; },
     entrar: entrar, trancar: trancar, temSessao: temSessao, sessao: sessaoPublica, assinar: assinar,
+    abrirEnvelopes: abrirEnvelopes, embrulhar: embrulhar, assinarAuth: assinarAuth,
     dados: obterDados, definirDados: definirDados, atualizarSite: atualizarSite,
     faixa: faixa, limparFaixa: limparFaixa, erro: erro, contadores: atualizarContadores,
     atualizarBarra: atualizarBarra, registrarAlteracao: registrarAlteracao, modal: modal, fecharModal: fecharModal

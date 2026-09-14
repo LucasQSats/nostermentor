@@ -17,7 +17,7 @@ seção exigir ler o código, a seção está incompleta — diga.
 
 ## 1. O que é um tema aqui
 
-Um tema é um **pacote de dados**: um manifesto, oito moldes de HTML e uma
+Um tema é um **pacote de dados**: um manifesto, nove moldes de HTML e uma
 função que devolve a folha de estilo. **Nunca é programa.** O painel de
 administração não executa uma linha do tema, e o site publicado não tem uma
 linha de script de ninguém.
@@ -38,11 +38,11 @@ transforma-o em HTML sem classe nenhuma), os caminhos dos arquivos gerados, o
 
 ## 2. Começar: o caminho mais curto
 
-O tema mais simples é um tema **só de CSS**: usa os oito moldes que o app já
+O tema mais simples é um tema **só de CSS**: usa os nove moldes que o app já
 traz e escreve apenas a função `css(opcoes)`.
 
 ```js
-const templates = Temas.moldes;                    // os oito, como estão
+const templates = Temas.moldes;                    // os nove, como estão
 ```
 
 E, se quiser trocar só um deles (desenhar a capa da página, pôr a data antes
@@ -54,17 +54,20 @@ const templates = Object.freeze(Object.assign({}, Temas.moldes,
 ```
 
 `Temas.moldes` vive em `src/core/temas.js` e é, byte a byte, o que o tema
-Padrão sempre produziu. **Dos 21 temas, 18 usam o `layout` do core; três — o
-Diário, o Jornal e o Moderno — têm `layout` próprio** (medido em 2026-09-05,
-procurando `const layout = [` arquivo a arquivo). Os moldes escrevem HTML com todas as classes da
-seção 5, e é nelas que a folha de estilo se agarra. **Dos 21 temas que o app
-traz, 12 não trocam molde nenhum** — são só folha de estilo (contados pelo
-sha256 do jogo de moldes de cada um, 2026-09-05).
+Padrão sempre produziu. **Dos 22 temas, 18 partem do jogo do core (uns
+trocando um molde ou outro) e quatro enumeram os moldes um a um — o Diário, o
+Jornal, o Moderno e o Nostermentor, que por isso têm `layout` próprio**
+(remedido em 2026-09-12, arquivo a arquivo). Os moldes escrevem HTML com todas
+as classes da seção 5, e é nelas que a folha de estilo se agarra.
 
-⚠️ **Mexer num molde de `Temas.moldes` é mexer em 12 temas de uma vez**, e
-obriga a subir a `version` de cada um: o site publicado é comparado por
-sha256 arquivo a arquivo (seção 9), logo um byte diferente no molde
-republica todas as páginas de todos os sites que o usem.
+⚠️ **Mexer num molde de `Temas.moldes` é mexer em muitos temas de uma vez**
+(os que não trocam aquele molde), e obriga a subir a `version` de cada um: o
+site publicado é comparado por sha256 arquivo a arquivo (seção 9), logo um byte
+diferente no molde republica todas as páginas de todos os sites que o usem.
+⚠️ **Quantos são se mede — não se deduz da leitura.** É o defeito da lista
+fixa, e já custou duas vezes aqui (o ícone da aba e este parágrafo).
+✅ **Acrescentar um molde NOVO é outra coisa, e é seguro:** `Temas.molde` dá a ele
+reserva no jogo do core, e ele chega aos 22 temas sem tocar em nenhum.
 
 Cada tema vive num único arquivo, `src/tema/<id>/tema.js`, e termina por se
 registar: `Temas.registar(TemaX)`. É só isso que o app precisa para o
@@ -126,7 +129,7 @@ todo em `src/core/temas.js`, é só isto — e nada disto é obrigatório:
 
 | | O que faz | Onde é obrigatório |
 |---|---|---|
-| `Temas.moldes` | os oito moldes base | — |
+| `Temas.moldes` | os nove moldes base | — |
 | `Temas.resolver(options, opcoes)` | valida as opções contra o manifesto e descarta o que não bate | a validação é obrigatória (seção 6); fazê-la à mão é permitido |
 | `Temas.cor` | `paraRgb`, `paraHex`, `brilho`, `misturar`, `legivelSobre`, `textoSobre`, `acentoLegivel` — tudo em aritmética inteira | — (mas a regra dos inteiros é, seção 9) |
 | `Temas.registar(tema)` | põe o tema no registro | sim, é a última linha do arquivo |
@@ -161,7 +164,7 @@ a tela Temas mostra um cartão por tema com o nome, o autor, a versão e uma
 Vale a pena que o `nome` seja curto e que o `autor` seja como quer ser
 creditado — é o que aparece no cartão.
 
-## 4. Os oito moldes
+## 4. Os nove moldes
 
 Os moldes são **Mustache sem lógica**: `{{campo}}` insere o valor escapado
 para HTML, `{{{campo}}}` insere-o cru (só para o que já vem sanitizado, como
@@ -179,6 +182,7 @@ contexto: **tudo o que o molde precisa chega pré-calculado.**
 | `alias` | a página HTML inteira de um endereço antigo, que redireciona | `lang`, `titulo`, `destino` |
 | `botao` | o bloco `[[botao: texto -> destino]]` escrito no Markdown | `texto`, `href`, `externo` |
 | `galeria` | o bloco `[[artigos: …]]` escrito no Markdown | `tem_artigos`, `artigos[]{href,titulo,data,data_iso,resumo,capa{src,alt,largura,altura,href}` ou `null}` |
+| `contatos` | o bloco `[[contatos]]` / `[[contatos: Título]]` escrito no Markdown (desde 2026-09-12) | `titulo` (string, vazia quando o dono não deu nenhum), `itens[]{tipo,rotulo,texto,href,externo,codigo}` — `tipo` é o canal (`email`, `whatsapp`, `telegram`, `instagram`, `x`, `nostr`, `signal`, `link`), `codigo` é o texto a copiar e só o `nostr` o traz. Desde 2026-09-14, com as mensagens pelo Nostr **ligadas**, o app acrescenta no fim um item `nostr` com a npub do site e o texto "Mande uma mensagem privada" (ou põe esse texto no campo Nostr que o dono já preencheu com a npub do site) |
 
 Notas que evitam surpresas:
 
@@ -198,6 +202,15 @@ Notas que evitam surpresas:
   forma abreviada. **Quem apanhou foi o teste**, que mede os 21 e não lê a
   fonte (`test/core/gerador.test.js`, caso do favicon). A lição é a mesma da
   T12: *uma afirmação sobre N temas mede-se nos N.*
+- ✅ **Um molde NOVO no core chega a todos os temas, desde 2026-09-12.** O
+  gerador pede cada molde por `Temas.molde(tema, nome)`, que devolve o do tema
+  quando existe e **cai no jogo do core quando não existe**. Antes disto, os
+  quatro temas que enumeram os moldes um a um (`diario`, `jornal`, `moderno`,
+  `nostermentor`) recebiam `undefined` de um molde novo — bloco vazio, sem erro
+  nenhum. ⚠️ **A reserva resolve o molde que FALTA, não o molde que está
+  desatualizado:** quem substitui o `layout` o substitui com o que copiou no
+  dia, e uma linha nova no `layout` do core continua sem chegar a ele (é o caso
+  do ícone da aba, acima).
 - **`alias` (a página de redirecionamento) NÃO leva ícone**, e é decisão:
   ninguém a vê — ela salta para outro endereço num piscar —, e um `<link>`
   ali custaria a cada leitor um pedido a mais por nada.
@@ -209,8 +222,19 @@ Notas que evitam surpresas:
   assim, o molde deve inserir `href` com `{{href}}` (escapado), nunca cru.
 - **A `data` vem formatada** pelo app (por omissão `AAAA-MM-DD`; com a hora,
   se o dono ligar essa opção). `data_iso` é o valor para `datetime=`.
-- **Os blocos `botao` e `galeria` nascem dentro do `corpo`**, no ponto em que
-  o dono escreveu o marcador; o tema não os posiciona.
+- **Os blocos `botao`, `galeria` e `contatos` nascem dentro do `corpo`**, no
+  ponto em que o dono escreveu o marcador; o tema não os posiciona.
+- **O bloco `contatos` sai SEM ícone e sem CSS novo em tema nenhum**, e as duas
+  coisas são decisão medida (2026-09-12): no Tor Browser "Muito seguro" todo
+  SVG é desligado, logo um ícone SVG desapareceria justamente para o leitor
+  mais cauteloso; e acrescentar uma regra de CSS a cada tema mudaria os bytes
+  de `/tema/estilo.css` de **todo site já publicado**. O molde usa `<ul>`,
+  `<li>`, `<a>`, `<span>` e `<code>`, que todo tema já desenha — as classes da
+  seção 5 estão lá para quem quiser desenhá-lo melhor.
+- **Sem contato nenhum preenchido o bloco não sai** (nem vazio), e o marcador
+  fica à vista na página para o dono perceber que falta preencher. A exceção,
+  desde 2026-09-14: com as mensagens pelo Nostr **ligadas**, o bloco sai só com
+  o convite a escrever pelo Nostr — o site passa a ter o que dizer.
 
 ## 5. As classes CSS que são contrato
 
@@ -222,7 +246,17 @@ pelos moldes do Padrão:
 .pagina  .artigo  .blog  .etiqueta-pagina  .ultimos  .lista-artigos  .meta
 .resumo  .vazio  .capa  .etiqueta  .cta  .botao
 .galeria  .cartoes  .cartao  .cartao-capa  .cartao-titulo  .ampliar
+.contatos  .lista-contatos  .contato  .contato-<canal>  .contato-canal
+.contato-valor  .contato-codigo
 ```
+
+⚠️ **As classes do bloco `contatos` são contrato, mas nenhum dos 22 temas as
+estiliza** (2026-09-12), e é de propósito: uma regra nova no CSS de cada tema
+mudaria os bytes de `/tema/estilo.css` de todo site já publicado e obrigaria a
+subir a `version` dos 22. O bloco foi escrito para ficar legível **sem** CSS
+próprio — é uma lista de links. Quem escrever um tema novo (ou quando os 22
+forem mexidos de uma vez) tem as classes à espera. `.contato-<canal>` é
+`.contato-email`, `.contato-whatsapp`, e assim por diante.
 
 E tem os elementos que o Markdown do dono produz **sem classe nenhuma**,
 dentro de `.principal`: `h1`–`h6`, `p`, `ul`/`ol`/`li`, `blockquote`,
@@ -487,7 +521,7 @@ dois motores, e compara os hashes. Um tema que falhe aí falha em produção.
 1. **Montar e correr as duas suítes** que julgam o tema:
    `NOSTERMENTOR_SUITES=core/gerador,core/responsivo test/roda.sh`.
    A primeira percorre todos os temas registados e prova, de cada um: os
-   oito moldes, o CSS sem recurso externo, o lixo nas opções a voltar ao
+   nove moldes, o CSS sem recurso externo, o lixo nas opções voltando ao
    padrão, os mesmos bytes em qualquer ordem de entrada, o HTML sem script,
    as classes de contrato e os mesmos caminhos gerados. A segunda, a
    responsividade da seção 7. Um tema registado entra nas duas sozinho.

@@ -7,7 +7,7 @@ const Db = (function () {
   'use strict';
 
   const PREFIXO = 'nostermentor/';
-  const STORES = Object.freeze(['site', 'pages', 'posts', 'media', 'published', 'meta']);
+  const STORES = Object.freeze(['site', 'pages', 'posts', 'media', 'published', 'meta', 'messages', 'peers']);
 
   // v0 → v1 (13 §2). `site` e `published` são singletons com chave fora do
   // registro ("site" / "current"); os demais usam `id` (ou `key` no meta).
@@ -24,6 +24,22 @@ const Db = (function () {
       media.createIndex('sha256', 'sha256');
       db.createObjectStore('published');
       db.createObjectStore('meta', { keyPath: 'key' });
+    },
+    // v1 → v2 (2026-09-12, Contatos): as mensagens privadas.
+    // Ele escolheu guardá-las "sem arquivo extra": ficam aqui e NÃO viajam no
+    // backup do site (é o arquivo que ele compartilha, e conversa de outra pessoa
+    // não viaja nele — 13 §7). Consequência dita na tela: num Tails o banco
+    // morre com a sessão e tudo recomeça; num Windows ou Linux fica.
+    // ⚠️ Nenhum campo `lido`: o lido/não lido foi tirado por ele em 2026-09-12,
+    // depois de ver que no Tails esse estado morre e passaria a mentir.
+    2: function (db) {
+      // chave = o id do RUMOR, recalculado por Mensagens.idDoRumor — o que vem
+      // no rumor não é assinado e serviria para sobrescrever a mensagem alheia
+      const messages = db.createObjectStore('messages', { keyPath: 'id' });
+      messages.createIndex('peer', 'peer');
+      messages.createIndex('created_at', 'created_at');   // a data do rumor, sempre
+      // uma linha por pessoa: apelido, arquivado e bloqueado são LOCAIS
+      db.createObjectStore('peers', { keyPath: 'pubkey' });
     }
   };
 
@@ -91,9 +107,15 @@ const Db = (function () {
     }
     function setMeta(key, value) { return put('meta', { key: key, value: value }); }
     function limparTudo() { return escrever(STORES.map(s => ({ op: 'clear', store: s }))); }
+    // 61 — o que "substituir pelo backup" pode apagar: tudo o que o backup traz.
+    // ⚠️ As MENSAGENS ficam de fora, e é decisão: elas não viajam no backup
+    // (13 §2.1), logo não há nada no arquivo para as substituir — apagá-las
+    // seria perder conversas de outras pessoas sem nada que as reponha, e em silêncio.
+    // Quem quer apagar tudo mesmo usa `limparTudo`.
+    function limparConteudo() { return escrever(STORES.filter(s => s !== 'messages' && s !== 'peers').map(s => ({ op: 'clear', store: s }))); }
     function fechar() { if (aberto) { aberto = false; try { db.close(); } catch (e) {} } }
 
-    return Object.freeze({ nome: nomeBanco, criado: criado, get, getAll, count, porIndice, escrever, put, del, getMeta, setMeta, incrementar, limparTudo, fechar, estaAberto: () => aberto });
+    return Object.freeze({ nome: nomeBanco, criado: criado, get, getAll, count, porIndice, escrever, put, del, getMeta, setMeta, incrementar, limparTudo, limparConteudo, fechar, estaAberto: () => aberto });
   }
 
   function abrir(pubkey) {

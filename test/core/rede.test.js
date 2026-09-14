@@ -211,6 +211,70 @@ module.exports = async function (ctx, u) {
     const r = await pg.evaluate(async ([pk, npub]) => { await Db.apagar(pk); const db = await Db.abrir(pk); const site = await Rede.criarSiteNovo(db, pk, npub); const pages = await db.getAll('pages'); const c = await Rede.contagens(db); db.fechar(); await Db.apagar(pk); return { site, pages, c }; }, [chB.pubkey, chB.npub]);
     assert(r.site.home.mode === 'page' && r.pages.length === 1 && r.pages[0].id === r.site.home.page_id && r.pages[0].status === 'draft' && r.site.menu[0].page_id === r.pages[0].id && r.c.pendentes === 1 && r.c.novos === 1, JSON.stringify([r.site.home, r.pages[0].slug, r.c]));
   });
+  // --- 61 D8 (2026-09-14): a caixa de entrada do próprio site volta da rede --
+  // No Tails sem backup, as mensagens apareciam DESLIGADAS com a caixa publicada.
+  const cargaComCaixa = (chX, url, alterarLocal) => pg.evaluate(async ([pk, npub, url, servers, alterarLocal]) => {
+    await Db.apagar(pk); const db = await Db.abrir(pk);
+    const s = Modelo.sitePadrao(pk, npub); s.network.relays = [url]; s.network.servers = servers; await db.put('site', s, 'site');
+    const r1 = await Rede.reconstruir({ db, pubkey: pk, npub, timeoutRelayMs: 2000, timeoutBlobMs: 5000 });
+    const site1 = await db.get('site', 'site'), pub1 = await db.get('published', 'current');
+    const saida = { d1: r1.desfecho, m1: JSON.parse(JSON.stringify(site1.messages)), k10050: pub1 && pub1.metadata_events.kind10050 ? pub1.metadata_events.kind10050.id : null };
+    if (alterarLocal) {
+      // o dono DESLIGA neste navegador; a carga seguinte não pode religar por cima
+      site1.messages = { enabled: false, relays: site1.messages.relays }; await db.put('site', site1, 'site');
+      const r2 = await Rede.reconstruir({ db, pubkey: pk, npub, timeoutRelayMs: 2000, timeoutBlobMs: 5000 });
+      saida.d2 = r2.desfecho; saida.m2 = JSON.parse(JSON.stringify((await db.get('site', 'site')).messages));
+    }
+    db.fechar(); await Db.apagar(pk);
+    return saida;
+  }, [chX.pubkey, chX.npub, url, servers, !!alterarLocal]);
+
+  await it('D8: banco vazio → o 10050 do PRÓPRIO site religa as mensagens com os relays dele e entra na fotografia; o forjado e o de outra chave são ignorados', async () => {
+    const chG = F.chave(), outra = F.chave();
+    const sjG = F.siteExemplo(chG, { servers });
+    f.blob(sjG.bytes, 'application/json');
+    const caixaG = F.caixaDeEntrada(chG, ['wss://caixa-um.exemplo', 'wss://caixa-dois.exemplo'], { created_at: F.agora() - 50 });
+    // assinado por outra chave com a pubkey trocada, e MAIS NOVO: se passasse, ganhava
+    const forjada = Object.assign({}, F.caixaDeEntrada(outra, ['wss://intruso.exemplo']), { pubkey: chG.pubkey });
+    f.relay('r-g', { eventos: [F.manifest(chG, { paths: F.pathsDoExemplo(sjG), servers }), caixaG, forjada, F.caixaDeEntrada(outra, ['wss://outro.exemplo'])] });
+    const r = await cargaComCaixa(chG, f.ws('r-g'), true);
+    assert(r.d1 === 'carregado', r.d1);
+    assert(r.m1.enabled === true && r.m1.relays.join() === 'wss://caixa-um.exemplo,wss://caixa-dois.exemplo', 'as mensagens não voltaram ligadas com os relays da caixa: ' + JSON.stringify(r.m1));
+    assert(r.k10050 === caixaG.id, 'a fotografia não guardou o 10050 lido: ' + r.k10050);
+    assert(r.d2 === 'carregado' && r.m2.enabled === false, 'a carga seguinte religou por cima da escolha feita neste navegador: ' + JSON.stringify(r.m2));
+    return JSON.stringify(r.m1.relays);
+  });
+  await it('D8: sem 10050 na rede, as mensagens continuam desligadas (o padrão de fábrica)', async () => {
+    const chH = F.chave();
+    const sjH = F.siteExemplo(chH, { servers });
+    f.blob(sjH.bytes, 'application/json');
+    f.relay('r-h', { eventos: [F.manifest(chH, { paths: F.pathsDoExemplo(sjH), servers })] });
+    const r = await cargaComCaixa(chH, f.ws('r-h'), false);
+    assert(r.d1 === 'carregado' && r.m1.enabled === false && r.k10050 === null, JSON.stringify(r));
+  });
+  // Decisão de 2026-09-14: desligar publica um 10050 SEM relays. O `montarSite`
+  // parte do site local, logo sem a regra nova as mensagens ficariam ligadas
+  // neste navegador enquanto a rede diz que o site não recebe.
+  await it('D8 no sentido contrário: banco com as mensagens LIGADAS e, na rede, um 10050 sem relays (desligado em outra máquina) → a primeira carga as desliga e guarda os relays locais', async () => {
+    const chI = F.chave();
+    const sjI = F.siteExemplo(chI, { servers });
+    f.blob(sjI.bytes, 'application/json');
+    f.relay('r-i', { eventos: [F.manifest(chI, { paths: F.pathsDoExemplo(sjI), servers }), F.caixaDeEntrada(chI, [])] });
+    const r = await pg.evaluate(async ([pk, npub, url, servers]) => {
+      await Db.apagar(pk); const db = await Db.abrir(pk);
+      const s = Modelo.sitePadrao(pk, npub); s.network.relays = [url]; s.network.servers = servers;
+      s.messages = { enabled: true, relays: ['wss://local.exemplo'] }; await db.put('site', s, 'site');
+      const r1 = await Rede.reconstruir({ db, pubkey: pk, npub, timeoutRelayMs: 2000, timeoutBlobMs: 5000 });
+      const site = await db.get('site', 'site'), pub = await db.get('published', 'current');
+      db.fechar(); await Db.apagar(pk);
+      const k = pub && pub.metadata_events.kind10050;
+      return { d: r1.desfecho, m: site.messages, tags: k ? k.tags.length : null };
+    }, [chI.pubkey, chI.npub, f.ws('r-i'), servers]);
+    assert(r.d === 'carregado' && r.m.enabled === false, 'a carga deixou ligadas as mensagens que a rede diz desligadas: ' + JSON.stringify(r));
+    assert(r.m.relays.join() === 'wss://local.exemplo' && r.tags === 0, 'os relays locais e a fotografia do aviso: ' + JSON.stringify(r));
+    return JSON.stringify(r.m);
+  });
+
   await it('sem erros de página/console em toda a suíte', () => assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros })));
   await pg.evaluate(async ([a, b]) => { await Db.apagar(a); await Db.apagar(b); }, [ch.pubkey, chB.pubkey]);
   await pg.close();

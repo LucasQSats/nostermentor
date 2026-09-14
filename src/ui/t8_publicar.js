@@ -210,7 +210,11 @@
     const eventosLista = [T.eventos.manifest]
       .concat(plano.eventos.kind0 ? [T.eventos.kind0] : [])
       .concat(plano.eventos.kind10002 ? [T.eventos.kind10002] : [])
-      .concat(plano.eventos.kind10063 ? [T.eventos.kind10063] : []);
+      .concat(plano.eventos.kind10063 ? [T.eventos.kind10063] : [])
+      // 61 D7 (2026-09-14): o `publicar.js` já mandava a caixa de entrada e esta
+      // lista não a mostrava — o dono assinava um evento que não via.
+      // Desligar também assina um 10050 (sem relays), e o dono tem de ler o que ele diz.
+      .concat(plano.eventos.kind10050 ? [plano.caixa_desligada ? T.eventos.kind10050Desligada : T.eventos.kind10050] : []);
     corpo.appendChild(h('div', { class: 'bloco-diff', id: 't8-eventos' }, h('h2', {}, T.eventosTitulo),
       h('ul', {}, eventosLista.map(x => h('li', {}, x)))));
 
@@ -271,7 +275,7 @@
       const meu = ctrl;
       let res = null;
       try {
-        res = await Publicar.executar({ plano: plano, site: site, assinar: Shell.assinar, servidores: plano.servidores, relays: plano.relays,
+        res = await Publicar.executar({ plano: plano, site: site, assinar: Shell.assinar, assinarAuth: Shell.assinarAuth, servidores: plano.servidores, relays: plano.relays,
           sinal: meu.signal, progresso: progresso });
       } catch (e) {
         pErro.hidden = false; pErro.textContent = e && e.message ? e.message : String(e);

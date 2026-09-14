@@ -91,6 +91,25 @@ const Backup = (function () {
     // que uma se perde é pior do que qualquer uma das duas.
     const site = Object.assign({}, siteBruto);
     delete site.theme_memory;
+    // 61 — a caixa de entrada das mensagens sai num campo de TOPO, pela mesma
+    // razão do `theme_options`: o `site` do backup volta por `SiteJson.lerSite`,
+    // que é a lista branca do que vem da REDE, e a caixa não vem da rede — é
+    // configuração local. Sem isto ela desaparecia em silêncio ao importar, e
+    // **no Tails isso é o caminho normal**: cada sessão começa por importar o
+    // backup, e o dono veria as mensagens desligadas sem nada lhe dizer por quê.
+    // ⚠️ Omitida quando desligada, para o backup de quem não usa não mudar
+    // um byte (a mesma lição do `logo_media_id`, 02 §F.1).
+    delete site.messages;
+    // 61 Etapa 2 — as formas de contato VÃO no backup dentro do `site` (ao
+    // contrário da caixa de entrada: estas passam pela lista branca de
+    // `SiteJson.lerSite`, que as conhece, porque são dado publicado).
+    // ⚠️ Mas a chave sai quando está vazia, e quem pegou isso foi o teste:
+    // este `site` é gravado CRU no arquivo, sem passar por `escreverSite`, e
+    // sem esta linha o backup de TODO MUNDO ganhava um `"contacts":[]` que
+    // ninguém pediu. É a mesma lição do `logo_media_id` (02 §F.1), aplicada ao
+    // arquivo que ele guarda e às vezes compartilha.
+    if (!Contatos.normalizarLista(site.contacts).length) delete site.contacts;
+    const caixa = caixaDe(siteBruto);
     const total = t.media.filter(m => levaBytes(m, o.completo)).length;
     const media = [];
     let feitos = 0, lidos = 0;
@@ -115,14 +134,36 @@ const Backup = (function () {
     // `site.json` publicado não o leva (13 §6.1). Aqui é local, e é o que faz
     // a memória sobreviver ao Tails desligar e viajar de máquina (decisão
     // dele, 2026-09-05).
-    const dados = { format: FORMATO, version: Modelo.SCHEMA_VERSION, exported_at: exported_at, app_version: window.APP_VERSION,
+    const dados = { format: FORMATO, version: Modelo.FORMATO_VERSION, exported_at: exported_at, app_version: window.APP_VERSION,
       site: site, pages: t.pages, posts: t.posts, media: media, published: t.published,
       theme_options: Temas.memoriaDe(siteBruto), meta: { schema_version: Modelo.SCHEMA_VERSION } };
+    if (caixa) dados.messages = caixa;
     const texto = JSON.stringify(dados);
     if (RE_NSEC.test(texto)) { const err = new Error(Textos.t9.exportar.tripwire); err.codigo = 'tripwire'; throw err; }
     const blob = new Blob([texto], { type: 'application/json' });
     return { texto: texto, blob: blob, bytes: blob.size, nome: nomeArquivo(o.npub, exported_at), exported_at: exported_at,
       contagens: { pages: t.pages.length, posts: t.posts.length, media: media.length, comArquivo: media.filter(m => m.bytes_base64).length } };
+  }
+
+  // A caixa de entrada como vai e volta no backup. Só o que o app conhece:
+  // um booleano e até 3 endereços `wss:` — nada de objeto de profundidade
+  // arbitrária (02 G.0). Devolve null quando não há nada que valha guardar.
+  function caixaDe(site) {
+    const m = site && site.messages;
+    if (!m || m.enabled !== true) return null;
+    const relays = Modelo.uniao(m.relays).slice(0, Modelo.MAX_RELAYS_CAIXA);
+    return relays.length ? { enabled: true, relays: relays } : null;
+  }
+  function lerCaixa(v) {
+    if (!obj(v) || v.enabled !== true) return null;
+    const relays = [];
+    for (const u of arr(v.relays)) {
+      if (!eStr(u)) continue;
+      let p; try { p = new URL(u); } catch (e) { continue; }
+      if (p.protocol === 'wss:' && p.hostname) relays.push(Modelo.normalizarUrl(u));
+    }
+    const unicos = Modelo.uniao(relays).slice(0, Modelo.MAX_RELAYS_CAIXA);
+    return unicos.length ? { enabled: true, relays: unicos } : null;
   }
 
   // --- leitura (lista branca) ----------------------------------------------
@@ -191,7 +232,7 @@ const Backup = (function () {
     try { j = JSON.parse(texto); } catch (e) { return { ok: false, codigo: 'json', motivo: Textos.t9.importar.invalido }; }
     if (!obj(j) || j.format !== FORMATO) return { ok: false, codigo: 'formato', motivo: Textos.t9.importar.invalido };
     if (!Number.isInteger(j.version) || j.version < 1) return { ok: false, codigo: 'estrutura', motivo: Textos.t9.importar.invalido };
-    if (j.version > Modelo.SCHEMA_VERSION) return { ok: false, codigo: 'versao_maior', motivo: Textos.t9.importar.maisNovo, version: j.version };
+    if (j.version > Modelo.FORMATO_VERSION) return { ok: false, codigo: 'versao_maior', motivo: Textos.t9.importar.maisNovo, version: j.version };
     // migrações v(n) → v(n+1) entram aqui quando existirem (13 §7.4); hoje só há a 1
     const site = obj(j.site) ? j.site : {};
     const pubkey = eStr(site.pubkey) && /^[0-9a-f]{64}$/.test(site.pubkey) ? site.pubkey : null;
@@ -202,6 +243,10 @@ const Backup = (function () {
     // branca (ids com forma de id, opções planas e pequenas). Backup antigo
     // sem o campo dá gaveta vazia, que é o comportamento de antes.
     s.theme_memory = Temas.memoriaDe({ theme_memory: j.theme_options });
+    // A caixa de entrada, por lista branca. Backup antigo (sem o campo) dá
+    // desligada — que é o padrão de fábrica e o comportamento de antes.
+    const caixaLida = lerCaixa(j.messages);
+    if (caixaLida) s.messages = caixaLida;
     const dados = {
       site: s, pages: semDuplicados(arr(j.pages).map(p => lerPagina(p, agora)).filter(Boolean)),
       posts: semDuplicados(arr(j.posts).map(p => lerArtigo(p, agora)).filter(Boolean)),
@@ -240,7 +285,10 @@ const Backup = (function () {
     const ops = [], sobrescritos = [], renomeados = [];
     let resultado;
     if (o.modo === 'substituir') {
-      await db.limparTudo();
+      // ⚠️ `limparConteudo`, não `limparTudo`: as mensagens não vêm no backup,
+      // logo não há nada no arquivo para as substituir — apagá-las seria perder
+      // conversas de terceiros em silêncio (13 §2.1).
+      await db.limparConteudo();
       ops.push({ op: 'put', store: 'meta', valor: { key: 'schema_version', value: Modelo.SCHEMA_VERSION } }, { op: 'put', store: 'meta', valor: { key: 'app_version', value: window.APP_VERSION } });
       ops.push({ op: 'put', store: 'site', chave: 'site', valor: site });
       for (const p of dados.pages) ops.push({ op: 'put', store: 'pages', valor: p });

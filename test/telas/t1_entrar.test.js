@@ -126,7 +126,7 @@ module.exports = async function (ctx, u) {
       assert(!est.t1, 'T1 continua no DOM depois de entrar');
       assert(/^Nostermentor \d+\.\d+\.\d+(-dev)?$/.test(est.rodape), est.rodape);
       assert(est.publicar === 'Nada a publicar' && est.publicarDesligado && est.backup === 'Backup em dia', JSON.stringify([est.publicar, est.backup]));
-      assert(est.menu.join('·') === 'Início·Páginas·Artigos·Mídia·Temas·Configurações·Ajuda', est.menu.join('·'));
+      assert(est.menu.join('·') === 'Início·Páginas·Artigos·Mídia·Contatos·Temas·Configurações·Ajuda', est.menu.join('·'));
       assert(est.temSessao && est.sessao.npub === u.NPUB_BOSTIL && !('sk' in est.sessao), 'Shell.sessao() expõe algo a mais: ' + Object.keys(est.sessao));
       const v1 = await varrer(p.pg, nsecBostil);
       assert(v1.achados.length === 0, 'varredura após Entrar: ' + v1.achados.join(' | '));
@@ -231,7 +231,14 @@ module.exports = async function (ctx, u) {
     const p = await abrir(ctx, u.url);
     await p.pg.click('#btn-gerar'); await p.pg.check('#copiei'); await p.pg.click('#entrar-nova');
     await p.pg.waitForSelector('#moldura');
-    const esperados = [['t3', 'Início', false], ['t4', 'Páginas', false], ['t5', 'Artigos', false], ['t6', 'Mídia', false], ['t12', 'Temas', false], ['t7', 'Configurações', false], ['t11', 'Ajuda e Sobre', false]];
+    const esperados = [['t3', 'Início', false], ['t4', 'Páginas', false], ['t5', 'Artigos', false], ['t6', 'Mídia', false], ['t13', 'Contatos', false], ['t12', 'Temas', false], ['t7', 'Configurações', false], ['t11', 'Ajuda e Sobre', false]];
+    // ⚠️ A lista acima tem de cobrir o menu INTEIRO, senão a promessa do título
+    // ("nenhum stub restante no menu") não vale nada: um item novo entraria sem
+    // ser visitado e este caso continuaria verde. Foi o que aconteceu com a T13
+    // em 2026-09-12 — o caso passou e quem a pegou foi o assert da linha do
+    // menu, em outro teste.
+    const noMenu = await p.pg.evaluate(() => Array.from(document.querySelectorAll('#menu .item')).map(b => b.getAttribute('data-tela')));
+    assert(noMenu.join() === esperados.map(e => e[0]).join(), 'o menu mudou e esta lista não: menu=' + noMenu.join() + ' lista=' + esperados.map(e => e[0]).join());
     for (const [tela, nome, stub] of esperados) {
       await p.pg.click(`#menu .item[data-tela="${tela}"]`);
       await p.pg.waitForSelector('#conteudo h1', { timeout: 10000 });   // T3 monta depois de ler o banco (assíncrona desde M2)

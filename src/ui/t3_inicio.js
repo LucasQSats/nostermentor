@@ -33,6 +33,11 @@
     const c = await Rede.contagens(db);
     const posts = (await db.getAll('posts')).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
     const ultimoBackup = await db.getMeta('last_export_at');
+    // 61 — a DATA da última mensagem, não a contagem (escolha dele, 2026-09-12):
+    // um número que encolhe sozinho quando o relay descarta assusta sem motivo.
+    const msgs = await db.getAll('messages');
+    let ultimaMensagem = 0;
+    for (const m of msgs) if (m && m.created_at > ultimaMensagem) ultimaMensagem = m.created_at;
     const naoExportadas = (await db.getMeta('alteracoes_nao_exportadas')) || 0;
     Shell.atualizarSite(site);
     Shell.contadores({ publicar: c.pendentes, naoExportadas: naoExportadas });
@@ -235,6 +240,15 @@
     else cartaoUltimos.appendChild(h('ul', { class: 'lista-artigos' }, posts.map(p => h('li', {}, h('span', { class: 'data' }, Modelo.formatarData(p.date)), ' ', p.title, ' ', h('span', { class: 'apoio' }, '(' + (Textos.status[p.status] || p.status) + ')'), ' ',
       h('button', { type: 'button', class: 'ligacao', onclick: function () { Shell.ir('t5', { editar: p.id }); } }, T.ultimos.editar)))));
 
+    // 6b. mensagens (61). A BARRA SUPERIOR NÃO MUDA: ela é do publicar e do
+    // backup, e um terceiro contador ali estraga a leitura dos dois que existem.
+    const M = T.mensagens;
+    const cartaoMensagens = h('div', { class: 'cartao', id: 'cartao-mensagens' }, h('h2', {}, M.titulo));
+    if (!(site.messages && site.messages.enabled)) cartaoMensagens.appendChild(h('p', { class: 'apoio', id: 'mensagens-resumo' }, M.desligado));
+    else if (ultimaMensagem > 0) cartaoMensagens.appendChild(h('p', { id: 'mensagens-resumo' }, texto(M.ultima, { d: Modelo.formatarData(Modelo.dataDeUnix(ultimaMensagem)) })));
+    else cartaoMensagens.appendChild(h('p', { class: 'apoio', id: 'mensagens-resumo' }, M.nenhuma));
+    cartaoMensagens.appendChild(h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.ir('t13'); } }, M.abrir)));
+
     // 7. apoie (T-16)
     const cartaoApoie = apoioFechado ? null : h('div', { class: 'cartao apoie', id: 'cartao-apoie' }, h('h2', {}, T.apoie.titulo), h('p', {}, T.apoie.texto),
       h('div', { class: 'acoes' }, h('button', { type: 'button', class: 'secundario', onclick: function () { Shell.ir('t11', { secao: 'apoio' }); } }, T.apoie.botao),
@@ -243,7 +257,7 @@
     raiz.appendChild(h('section', { id: 't3' },
       h('h1', {}, T.titulo),
       params && params.resumo ? h('p', { id: 'resumo-carga', class: 'alerta' }, params.resumo) : null,
-      h('div', { class: 'cartoes' }, cartaoSaude, cartaoAlt, cartaoBackup, cartaoAtalhos, cartaoEnderecos, cartaoUltimos, cartaoApoie)));
+      h('div', { class: 'cartoes' }, cartaoSaude, cartaoAlt, cartaoBackup, cartaoAtalhos, cartaoEnderecos, cartaoUltimos, cartaoMensagens, cartaoApoie)));
   }
 
   Shell.registrar('t3', { montar: montar, desmontar: desmontar });

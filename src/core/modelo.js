@@ -5,7 +5,37 @@
 const Modelo = (function () {
   'use strict';
 
-  const SCHEMA_VERSION = 1;               // 13 §2 / §7.4: uma versão para as três cópias
+  // 13 §2 / §7.4: uma versão para as três cópias. v2 desde 2026-09-12 (os
+  // armazéns `messages` e `peers` dos Contatos). ⚠️ Depois desta versão, um app
+  // MAIS ANTIGO não abre o banco — é a regra anti-downgrade, e o caminho de
+  // volta é o backup, como sempre.
+  const SCHEMA_VERSION = 2;
+  // ⚠️ A versão do FORMATO PUBLICADO (o `/nostermentor/site.json`) e do arquivo
+  // de backup, separada da do banco em 2026-09-12 e pela primeira vez diferente
+  // dela. O `13` §2 dizia "uma versão para as três cópias", e valeu enquanto as
+  // três mudavam juntas. A migração v2 acrescenta armazéns LOCAIS (as mensagens)
+  // e não muda uma vírgula do que se publica — carimbar `version: 2` no
+  // site.json teria dois preços, os dois errados:
+  //   (1) o arquivo muda de bytes em TODO site já publicado, o hash muda, o
+  //       manifest muda, e o painel passa a dizer "1 alteração por publicar" a
+  //       quem não mexeu em nada — mandando republicar pelo Tor um site idêntico;
+  //   (2) um app da versão anterior RECUSARIA um site.json e um backup que ele
+  //       sabe ler perfeitamente (13 §7.4), o que é uma inverdade sobre o arquivo.
+  // Sobe quando o CONTRATO PUBLICADO mudar de tal forma que um app anterior
+  // deixe de saber lê-lo.
+  // ⚠️ NÃO subiu na Etapa 2 dos Contatos (2026-09-12), ao contrário do que esta
+  // mesma linha previa na Etapa 1. `site.contacts` é ADITIVO e é OMITIDO quando
+  // vazio: um app anterior lê o arquivo inteiro e ignora a chave que não
+  // conhece (a lista branca de `SiteJson.lerSite` a descarta), exatamente como
+  // já acontece com `favicon_media_id`, que entrou pelo mesmo caminho. Subir
+  // para 2 teria os dois preços que a separação das versões existe para evitar:
+  // mudava os bytes do site.json de TODO site já publicado (o número está lá
+  // dentro) e fazia um app anterior RECUSAR um arquivo que sabe ler.
+  // O preço de não subir, dito por inteiro: um app anterior que republique um
+  // site com contatos os apaga do site.json, porque não os escreve — é o mesmo
+  // que já vale para o ícone da aba, e o caminho de volta é o mesmo (o painel
+  // guarda o dado e volta a publicá-lo).
+  const FORMATO_VERSION = 1;
 
   // 05 §4 (revisado 2026-08-20): os 8 relays com o manifest do Bostil;
   // `nostr.cercatrova.me` fora (P7). Oito porque via Tor sobram ~6 (P20).
@@ -13,6 +43,17 @@ const Modelo = (function () {
     'wss://nos.lol', 'wss://relay.damus.io', 'wss://relay.primal.net', 'wss://relay.nsite.lol',
     'wss://relay.wellorder.net', 'wss://nostr-pub.wellorder.net', 'wss://offchain.pub', 'wss://relay.nostr.wirednet.jp'
   ]);
+  // A caixa de entrada das mensagens privadas (NIP-17 kind 10050), decidida por
+  // ele em 2026-09-12 com o medido na mão (P44 do 08): um relay de cada tipo.
+  //   auth.nostr1.com — entrega as mensagens só ao dono identificado (NIP-42),
+  //                     mas exige que quem escreve também se identifique;
+  //   nos.lol         — aceita de qualquer aplicativo; em troca, um curioso
+  //                     consegue CONTAR os envelopes da npub (não lê nada).
+  // O relay.damus.io ficou de fora com razão medida: exige identificação para
+  // entregar e não sabe processá-la ("relay needs serviceUrl to be configured
+  // before AUTH can work") — o que cair lá não é lido nem pelo dono.
+  const RELAYS_CAIXA_PADRAO = Object.freeze(['wss://auth.nostr1.com', 'wss://nos.lol']);
+  const MAX_RELAYS_CAIXA = 3;             // "1 to 3 relays", NIP-17
   // 05 §4 + 03 §6: só servidores que aceitam todos os tipos E deixam apagar.
   const SERVIDORES_PADRAO = Object.freeze(['https://cdn.hzrd149.com', 'https://blossom.primal.net']);
   // 14 T3 / T-9: nsite.lol é o gateway de "Ver o site"; nsite.cloud "pode levar dias" (P1).
@@ -150,7 +191,22 @@ const Modelo = (function () {
       donations: { lightning_address: '', support_block: false, footer_credit: true },
       privacy: { show_publish_time: false },
       discovery: { canonical_base: null },
-      network: { relays: RELAYS_PADRAO.slice(), servers: SERVIDORES_PADRAO.slice(), capabilities: {} }
+      network: { relays: RELAYS_PADRAO.slice(), servers: SERVIDORES_PADRAO.slice(), capabilities: {} },
+      // 61 — as mensagens privadas (NIP-17). Campo LOCAL: não sai no site.json
+      // (13 §6.1), logo não muda um byte publicado de quem não usa, e não entra
+      // na assinatura da configuração — o contador de "Publicar" não acende por
+      // causa de mensagens (14 T13 decisão 10). DESLIGADO de fábrica: quem nunca
+      // o ligou não publica kind 10050 nenhum, e nenhum aplicativo que siga a spec
+      // manda mensagem para este site. Ligá-lo é gesto do dono; desligar depois
+      // publica o aviso sem relays (`core/publicar.js`, `mudouCaixa`).
+      messages: { enabled: false, relays: RELAYS_CAIXA_PADRAO.slice() },
+      // 61 Etapa 2 — as formas de contato que o dono publica (e-mail, WhatsApp,
+      // Telegram, Instagram, X, Nostr, Signal e "outro link"). Ao contrário das
+      // mensagens acima, este campo É publicado: sai no site.json e desenha o
+      // bloco `[[contatos]]` nas páginas onde o dono o inserir. Vazio de
+      // fábrica, e VAZIO SOME do site.json — quem não usa não vê um byte mudar
+      // no que já publicou. Quem conhece os oito canais é `core/contatos.js`.
+      contacts: []
     };
   }
 
@@ -208,7 +264,7 @@ const Modelo = (function () {
   function pendentes(c) { return (c.draft || 0) + (c.modified || 0) + (c.removed || 0); }
 
   return Object.freeze({
-    SCHEMA_VERSION, RELAYS_PADRAO, SERVIDORES_PADRAO, GATEWAYS, RESERVADOS, CAMINHOS_RESERVADOS, CAMINHO_SITE_JSON, PREFIXO_BLOG, PREFIXO_ETIQUETA, STATUS, MIME,
+    SCHEMA_VERSION, FORMATO_VERSION, RELAYS_PADRAO, SERVIDORES_PADRAO, RELAYS_CAIXA_PADRAO, MAX_RELAYS_CAIXA, GATEWAYS, RESERVADOS, CAMINHOS_RESERVADOS, CAMINHO_SITE_JSON, PREFIXO_BLOG, PREFIXO_ETIQUETA, STATUS, MIME,
     agora, formatarData, formatarDataHora, dataDeUnix, novoId, slug, slugValido, caminhoDe, etiquetasDe, caminhoDaEtiqueta, extensao, mimePorCaminho,
     normalizarUrl, uniao, urlDoSite, sitePadrao, novaPagina, novoArtigo, midiaHerdada, transicao, contarPorStatus, pendentes
   });

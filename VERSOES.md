@@ -9,7 +9,7 @@
 
 | Biblioteca | Versão | Arquivo em `src/libs/` | Bytes | sha256 | Licença | Origem | Conferido em |
 |---|---|---|---|---|---|---|---|
-| nostr-tools (superfície `pure` + `nip19`) | 2.25.0 | `nostr-tools.inline.js` | 35.809 | `bbc120ac543f4953c35cc57fe1758e80731e37d56ebed7f7e10697dfaed57569` | Unlicense | **gerado** por `gera_bundle.sh` (esbuild 0.28.2, `--bundle --format=iife --global-name=NT --minify --target=es2020`, a partir de `entrada.js`; versões fixadas em `package.json` + `package-lock.json`) | 2026-08-26 — idêntico ao bundle da sonda de 2026-08-25 (`02` §F) |
+| nostr-tools (superfície `pure` + `nip19` + `nip17`/`nip59`/`nip44`/`nip42`) | 2.25.0 | `nostr-tools.inline.js` | 71.293 | `c40ea9390db048877f1597ba9c4bd0480248de258a6e7dfbcfbccf4dd471074b` | Unlicense | **gerado** por `gera_bundle.sh` (esbuild 0.28.2, `--bundle --format=iife --global-name=NT --minify --target=es2020`, a partir de `entrada.js`; versões fixadas em `package.json` + `package-lock.json`) | 2026-09-12 — a superfície cresceu com as mensagens privadas (Contatos, Etapa 1): **mesma versão do pacote, nenhuma dependência nova**. Antes: 35.809 B, `bbc120ac…`, de 2026-08-26 |
 | DOMPurify | 3.4.14 | `purify.min.js` | 29.204 | `c2f26ea4fc0d88141c9aa430eb515ac86fce59418ceebd85fa475b87a8d6c3e6` | Apache-2.0 **ou** MPL-2.0 (escolhemos Apache-2.0) | `https://unpkg.com/dompurify@3.4.14/dist/purify.min.js` | 2026-08-26 |
 | marked | 18.0.11 | `marked.umd.js` | 44.679 | `69451c8541c9c1e7a4bf3ffc6f73c4d89633de92bfbe3e484dfe182ef8091f88` | MIT (cabeçalho do próprio arquivo) | `https://unpkg.com/marked@18.0.11/lib/marked.umd.js` (o campo `browser` do `package.json` da versão; não existe `marked.min.js` na raiz desta versão) | 2026-08-26 |
 | Mustache | 4.2.0 | `mustache.min.js` | 11.790 | `d7fd0603512461e8edbd81686bead2ab82df3389b9cca235dd9d5b408848e02a` | MIT | `https://unpkg.com/mustache@4.2.0/mustache.min.js` | 2026-08-26 |
@@ -23,6 +23,13 @@ pelos testes de `test/telas/`): `NT`, `DOMPurify`, `marked`, `Mustache`,
 (`src/textos.js`, `t11.sobre.bibliotecas`: nome, versão, licença e para que
 serve). Mudar uma versão aqui obriga a mudar lá — `test/telas/t11_ajuda.test.js`
 compara as cinco linhas e falha se divergirem.
+
+⚠️ **O `gera_bundle.sh` gera a partir do scratchpad** (corrigido em
+2026-09-12): o esbuild resolve `nostr-tools/...` a partir da pasta do arquivo
+de entrada, e as dependências vivem no scratchpad — chamá-lo com
+`src/libs/entrada.js` falha com *"Could not resolve nostr-tools/pure"*. Que o
+caminho novo não muda bytes está provado: com a entrada **antiga**, ele
+reproduz o bundle de 2026-08-26 byte a byte.
 
 Para regenerar o bundle do nostr-tools: `./gera_bundle.sh` (instala as
 dependências de desenvolvimento no scratchpad, nunca nesta pasta — `02`

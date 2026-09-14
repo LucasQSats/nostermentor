@@ -73,6 +73,13 @@ const SiteJson = (function () {
     if (obj(s.privacy)) o.privacy = { show_publish_time: s.privacy.show_publish_time === true };
     if (obj(s.discovery)) o.discovery = { canonical_base: eStr(s.discovery.canonical_base) ? s.discovery.canonical_base.slice(0, 300) : null };
     if (obj(s.network)) o.network = { relays: urls(s.network.relays, 'wss:'), servers: urls(s.network.servers, 'https:') };
+    // 61 — as formas de contato que o dono publica. Quem valida é `Contatos`,
+    // que é o único lugar que conhece os oito canais: aqui só se entrega a
+    // lista e se guarda o que voltar. ⚠️ A chave só nasce quando sobra alguma
+    // coisa — um `contacts: []` em todo site já carregado da rede mudaria a
+    // ASSINATURA da configuração (`assinaturaSite`) e mandaria republicar quem
+    // não mexeu em nada (a lição do `logo_media_id`, 02 §F.1).
+    if (Array.isArray(s.contacts)) { const c = Contatos.normalizarLista(s.contacts); if (c.length) o.contacts = c; }
     return o;
   }
 
@@ -112,7 +119,7 @@ const SiteJson = (function () {
     try { j = JSON.parse(texto); } catch (e) { return { ok: false, codigo: 'json', motivo: Textos.siteJson.invalido }; }
     if (!obj(j) || j.format !== FORMATO) return { ok: false, codigo: 'formato', motivo: Textos.siteJson.invalido };
     if (!Number.isInteger(j.version) || j.version < 1) return { ok: false, codigo: 'estrutura', motivo: Textos.siteJson.invalido };
-    if (j.version > Modelo.SCHEMA_VERSION) return { ok: false, codigo: 'versao_maior', motivo: Textos.siteJson.maisNovo };
+    if (j.version > Modelo.FORMATO_VERSION) return { ok: false, codigo: 'versao_maior', motivo: Textos.siteJson.maisNovo };
     const brutos = { pages: arr(j.pages), posts: arr(j.posts), media: arr(j.media) };
     const pages = semDuplicados(brutos.pages.map(lerPagina).filter(Boolean));
     const posts = semDuplicados(brutos.posts.map(lerArtigo).filter(Boolean));
@@ -150,6 +157,12 @@ const SiteJson = (function () {
     // escolhe um ícone vê a configuração mudar — que é a verdade.
     const favicon = idOuNulo(s.favicon_media_id);
     if (favicon) o.favicon_media_id = favicon;
+    // 61 — OMITIDO quando vazio, pela mesma razão do ícone da aba acima: esta
+    // função produz a assinatura da configuração, e um campo novo
+    // incondicional faria TODO site publicado acusar uma alteração que ninguém
+    // fez. Quem não põe contato nenhum tem o site.json de ontem, byte a byte.
+    const contatos = Contatos.normalizarLista(s.contacts);
+    if (contatos.length) o.contacts = contatos;
     if (s.discovery && eStr(s.discovery.canonical_base)) o.discovery = { canonical_base: s.discovery.canonical_base.slice(0, 300) };
     o.network = { relays: urls(s.network && s.network.relays, 'wss:'), servers: urls(s.network && s.network.servers, 'https:') };
     return o;
@@ -176,7 +189,7 @@ const SiteJson = (function () {
     const pages = arr(dados.pages).map(escreverPagina).sort(porSlug);
     const posts = arr(dados.posts).map(escreverArtigo).sort((a, b) => (String(b.date).localeCompare(String(a.date))) || porSlug(a, b));
     const media = arr(dados.media).filter(m => m && eStr(m.sha256) && RE_SHA.test(m.sha256)).map(escreverMidia).sort((a, b) => String(a.path).localeCompare(String(b.path)));
-    const saida = { format: FORMATO, version: Modelo.SCHEMA_VERSION, site: site, pages: pages, posts: posts, media: media, theme: site.theme };
+    const saida = { format: FORMATO, version: Modelo.FORMATO_VERSION, site: site, pages: pages, posts: posts, media: media, theme: site.theme };
     return JSON.stringify(saida);
   }
 

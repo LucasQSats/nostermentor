@@ -68,6 +68,7 @@ module.exports = async function (ctx, u) {
     const tb = await abaTexto(p.pg, 'blocos');
     assert(/sozinho na sua linha/.test(tb), 'a regra da linha própria não está na Ajuda: ' + tb.slice(0, 200));
     assert(/\[\[botao: Fale comigo -> \/contato\]\]/.test(tb) && /\[\[artigos: 4, com-capa, etiqueta=receitas\]\]/.test(tb), 'faltam exemplos: ' + tb.slice(0, 300));
+    assert(/\[\[contatos\]\]/.test(tb) && /\[\[contatos: Fale comigo\]\]/.test(tb), '61: falta o bloco de contatos na Ajuda: ' + tb.slice(0, 400));
     assert(/o antigo morre/.test(tb), 'a Ajuda tem de dizer que renomear etiqueta mata o endereço antigo');
     assert(/-mini/.test(tb), 'a Ajuda tem de explicar o arquivo "-mini" da biblioteca');
     assert(/muda sozinha sempre que você publica um artigo novo/.test(tb), 'a Ajuda tem de dizer o que a galeria custa ao publicar');

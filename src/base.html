@@ -336,6 +336,48 @@ button.perigoso:hover{background:var(--erro-escuro);border-color:var(--erro-escu
    rolagem escondida dentro de um cartão, foi o que a captura mostrou. */
 .tema-enviar .tema-porque{font-size:13px;line-height:1.5}
 #t12-ajustar{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:6px 0 0}
+/* Contatos (T13) — 2026-09-12. A lista é por PESSOA e a conversa é um diálogo:
+   sem isto as mensagens saíam com marcador de lista e as do dono não iam para a
+   direita, que é o que distingue quem falou (visto na captura). */
+#t13{max-width:1100px}
+#t13-painel > .apoio:first-child{margin-top:0}
+.lista-conversas{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
+.lista-conversas .conversa{border:1px solid var(--linha);border-radius:4px;padding:10px 14px;background:var(--papel)}
+.lista-conversas .conversa p{margin:0 0 4px}
+.lista-conversas .conversa p:last-child{margin-bottom:0}
+.conversa-nome .data{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--suave);font-size:13px}
+.conversa-previa{overflow-wrap:anywhere}
+#lista-conversas > h2{margin:14px 0 2px;overflow-wrap:anywhere}
+.mensagens{list-style:none;margin:12px 0;padding:0;display:grid;gap:10px}
+.mensagens .mensagem{border:1px solid var(--linha);border-radius:4px;padding:8px 12px;background:var(--papel);max-width:80%}
+/* a cópia do que o DONO mandou vai à direita: é o que se lê sem ler */
+.mensagens .mensagem.minha{margin-left:auto;background:var(--destaque)}
+.mensagens .mensagem p{margin:0 0 4px}
+.mensagens .mensagem p:last-child{margin-bottom:0}
+.mensagens .mensagem .corpo{white-space:pre-wrap;overflow-wrap:anywhere}
+.mensagens .mensagem .assunto{font-weight:600}
+.mensagens .mensagem .apagada{font-style:italic}
+#cartao-resposta textarea{width:100%;padding:7px 9px;border:1px solid var(--borda-campo);border-radius:3px;background:#fff;font:inherit}
+#busca-conversas{padding:4px 8px;border:1px solid var(--borda-campo);border-radius:3px;background:#fff;font:inherit;min-width:180px}
+/* Aba "Onde me encontrar" (Etapa 2) — cada forma de contato é um bloco com o
+   canal, o endereço e o aviso daquele canal. Sem isto os oito campos saíam com
+   marcador de lista e o aviso colava no campo seguinte. */
+.lista-contatos-edicao{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px}
+.lista-contatos-edicao .contato-item{border:1px solid var(--linha);border-radius:4px;padding:10px 14px;background:var(--papel)}
+.lista-contatos-edicao .contato-item p{margin:4px 0 0}
+.contato-linha{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0}
+.contato-linha select,.contato-item input[type=text]{padding:4px 8px;border:1px solid var(--borda-campo);border-radius:3px;background:#fff;font:inherit}
+.contato-linha input[type=text]{flex:1 1 260px;min-width:0}
+.contato-item .contato-rotulo{display:block;width:100%;margin-top:8px}
+.contato-aviso{font-size:13px;line-height:1.5}
+/* A prévia é o mesmo iframe isolado da T12 (02 G.2.2): sandbox SEM
+   allow-same-origin, e por isso com fundo próprio — o tema desenha lá dentro.
+   ⚠️ (2026-09-14, pedido dele): 360px deixava um espaço vazio embaixo de
+   dois contatos. NÃO dá para encolher ao conteúdo — sem allow-same-origin o
+   painel não lê a altura lá dentro, e medir por dentro pedia script no HTML do
+   tema (02 G.0 proíbe). Altura fixa menor: serve o caso normal, e uma lista
+   longa ganha rolagem — honesto, ao contrário de fingir que cabe. */
+#contatos-previa{width:100%;height:200px;border:1px solid var(--linha);border-radius:4px;background:#fff;margin-top:6px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 </style>
 <body>

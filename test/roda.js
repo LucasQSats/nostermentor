@@ -18,6 +18,7 @@ const SUITES = [
   ['core/db', require('./core/db.test.js')],
   ['core/saude', require('./core/saude.test.js')],
   ['core/relay', require('./core/relay.test.js')],
+  ['core/mensagens', require('./core/mensagens.test.js')],
   ['core/blossom', require('./core/blossom.test.js')],
   ['core/publicar', require('./core/publicar.test.js')],
   ['core/despublicar', require('./core/despublicar.test.js')],
@@ -26,6 +27,7 @@ const SUITES = [
   ['core/gerador', require('./core/gerador.test.js')],
   ['core/qr', require('./core/qr.test.js')],
   ['core/blocos', require('./core/blocos.test.js')],
+  ['core/contatos', require('./core/contatos.test.js')],
   ['core/html_colado', require('./core/html_colado.test.js')],
   ['core/backup', require('./core/backup.test.js')],
   ['core/responsivo', require('./core/responsivo.test.js')],
@@ -39,6 +41,7 @@ const SUITES = [
   ['telas/t7_config', require('./telas/t7_config.test.js')],
   ['telas/t11_ajuda', require('./telas/t11_ajuda.test.js')],
   ['telas/t12_temas', require('./telas/t12_temas.test.js')],
+  ['telas/t13_contatos', require('./telas/t13_contatos.test.js')],
   // Medição de escala, não aceite: só corre quando pedida por NOSTERMENTOR_SUITES.
   ['telas/escala', require('./telas/escala.test.js')],
   ['rede/bostil', require('./rede/bostil.test.js')],

@@ -127,10 +127,14 @@ module.exports = async function (ctx, u) {
     db.fechar(); await Db.apagar(ch.pubkey);
     return JSON.parse(JSON.stringify(out));
   }, [ch, outra, man]);
-  await it('exportar: nome nostermentor-backup-<npub8>-<data>.json, chaves de 13 §7.1 na ordem, format/version/exported_at/app_version, meta.schema_version', () => {
+  // ⚠️ `version` (o FORMATO do arquivo) e `meta.schema_version` (o BANCO de onde
+  // ele saiu) deixaram de ser o mesmo número em 2026-09-12: a migração v2
+  // acrescentou armazéns locais (as mensagens) e não mudou nada do formato.
+  // Carimbar 2 no formato faria um app anterior recusar um arquivo que sabe ler.
+  await it('exportar: nome nostermentor-backup-<npub8>-<data>.json, chaves de 13 §7.1 na ordem, format/version=1 (formato) e meta.schema_version=2 (banco)', () => {
     const e = r.exportado;
     assert(e.nome === 'nostermentor-backup-' + ch.npub.slice(5, 13) + '-' + e.exported_at.slice(0, 10) + '.json', e.nome);
-    assert(e.chaves.join(',') === 'format,version,exported_at,app_version,site,pages,posts,media,published,theme_options,meta' && e.format === 'nostermentor-backup' && e.version === 1 && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(e.exported_at) && /^\d+\.\d+\.\d+/.test(e.app) && e.meta.schema_version === 1, JSON.stringify(e));
+    assert(e.chaves.join(',') === 'format,version,exported_at,app_version,site,pages,posts,media,published,theme_options,meta' && e.format === 'nostermentor-backup' && e.version === 1 && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(e.exported_at) && /^\d+\.\d+\.\d+/.test(e.app) && e.meta.schema_version === 2, JSON.stringify(e));
     assert(e.pages === 2 && e.posts === 1 && e.publishedId === man.id && e.tags.join() === 'x' && e.contagens.comArquivo === 1, JSON.stringify(e.contagens));
   });
   await it('13 §7.2: "necessário" leva bytes_base64 só da mídia que só existe aqui (m-a); "completo" também da publicada com bytes (m-b); sem bytes → null; o campo `bytes` nunca vai', () => {
@@ -148,7 +152,7 @@ module.exports = async function (ctx, u) {
     const m = Object.fromEntries(d.media.map(x => [x[0], x]));
     assert(m['m-a'][2] === 5 && m['m-a'][3] === r.original.shaA && m['m-a'][4] === r.original.shaA && m['m-a'][5] === 'exif' && m['m-b'][2] === null && m['m-c'][2] === null, JSON.stringify(d.media));
     assert(d.siteTitulo === 'Site A' && JSON.stringify(d.relays) === '["wss://r1.test"]' && d.pubkey && d.publishedId === man.id && d.verifica === true, JSON.stringify([d.siteTitulo, d.relays, d.publishedId, d.verifica]));
-    assert(d.meta.schema_version === 1 && d.meta.alteracoes_nao_exportadas === 0 && d.meta.last_export_at === r.exportado.exported_at, JSON.stringify(d.meta));
+    assert(d.meta.schema_version === 2 && d.meta.alteracoes_nao_exportadas === 0 && d.meta.last_export_at === r.exportado.exported_at, JSON.stringify(d.meta));
   });
   await it('version 99 → recusado com o texto de 13 §7.4', () => assert(!r.v99.ok && r.v99.codigo === 'versao_maior' && r.v99.motivo === 'Este backup foi feito por um Nostermentor mais novo — atualize o app para abri-lo.', JSON.stringify(r.v99)));
   await it('backup de outra npub → mesmaChave=false (a tela recusa); o published assinado pela outra chave não entra', () => assert(r.outra.ok && !r.outra.mesmaChave && r.outra.npub && r.outra.published === null, JSON.stringify(r.outra)));
@@ -179,6 +183,146 @@ module.exports = async function (ctx, u) {
     assert(g.aposJuntar.diario && g.aposJuntar.diario.paginado === 'nao', 'o que só existe aqui fica');
     assert(g.aposJuntar.moderno && g.aposJuntar.moderno.cantos === 'suaves', 'o que só existe no arquivo entra');
     return 'exportada filtrada, fora do site.json, substituir devolve, juntar funde com a local a ganhar';
+  });
+
+  // 61 — as mensagens são dados de TERCEIROS. O backup do site é o arquivo que
+  // o dono compartilha (foi assim que o site oficial veio parar na KB): conversa
+  // de outra pessoa não viaja nele. E não há arquivo de backup próprio — ele
+  // recusou o arquivo à parte em 2026-09-12 ("sem arquivo extra").
+  await it('⚠️ o backup do site NÃO leva mensagem nenhuma: nem `messages`, nem `peers`, nem sequer as chaves vazias', async () => {
+    const g = await p.pg.evaluate(async () => {
+      const ch = Chave.gerar();
+      await Db.apagar(ch.pubkey);
+      const db = await Db.abrir(ch.pubkey);
+      await db.put('site', Object.assign(Modelo.sitePadrao(ch.pubkey, ch.npub), { title: 'Com mensagens' }), 'site');
+      await db.escrever([
+        { op: 'put', store: 'messages', valor: { id: '1'.repeat(64), peer: '2'.repeat(64), created_at: 10, kind: 14, content: 'um segredo de outra pessoa' } },
+        { op: 'put', store: 'peers', valor: { pubkey: '2'.repeat(64), apelido: 'apelido privado', arquivado: false, bloqueado: false } }
+      ]);
+      const exp = await Backup.exportar(db, { npub: ch.npub, pubkey: ch.pubkey, completo: false });
+      db.fechar();
+      const texto = exp.texto;
+      const obj = JSON.parse(texto);
+      await Db.apagar(ch.pubkey);
+      return {
+        chaves: Object.keys(obj),
+        temTexto: texto.includes('um segredo de outra pessoa') || texto.includes('apelido privado') || texto.includes('2'.repeat(64)),
+        temExportarMensagens: typeof Backup.exportarMensagens,
+        version: obj.version, schema: obj.meta && obj.meta.schema_version
+      };
+    });
+    assert(g.chaves.indexOf('messages') === -1 && g.chaves.indexOf('peers') === -1, 'o backup ganhou armazém de mensagens: ' + JSON.stringify(g.chaves));
+    assert(g.temTexto === false, '⚠️ conteúdo de mensagem vazou para o backup do site');
+    assert(g.temExportarMensagens === 'undefined', 'existe um exportador de mensagens — ele recusou esse arquivo');
+    // A versão do FORMATO continua 1 (nada do que se publica mudou); a do
+    // BANCO é 2. Confundi-las mandaria republicar todo site já publicado.
+    assert(g.version === 1 && g.schema === 2, 'version/schema: ' + JSON.stringify([g.version, g.schema]));
+    return 'formato v' + g.version + ', banco v' + g.schema + ', sem mensagens';
+  });
+
+  // ⚠️ Este caso nasceu de um defeito que NENHUM dos outros pegava: a caixa de
+  // entrada saía no `site` do backup e voltava por `SiteJson.lerSite`, que é a
+  // lista branca do que vem da REDE e não a conhece — desaparecia em silêncio.
+  // **No Tails isso é o caminho normal**: cada sessão começa por importar o
+  // backup, e o dono veria as mensagens desligadas sem nada lhe dizer por quê.
+  await it('⚠️ a caixa de entrada SOBREVIVE ao backup (é o caminho do Tails), e importar "substituir" NÃO apaga as conversas', async () => {
+    const g = await p.pg.evaluate(async () => {
+      const ch = Chave.gerar();
+      await Db.apagar(ch.pubkey);
+      const db = await Db.abrir(ch.pubkey);
+      const site = Modelo.sitePadrao(ch.pubkey, ch.npub);
+      site.title = 'Com caixa ligada';
+      site.messages = { enabled: true, relays: ['wss://auth.nostr1.com', 'wss://nos.lol'] };
+      await db.put('site', site, 'site');
+      await db.escrever([
+        { op: 'put', store: 'messages', valor: { id: '3'.repeat(64), peer: '4'.repeat(64), created_at: 10, kind: 14, content: 'conversa de terceiro' } },
+        { op: 'put', store: 'peers', valor: { pubkey: '4'.repeat(64), apelido: 'Alguém', arquivado: false, bloqueado: false } }
+      ]);
+      const exp = await Backup.exportar(db, { npub: ch.npub, pubkey: ch.pubkey, completo: false });
+      const noArquivo = JSON.parse(exp.texto);
+      // agora desliga a caixa e importa por cima, em "substituir"
+      site.messages = { enabled: false, relays: [] };
+      await db.put('site', site, 'site');
+      const analise = await Backup.analisar(exp.texto, { pubkey: ch.pubkey, npub: ch.npub });
+      await Backup.importar(db, analise, { modo: 'substituir', pubkey: ch.pubkey, npub: ch.npub, mesmaChave: true });
+      const depois = await db.get('site', 'site');
+      const saida = {
+        noSite: noArquivo.site.messages,           // não pode estar aqui
+        noTopo: noArquivo.messages,                // tem de estar aqui
+        depoisLigada: depois.messages,
+        mensagens: await db.count('messages'),
+        pessoas: await db.count('peers'),
+        titulo: depois.title
+      };
+      db.fechar();
+      await Db.apagar(ch.pubkey);
+      return saida;
+    });
+    assert(g.noSite === undefined, 'a caixa saiu dentro do `site`, onde a lista branca a come: ' + JSON.stringify(g.noSite));
+    assert(g.noTopo && g.noTopo.enabled === true && g.noTopo.relays.length === 2, 'campo de topo: ' + JSON.stringify(g.noTopo));
+    assert(g.depoisLigada && g.depoisLigada.enabled === true && g.depoisLigada.relays.length === 2,
+      '⚠️ a caixa não sobreviveu à importação — no Tails o recurso morreria a cada sessão: ' + JSON.stringify(g.depoisLigada));
+    assert(g.titulo === 'Com caixa ligada', 'o resto do site não voltou: ' + g.titulo);
+    assert(g.mensagens === 1 && g.pessoas === 1,
+      '⚠️ "substituir" apagou conversas que o backup nem sequer traz: ' + JSON.stringify([g.mensagens, g.pessoas]));
+    return 'caixa com ' + g.depoisLigada.relays.length + ' relays de volta, ' + g.mensagens + ' conversa intacta';
+  });
+
+  await it('backup de quem NÃO ligou as mensagens não ganha campo nenhum (o arquivo de ontem continua igual)', async () => {
+    const g = await p.pg.evaluate(async () => {
+      const ch = Chave.gerar();
+      await Db.apagar(ch.pubkey);
+      const db = await Db.abrir(ch.pubkey);
+      await db.put('site', Modelo.sitePadrao(ch.pubkey, ch.npub), 'site');
+      const exp = await Backup.exportar(db, { npub: ch.npub, pubkey: ch.pubkey, completo: false });
+      db.fechar();
+      await Db.apagar(ch.pubkey);
+      const o = JSON.parse(exp.texto);
+      return { chaves: Object.keys(o), temMessages: 'messages' in o, noSite: 'messages' in o.site };
+    });
+    assert(g.temMessages === false && g.noSite === false, 'campo a mais no backup de quem não usa: ' + JSON.stringify(g.chaves));
+  });
+
+  await it('61 Etapa 2: as formas de contato vão e voltam no backup pela lista branca; e quem não tem nenhuma não ganha a chave', async () => {
+    const g = await p.pg.evaluate(async () => {
+      const ch = Chave.gerar();
+      await Db.apagar(ch.pubkey);
+      let db = await Db.abrir(ch.pubkey);
+      const site = Modelo.sitePadrao(ch.pubkey, ch.npub);
+      site.contacts = [
+        { kind: 'email', value: 'contato@exemplo.org', label: '' },
+        { kind: 'link', value: 'https://exemplo.org/loja', label: 'Minha loja' }
+      ];
+      await db.put('site', site, 'site');
+      const exp = await Backup.exportar(db, { npub: ch.npub, pubkey: ch.pubkey, completo: false });
+      db.fechar();
+      // o arquivo as leva, e um item inventado dentro do arquivo não entra
+      const bruto = JSON.parse(exp.texto);
+      const noArquivo = (bruto.site.contacts || []).length;
+      bruto.site.contacts.push({ kind: 'inventado', value: 'x' });
+      bruto.site.contacts.push({ kind: 'email', value: 'javascript:alert(1)' });
+
+      await Db.apagar(ch.pubkey);
+      db = await Db.abrir(ch.pubkey);
+      const analise = Backup.analisar(JSON.stringify(bruto), { pubkey: ch.pubkey, npub: ch.npub });
+      await Backup.importar(db, analise, { modo: 'substituir', pubkey: ch.pubkey, npub: ch.npub });
+      const voltou = (await db.get('site', 'site')).contacts;
+      db.fechar();
+      await Db.apagar(ch.pubkey);
+
+      // e o de quem não tem nenhuma
+      const ch2 = Chave.gerar();
+      await Db.apagar(ch2.pubkey);
+      const db2 = await Db.abrir(ch2.pubkey);
+      await db2.put('site', Modelo.sitePadrao(ch2.pubkey, ch2.npub), 'site');
+      const exp2 = await Backup.exportar(db2, { npub: ch2.npub, pubkey: ch2.pubkey, completo: false });
+      db2.fechar();
+      await Db.apagar(ch2.pubkey);
+      return { noArquivo: noArquivo, voltou: voltou, semNenhum: 'contacts' in JSON.parse(exp2.texto).site };
+    });
+    assert(g.noArquivo === 2, 'o backup tem de levar as duas: ' + g.noArquivo);
+    assert(g.voltou.length === 2 && g.voltou[0].kind === 'email' && g.voltou[1].label === 'Minha loja', JSON.stringify(g.voltou));
+    assert(g.semNenhum === false, 'quem não tem contato nenhum não pode ganhar a chave no backup');
   });
 
   await it('base64 ida e volta (70.000 bytes) sem fetch', () => assert(r.b64 === true));

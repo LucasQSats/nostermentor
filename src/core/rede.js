@@ -9,7 +9,11 @@ const Rede = (function () {
   'use strict';
 
   const KIND_MANIFEST = 15128;
-  const KINDS = Object.freeze([0, 10002, 10063, KIND_MANIFEST]);   // 05 §1 e §3
+  // 61 D8 (2026-09-14): o 10050 — a caixa de entrada do próprio site — entra no
+  // MESMO pedido (nenhuma conexão a mais). Sem ele, no Tails sem backup as
+  // mensagens apareciam desligadas com a caixa publicada na rede (P51 do 08).
+  const KIND_CAIXA = 10050;
+  const KINDS = Object.freeze([0, 10002, 10063, KIND_CAIXA, KIND_MANIFEST]);   // 05 §1 e §3
   const RE_SHA = /^[0-9a-f]{64}$/;
 
   // 05 §1 (empírico, 2026-08-18/25): tags path/server/relay/client/title/description
@@ -299,6 +303,25 @@ const Rede = (function () {
     const site = montarSite(siteLocal, dados ? dados.site : null, mapa, porKind[0] || null, pubkey, npub,
       { primeiraCarga: !publicadoLocal, concorrente: concorrente, relaysUsados: relays, servidoresUsados: (siteLocal && siteLocal.network && siteLocal.network.servers && siteLocal.network.servers.length) ? siteLocal.network.servers : Modelo.SERVIDORES_PADRAO.slice() });
     if (dados && dados.theme) site.theme = Object.assign({}, site.theme, dados.theme);
+    // 61 D8 (14 T13 decisão 32, 2026-09-14) — a caixa de entrada é configuração
+    // LOCAL e não viaja no site.json; quem a leva de uma máquina a outra é o
+    // backup. Sem backup (o Tails amnésico, uma janela anônima), o painel abria
+    // com as mensagens DESLIGADAS enquanto a rede dizia a todo aplicativo que o
+    // site as recebe — e, desligadas, a aba nem verifica. As mensagens voltam a
+    // ser ligadas a partir do 10050 do PRÓPRIO site (autoria e assinatura já
+    // conferidas em `eventosValidos`), com a mesma regra do site.json: só na
+    // primeira carga deste banco ou na publicação concorrente — fora disso, o
+    // que está neste navegador é escolha do dono e não é desfeito. Só se lê;
+    // nada é publicado.
+    const caixaDaRede = porKind[KIND_CAIXA] || null;
+    if (caixaDaRede && (!publicadoLocal || concorrente)) {
+      const relaysDaCaixa = Mensagens.relaysDaCaixa(caixaDaRede);
+      if (relaysDaCaixa.length) site.messages = { enabled: true, relays: relaysDaCaixa };
+      // Um 10050 SEM relays é o aviso de "desliguei", publicado de outra máquina
+      // (decisão de 2026-09-14): a mesma regra vale no sentido contrário. Os
+      // relays escolhidos neste navegador ficam para quando ele ligar de novo.
+      else site.messages = Object.assign({ relays: Modelo.RELAYS_CAIXA_PADRAO.slice() }, site.messages || {}, { enabled: false });
+    }
     const rede = { pages: [], posts: [], media: [], herdados: [] };
     if (dados) {
       rede.pages = dados.pages.map(p => publicado(p, agora));
@@ -321,7 +344,9 @@ const Rede = (function () {
     const published = {
       manifest_event: manifest, manifest_event_id: manifest.id, created_at: manifest.created_at,
       paths: mapa.paths, relays: classificacao.por_relay, servers: serversPorHash(mapa),
-      metadata_events: { kind0: porKind[0] || null, kind10002: porKind[10002] || null, kind10063: porKind[10063] || null },
+      // o 10050 lido entra na fotografia (D8): é contra ele que o planejador e o
+      // contador decidem se a caixa de entrada precisa ir à rede outra vez
+      metadata_events: { kind0: porKind[0] || null, kind10002: porKind[10002] || null, kind10063: porKind[10063] || null, kind10050: porKind[KIND_CAIXA] || null },
       health: Saude.saudeDe(classificacao, agora)
     };
     // 31 — o `site.json` que veio da rede É a configuração publicada: guardá-la

@@ -26,6 +26,11 @@ const Publicar = (function () {
   'use strict';
 
   const KIND_MANIFEST = 15128, KIND_PERFIL = 0, KIND_RELAYS = 10002, KIND_SERVIDORES = 10063;
+  // 61 — a caixa de entrada das mensagens privadas (NIP-17). SÓ é publicada
+  // quando o dono liga as mensagens: sem ela, nenhum aplicativo que siga a spec
+  // manda mensagem para este site ("If such a list is not found that indicates
+  // the user is not ready to receive messages and clients shouldn't try").
+  const KIND_CAIXA = 10050;
   const CLIENTE = 'nostermentor';
   const PARALELAS_PADRAO = 3;              // arquivos ao mesmo tempo; por Tor mais que isto atrapalha (07 §3.2)
   const RE_SHA = /^[0-9a-f]{64}$/;
@@ -174,13 +179,17 @@ const Publicar = (function () {
       .map(m => ({ id: m.id, path: m.path, sha256: m.sha256, servers: Modelo.uniao(m.servers, servidoresPorHash[m.sha256] || []) }));
 
     // 6. eventos
-    const eventos = { manifest: true, kind0: false, kind10002: false, kind10063: false };
+    const eventos = { manifest: true, kind0: false, kind10002: false, kind10063: false, kind10050: false };
     const anteriores = (publicado && publicado.metadata_events) || {};
     const avatar = avatarDe(site, dados.media);
     const pictureUrl = urlDoAvatar(site, dados.media);
     eventos.kind0 = mudouPerfil(site, anteriores.kind0, pictureUrl);
     eventos.kind10002 = mudouLista(site.network && site.network.relays, anteriores.kind10002, 'r');
     eventos.kind10063 = mudouLista(site.network && site.network.servers, anteriores.kind10063, 'server');
+    eventos.kind10050 = mudouCaixa(site, anteriores.kind10050);
+    // A caixa ANTERIOR também recebe o evento novo: é lá que o aplicativo de quem
+    // escreve foi buscar a lista da última vez — ao desligar e ao trocar relays.
+    const caixaAnterior = anteriores.kind10050 ? Mensagens.relaysDaCaixa(anteriores.kind10050) : [];
 
     let bytes = 0;
     for (const u of upload) bytes += (u.bytes && (u.bytes.size != null ? u.bytes.size : u.bytes.length)) || 0;
@@ -192,7 +201,10 @@ const Publicar = (function () {
       upload: upload, remover: remover, eventos: eventos,
       picture_url: pictureUrl, picture_sha: avatar ? avatar.sha256 : null, bytes: bytes,
       relays: Modelo.uniao(site.network && site.network.relays), servidores: Modelo.uniao(site.network && site.network.servers),
-      nada: mudou === 0 && !eventos.kind0 && !eventos.kind10002 && !eventos.kind10063,
+      caixa_anterior: caixaAnterior,
+      // o 10050 que sai é o aviso de "não recebo mais" (a T8 diz isso ao dono)
+      caixa_desligada: eventos.kind10050 && relaysDaCaixaDo(site).length === 0,
+      nada: mudou === 0 && !eventos.kind0 && !eventos.kind10002 && !eventos.kind10063 && !eventos.kind10050,
       caminhos: Object.keys(mapa).length,
       // 31 — vai inteira para a fotografia: é contra ela que o contador de
       // "Publicar" compara as Configurações › Site na sessão seguinte.
@@ -259,6 +271,28 @@ const Publicar = (function () {
     return { kind: KIND_SERVIDORES, created_at: Number.isInteger(agoraS) ? agoraS : agoraUnix(),
       tags: Modelo.uniao(site.network && site.network.servers).map(u => ['server', u]), content: '' };
   }
+  // NIP-17: tags ["relay", url], de 1 a 3. O modelo vive em `core/mensagens.js`.
+  function relaysDaCaixaDo(site) {
+    const m = site && site.messages;
+    return m && m.enabled === true ? Modelo.uniao(m.relays).slice(0, Modelo.MAX_RELAYS_CAIXA) : [];
+  }
+  function modeloCaixa(site, agoraS) { return Mensagens.modeloCaixa(relaysDaCaixaDo(site), agoraS); }
+  // Quem NUNCA ligou as mensagens não publica 10050 nenhum: sem evento anterior,
+  // só ligar publica — é um evento a menos dizendo que esta npub existe, e a
+  // fotografia SEM o evento significa "não sei", nunca "mudou".
+  // DESLIGAR, com uma caixa já na rede, publica um 10050 SEM relays no lugar dela
+  // (decisão do dono, 2026-09-14). A spec só diz o que fazer quando a lista "is
+  // not found"; sobre lista vazia não diz nada, e os aplicativos divergem (lido
+  // no código deles em 2026-09-14): o noStrudel não manda para ninguém, e o
+  // Amethyst trata vazia como ausente e cai nos relays gerais da pessoa. Pedir a
+  // deleção (kind 5) seria pior: o relay pode ignorar o pedido e, se atender, o
+  // noStrudel também passa a cair nos relays gerais.
+  function mudouCaixa(site, eventoAnterior) {
+    const atual = relaysDaCaixaDo(site);
+    if (!eventoAnterior) return atual.length > 0;
+    const antes = valoresDeTag(eventoAnterior, 'relay') || [];
+    return atual.join('\n') !== Modelo.uniao(antes).join('\n');
+  }
   function valoresDeTag(ev, nome) {
     if (!ev || !Array.isArray(ev.tags)) return null;
     return ev.tags.filter(t => Array.isArray(t) && t[0] === nome).map(t => String(t[1]));
@@ -280,6 +314,13 @@ const Publicar = (function () {
   //     positivo seria um aviso que nunca mais apaga.
   function configPendente(site, published, media) {
     if (!site || !published) return false;                  // nunca publicado: T3 já o diz com todas as letras
+    // 61 D9 (2026-09-14) — a caixa de entrada é configuração LOCAL: não entra no
+    // site.json nem, por isso, na assinatura da linha seguinte. Ligar as
+    // mensagens num site já publicado deixava o contador em "Nada a publicar", e
+    // o 10050 nunca ia à rede. A pergunta vai a quem sabe — o mesmo `mudouCaixa`
+    // com que o planejador decide mandá-lo. Vale nos dois sentidos desde
+    // 2026-09-14: desligar com uma caixa na rede também acende o contador.
+    if (mudouCaixa(site, (published.metadata_events || {}).kind10050)) return true;
     if (published.site_config !== undefined) return SiteJson.assinaturaSite(site) !== published.site_config;
     // Cada comparação só vale se o dado EXISTIR na fotografia. `mudouPerfil` e
     // `mudouLista` respondem à pergunta do publicador ("preciso publicar este
@@ -393,6 +434,7 @@ const Publicar = (function () {
       if (plano.eventos.kind0) resultado.metadados.push({ kind: KIND_PERFIL, evento: o.assinar(modeloPerfil(site, agoraS, pictureUrl)) });
       if (plano.eventos.kind10002) resultado.metadados.push({ kind: KIND_RELAYS, evento: o.assinar(modeloRelays(site, agoraS)) });
       if (plano.eventos.kind10063) resultado.metadados.push({ kind: KIND_SERVIDORES, evento: o.assinar(modeloServidores(site, agoraS)) });
+      if (plano.eventos.kind10050) resultado.metadados.push({ kind: KIND_CAIXA, evento: o.assinar(modeloCaixa(site, agoraS)) });
     } catch (e) {
       resultado.desfecho = 'sem_assinatura'; resultado.erro = e && e.message ? String(e.message) : ''; return resultado;
     }
@@ -414,7 +456,14 @@ const Publicar = (function () {
     // metadados vão depois: o mapa é que decide o desfecho (05 §3 diz que
     // sem eles o nsite.run devolve 404, mas o site já está no ar).
     for (const m of resultado.metadados) {
-      m.resultados = await Relay.publicar(relays, m.evento, { sinal: o.sinal, timeoutMs: o.timeoutMs });
+      // A caixa de entrada tem de estar TAMBÉM nos relays da própria caixa:
+      // é lá que o aplicativo de quem quer escrever vai procurá-la antes de
+      // mandar a mensagem. Nos relays de publicação ela também vai — é lá que
+      // o resto dos metadados do site vive, e a lista é pública de propósito.
+      // ⚠️ Um relay de caixa pode exigir identificação para ACEITAR (NIP-59):
+      // `assinarAuth` passa adiante, e só existe porque há chave na sessão.
+      const alvos = m.kind === KIND_CAIXA ? Modelo.uniao(Modelo.uniao(relays, relaysDaCaixaDo(site)), plano.caixa_anterior || []) : relays;
+      m.resultados = await Relay.publicar(alvos, m.evento, { sinal: o.sinal, timeoutMs: o.timeoutMs, assinarAuth: o.assinarAuth });
       m.placar = Relay.placar(m.resultados);
       prog({ passo: 'metadados', kind: m.kind, placar: m.placar });
     }
@@ -441,7 +490,7 @@ const Publicar = (function () {
     for (const r of resultado.relaysManifest) relaysEstado[r.url] = r.estado === 'aceito' ? 'atual' : (r.estado === 'recusado' ? 'sem' : 'nao_respondeu');
     const servers = Object.assign({}, (anterior && anterior.servers) || {}, resultado.servidoresPorHash);
     for (const path of Object.keys(plano.mapa)) { const h = plano.mapa[path]; if (!servers[h]) servers[h] = plano.servidores.slice(); }
-    const meta = Object.assign({ kind0: null, kind10002: null, kind10063: null }, (anterior && anterior.metadata_events) || {});
+    const meta = Object.assign({ kind0: null, kind10002: null, kind10063: null, kind10050: null }, (anterior && anterior.metadata_events) || {});
     for (const m of resultado.metadados) {
       if (m.placar && m.placar.ok) meta['kind' + m.kind] = Saude.limpo(m.evento);
     }
@@ -535,7 +584,7 @@ const Publicar = (function () {
     if (alvos.length === 0) return { desfecho: 'sem_relays', resultados: [] };
     const eventos = [publicado.manifest_event];
     const meta = publicado.metadata_events || {};
-    for (const k of ['kind0', 'kind10002', 'kind10063']) if (meta[k]) eventos.push(meta[k]);
+    for (const k of ['kind0', 'kind10002', 'kind10063', 'kind10050']) if (meta[k]) eventos.push(meta[k]);
     const saida = [];
     for (const ev of eventos) {
       const rs = await Relay.publicar(alvos, ev, { sinal: o.sinal, timeoutMs: o.timeoutMs, aoRelay: o.aoRelay });
@@ -546,7 +595,7 @@ const Publicar = (function () {
   }
 
   return Object.freeze({
-    KIND_MANIFEST, KIND_PERFIL, KIND_RELAYS, KIND_SERVIDORES, CLIENTE, PARALELAS_PADRAO,
+    KIND_MANIFEST, KIND_PERFIL, KIND_RELAYS, KIND_SERVIDORES, KIND_CAIXA, CLIENTE, PARALELAS_PADRAO,
     planear, caminhosDoApp, modeloManifest, modeloPerfil, modeloRelays, modeloServidores, conteudoPerfil, avatarDe, urlDoAvatar,
     mudouPerfil, mudouLista, valoresDeTag, configPendente, emLotes, executar, fotografia, aplicar, registrarSubidos, republicar
   });
