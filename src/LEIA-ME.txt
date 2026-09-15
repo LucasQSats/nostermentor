@@ -7,6 +7,8 @@ O que é
   do painel, em Ajuda.
 
 Como abrir
+  O painel é para computador: precisa de uma janela com pelo menos 600
+  pontos de largura. No celular ele não cabe na tela.
   Tails (o caso mais restrito — vale para todos):
     1. Abra o nostermentor.html com dois cliques, ou arraste-o para a
        janela do Tor Browser — funciona também a partir de um pendrive.

@@ -307,7 +307,9 @@
               definir: function (id) { rascunho.logo_media_id = id; } });
           } }, C.logoEscolher),
           logo ? h('button', { type: 'button', id: 't7-logo-remover', class: 'ligacao', onclick: function () { rascunho.logo_media_id = null; render(); marcarSujo(); } }, C.logoRemover) : null),
-        h('p', { class: 'apoio' }, C.logoApoio)));
+        h('p', { class: 'apoio' }, C.logoApoio),
+        // 60 — avisa, não impede (a mesma regra dos avisos do ícone, abaixo)
+        logo && logo.mime === 'image/svg+xml' ? h('p', { class: 'alerta', id: 't7-logo-svg' }, C.logoSvgAviso) : null));
 
       // --- o ícone da aba (favicon) -----------------------------------------
       // Logo abaixo do logo, porque é a mesma decisão de marca — e imagem

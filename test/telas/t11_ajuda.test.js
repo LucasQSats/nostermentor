@@ -76,6 +76,29 @@ module.exports = async function (ctx, u) {
     await p.pg.close();
   });
 
+  // A v1 é só para computador (decisão do dono, 2026-09-15). O número dito na
+  // Ajuda, o do LEIA-ME que vai no pacote e o que a régua mede em todas as
+  // telas (telas/piso_painel) têm de ser o MESMO — senão um deles mente.
+  await it('54: "Como abrir" diz logo no início que o painel é para computador, com a largura mínima; é o mesmo número do LEIA-ME e o mesmo que telas/piso_painel mede', async () => {
+    const { PISO } = require('./piso_painel.test.js');
+    const fs = require('fs'), path = require('path');
+    const { p } = await comAjuda();
+    const est = await p.pg.evaluate(() => {
+      const el = document.getElementById('t11-computador'), passos = document.querySelector('#t11-painel ol.passos-ajuda');
+      return { texto: el && el.textContent, visivel: !!(el && (el.offsetWidth || el.offsetHeight)),
+        antesDosPassos: !!(el && passos && (el.compareDocumentPosition(passos) & Node.DOCUMENT_POSITION_FOLLOWING)) };
+    });
+    assert(est.texto && /feito para computador/.test(est.texto) && /celular/.test(est.texto), JSON.stringify(est));
+    const naAjuda = Number((/pelo menos (\d+) pontos de largura/.exec(est.texto) || [])[1]);
+    const leiame = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'LEIA-ME.txt'), 'utf8').replace(/\s+/g, ' ');
+    const noLeiame = Number((/para computador: precisa de uma janela com pelo menos (\d+) pontos de largura/.exec(leiame) || [])[1]);
+    assert(naAjuda === PISO && noLeiame === PISO, 'Ajuda ' + naAjuda + ', LEIA-ME ' + noLeiame + ', régua ' + PISO);
+    assert(est.visivel && est.antesDosPassos, 'o aviso tem de estar à vista e antes dos passos: ' + JSON.stringify(est));
+    assert(p.erros.length === 0 && p.consoleErros.length === 0, JSON.stringify({ pageerror: p.erros, console: p.consoleErros }));
+    await p.pg.close();
+    return 'piso ' + PISO + ' px: Ajuda = LEIA-ME = régua';
+  });
+
   await it('as seções de conteúdo dizem o que 14 T11 manda: a chave não é guardada e não há recuperação; as três cópias com a regra prática; remover tira do site sempre e apagar da rede nem sempre', async () => {
     const { p } = await comAjuda();
     const chave = await abaTexto(p.pg, 'chave');

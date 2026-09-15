@@ -312,6 +312,54 @@ module.exports = async function (ctx, u) {
     return 'ícone abaixo do logo, aviso de 300×60 não quadrada, <link rel=icon> em todas as páginas e removível';
   });
 
+  // No nível Safest o Tor Browser desliga todo SVG: um logo ou ícone SVG some
+  // justamente para o leitor mais cauteloso. A tela diz isso — e só diz.
+  await it('60: logo ou ícone em SVG — a tela avisa, À VISTA, que no Tor Browser Safest todo SVG é desligado; com PNG não há esse aviso; e avisar não impede de salvar', async () => {
+    const { p, ch } = await sessao();
+    const svgId = await p.pg.evaluate(async ([pubkey]) => {
+      const db = await Db.abrir(pubkey);
+      const brutos = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#223"/></svg>');
+      const m = { id: Modelo.novoId(), path: '/img/marca.svg', mime: 'image/svg+xml', size: brutos.length,
+        sha256: await Blossom.sha256Hex(brutos), width: 64, height: 64, alt: 'marca', caption: '',
+        bytes: new Blob([brutos], { type: 'image/svg+xml' }), status: 'draft', servers: [], removal: null,
+        metadata: { stripped: true, removed_segments: [], warning: null }, origin: 'upload',
+        created_at: Modelo.agora(), updated_at: Modelo.agora(), previous_status: null };
+      await db.escrever([{ op: 'put', store: 'media', valor: m }]);
+      db.fechar();
+      return m.id;
+    }, [ch.pubkey]);
+    // reentra em T7 para o mount reler `media` (a lista foi lida antes do put)
+    await p.pg.click('#menu .item[data-tela="t6"]'); await p.pg.waitForSelector('#t6-tabela');
+    await p.pg.click('#menu .item[data-tela="t7"]'); await p.pg.waitForSelector('#t7-painel');
+    await aba(p.pg, 'aparencia');
+    async function escolher(botao, id) {
+      await p.pg.click(botao);
+      await p.pg.waitForSelector('.grade-capas');
+      await p.pg.click(`.capa-opcao[data-media-id="${id}"]`);
+      await p.pg.waitForSelector('#modal-fundo', { state: 'detached' });
+    }
+    const pngId = (await lerBanco(p.pg, ch.pubkey)).media.find(m => m.mime === 'image/png').id;
+    await escolher('#t7-logo-escolher', pngId);
+    await escolher('#t7-favicon-escolher', pngId);
+    assert(!(await p.pg.$('#t7-logo-svg')) && !(await p.pg.$('#t7-favicon-svg')), 'com PNG não pode haver aviso de SVG');
+    await escolher('#t7-logo-escolher', svgId);
+    await escolher('#t7-favicon-escolher', svgId);
+    const logo = await p.pg.$('#t7-logo-svg'), icone = await p.pg.$('#t7-favicon-svg');
+    assert(logo && (await logo.isVisible()) && icone && (await icone.isVisible()), 'os dois avisos têm de estar À VISTA');
+    const tLogo = await logo.textContent(), tIcone = await icone.textContent();
+    assert(/Tor Browser/.test(tLogo) && /Safest/.test(tLogo) && /não vê o logo/.test(tLogo) && /PNG ou WebP/.test(tLogo), tLogo);
+    assert(/Safest/.test(tIcone) && /aba sem ícone/.test(tIcone) && /programas/.test(tIcone) && /PNG ou WebP/.test(tIcone), tIcone);
+    // o aviso do logo fica junto do logo, antes do campo do ícone
+    const ordem = await p.pg.evaluate(() => (document.getElementById('t7-logo-svg').compareDocumentPosition(document.getElementById('t7-favicon-atual')) & Node.DOCUMENT_POSITION_FOLLOWING) > 0);
+    assert(ordem, 'o aviso do logo tem de ficar junto do logo, acima do ícone');
+    await p.pg.screenshot({ path: u.captura('t7-svg-avisos'), fullPage: true });
+    await salvar(p.pg);
+    const banco = await lerBanco(p.pg, ch.pubkey);
+    assert(banco.site.logo_media_id === svgId && banco.site.favicon_media_id === svgId, 'avisar não pode impedir de gravar: ' + JSON.stringify([banco.site.logo_media_id, banco.site.favicon_media_id]));
+    await p.pg.close();
+    return tLogo;
+  });
+
   await it('48: os seletores de logo e de avatar mostram miniatura para mídia vinda da REDE, sem bytes locais — achado pelo dono no teste à mão do lote 4', async () => {
     const PNG = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'limpeza', 'limpo.png'));
     const sha = f.blobEm('c1', PNG, 'image/png');

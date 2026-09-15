@@ -29,6 +29,7 @@ const SUITES = [
   ['core/blocos', require('./core/blocos.test.js')],
   ['core/contatos', require('./core/contatos.test.js')],
   ['core/html_colado', require('./core/html_colado.test.js')],
+  ['core/externos', require('./core/externos.test.js')],
   ['core/backup', require('./core/backup.test.js')],
   ['core/responsivo', require('./core/responsivo.test.js')],
   ['telas/t1_entrar', require('./telas/t1_entrar.test.js')],
@@ -42,6 +43,7 @@ const SUITES = [
   ['telas/t11_ajuda', require('./telas/t11_ajuda.test.js')],
   ['telas/t12_temas', require('./telas/t12_temas.test.js')],
   ['telas/t13_contatos', require('./telas/t13_contatos.test.js')],
+  ['telas/piso_painel', require('./telas/piso_painel.test.js')],
   // Medição de escala, não aceite: só corre quando pedida por NOSTERMENTOR_SUITES.
   ['telas/escala', require('./telas/escala.test.js')],
   ['rede/bostil', require('./rede/bostil.test.js')],

@@ -32,6 +32,9 @@
       const A = T.abrir;
       painel.appendChild(h('h2', {}, A.titulo));
       painel.appendChild(h('p', {}, A.intro));
+      // A v1 é para computador (decisão do dono): dito logo no início, antes
+      // dos passos, para quem tentar abrir no celular saber por que não cabe.
+      painel.appendChild(h('p', { class: 'destaque', id: 't11-computador' }, A.computador));
       painel.appendChild(h('h3', {}, A.tails));
       painel.appendChild(passos(A.tailsPassos));
       painel.appendChild(h('h3', {}, A.outros));

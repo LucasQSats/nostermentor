@@ -519,6 +519,12 @@ const Textos = Object.freeze({
     naoPodeSubirItem: 'não pode subir em nenhum servidor',
     avisoVaiRecusar: 'vai recusar',
     avisoParcial: '{recusa} — sobe só para {aceita}.',
+    // Arquivo de outro servidor no conteúdo: avisa, nunca impede.
+    externosTitulo: 'Arquivos de outros sites',
+    externosTexto: 'Estas páginas buscam imagens, vídeos ou outros arquivos em servidores que não são os do seu site, ou mandam um formulário para lá. Cada pessoa que abrir a página — ou der play, ou enviar o formulário — entrega a esse servidor o endereço de internet (IP) dela e a hora da visita. Não é proibido e não impede a publicação.',
+    externosCarrega: 'busca arquivos em {hosts}',
+    externosEnvia: 'envia o formulário para {hosts}',
+    externosComo: 'Para não expor quem lê: envie o arquivo na tela Mídia e use-o de lá, em vez do endereço do outro site.',
     colisao: 'Este endereço já tem um arquivo publicado por outra ferramenta: {p}. Publicar agora substituiria o arquivo antigo, e o Nostermentor prometeu preservá-lo.',
     colisoes: 'Estes endereços já têm arquivos publicados por outra ferramenta: {p}. Publicar agora substituiria os arquivos antigos, e o Nostermentor prometeu preservá-los.',
     colisaoApoio: 'Para publicar a sua versão, remova antes o arquivo antigo em Mídia. Enquanto ele estiver lá, continua no ar como está.',
@@ -654,6 +660,9 @@ const Textos = Object.freeze({
       logoSemImagens: 'Ainda não há imagens na biblioteca. Envie uma em Mídia.',
       logoEnviar: 'Enviar nova imagem…',
       logoBaixo: 'Atenção: esta imagem tem {altura} pontos de altura e você pediu {pedida} px. Em telas densas ela vai aparecer esticada — o ideal é uma imagem com pelo menos {dobro} pontos.',
+      // No nível Safest o Tor Browser desliga TODO SVG (lido no código do Tor
+      // Browser 15.0): o leitor mais cauteloso veria o topo sem a marca.
+      logoSvgAviso: 'Atenção: esta imagem é SVG. No Tor Browser, no nível de segurança Safest, todo SVG é desligado — quem visitar o site assim não vê o logo. Prefira PNG ou WebP.',
       // O ícone da aba. Fica logo abaixo do logo porque é a mesma decisão de
       // marca, mas é OUTRA imagem: o logo é horizontal e este é quadrado.
       favicon: 'Ícone do site (favicon)',
@@ -666,7 +675,7 @@ const Textos = Object.freeze({
       faviconEnviar: 'Enviar nova imagem…',
       faviconNaoQuadrado: 'Atenção: esta imagem tem {largura}×{altura} pontos, e não é quadrada. O navegador vai espremê-la para caber num quadrado — o ícone sai distorcido. O ideal é uma imagem quadrada de pelo menos 128 pontos.',
       faviconPequeno: 'Atenção: esta imagem tem {largura} pontos de lado. Em telas densas o ícone sai borrado — o ideal são pelo menos 128.',
-      faviconSvgAviso: 'Atenção: arquivos SVG podem conter programas. Como ícone do site ele é servido a todo mundo que visita — prefira PNG ou WebP.',
+      faviconSvgAviso: 'Atenção: arquivos SVG podem conter programas, e como ícone do site ele é servido a todo mundo que visita. No Tor Browser, no nível de segurança Safest, todo SVG é desligado — quem visitar o site assim vê a aba sem ícone. Prefira PNG ou WebP.',
       outros: '',
       previa: 'Ver como o site está ficando',
       previaTitulo: 'Pré-visualização do site',
@@ -1043,6 +1052,9 @@ const Textos = Object.freeze({
     abrir: {
       titulo: 'Como abrir o Nostermentor',
       intro: 'O Nostermentor é um arquivo só — nostermentor.html. Não instala nada: o navegador é o programa. Guarde-o numa pasta sua e abra-o com dois cliques.',
+      // O número é o que a suíte mede em todas as telas (piso_painel), e o
+      // mesmo do LEIA-ME: mudar aqui é mudar lá e na régua.
+      computador: 'O painel é feito para computador. Ele precisa de uma janela com pelo menos 600 pontos de largura — o Tor Browser serve, maximizado ou não. No celular ele não cabe na tela e passa a rolar para o lado.',
       tails: 'No Tails (o caso mais restrito — se funciona aqui, funciona em todo lado)',
       tailsPassos: [
         'Abra o nostermentor.html com dois cliques, ou arraste-o para a janela do Tor Browser — funciona também a partir de um pendrive. Só digitar o endereço file:// na barra é que o navegador recusa; nesse caso copie a pasta para Documentos antes.',

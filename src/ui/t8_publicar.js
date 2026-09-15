@@ -207,6 +207,29 @@
           return h('li', { class: a.bloqueado ? 'erro' : 'apoio' }, h('code', {}, a.path), h('span', {}, ' — ' + texto2));
         }))) : null));
 
+    // Arquivo de OUTRO servidor no site: o navegador de quem lê vai buscá-lo lá
+    // (ou mandar o formulário para lá), e esse servidor fica sabendo o IP e a
+    // hora da visita. Varre o site INTEIRO, não só o que sobe agora — é o que vai
+    // estar no ar depois do clique. Avisa e não impede: o conteúdo é do dono.
+    const deFora = gerado.arquivos
+      .filter(function (a) { return a.mime === 'text/html'; })
+      .map(function (a) { return { path: a.path, achados: Gerador.externos(a.texto) }; })
+      .filter(function (x) { return x.achados.length > 0; });
+    if (deFora.length) {
+      corpo.appendChild(h('div', { class: 'bloco-diff', id: 't8-externos' },
+        h('h2', {}, T.externosTitulo + ' (' + deFora.length + ')'),
+        h('p', { class: 'alerta' }, T.externosTexto),
+        h('ul', {}, deFora.map(function (x) {
+          const carrega = x.achados.filter(function (a) { return a.como === 'carrega'; }).map(function (a) { return a.host; });
+          const envia = x.achados.filter(function (a) { return a.como === 'envia'; }).map(function (a) { return a.host; });
+          const partes = [];
+          if (carrega.length) partes.push(texto(T.externosCarrega, { hosts: carrega.join(', ') }));
+          if (envia.length) partes.push(texto(T.externosEnvia, { hosts: envia.join(', ') }));
+          return h('li', {}, h('code', {}, x.path), h('span', { class: 'apoio' }, ' — ' + partes.join('; ')));
+        })),
+        h('p', { class: 'apoio' }, T.externosComo)));
+    }
+
     const eventosLista = [T.eventos.manifest]
       .concat(plano.eventos.kind0 ? [T.eventos.kind0] : [])
       .concat(plano.eventos.kind10002 ? [T.eventos.kind10002] : [])

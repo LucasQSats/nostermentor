@@ -23,7 +23,10 @@ const Gerador = (function () {
 
   // 13 §4.0 — conteúdo é dado, nunca programa (02 G.2.3). <style>/<link>/
   // <meta>/<base> ficam fora porque poderiam puxar recurso remoto (G.2.4:
-  // privacidade do leitor). Atributo style inline é permitido (não carrega nada).
+  // privacidade do leitor). Atributo style inline é permitido — ⚠️ e PODE
+  // carregar: um `url(https://…)` nele busca o arquivo no navegador de quem lê
+  // (medido em 2026-09-15 nos dois motores, com sete formas de escrever). Não
+  // se barra, porque é conteúdo que o dono escreveu; quem avisa é `externos`.
   // 61 — `nostr:` é o esquema do NIP-21, e SEM ele um link para um endereço
   // Nostr some em silêncio: medido em 2026-09-11 nos dois motores (L9 do 08).
   // Esta é a lista do DOMPurify 3.4.14 lida do próprio bundle fixado, com UMA
@@ -595,6 +598,60 @@ const Gerador = (function () {
     return previa(html, dataUris, opcoes, tema || (ctx && ctx.tema) || null);
   }
 
+  // O QUE FAZ O NAVEGADOR DE QUEM LÊ FALAR COM OUTRO SERVIDOR sem clicar em
+  // nada. Medido em 2026-09-15, nos dois motores, com o HTML já limpo pelo
+  // filtro da publicação (35 casos): buscam sozinhos o `src` de img, source,
+  // audio, video e input, o `srcset`, o `poster`, o atributo `background` e todo
+  // `url(…)`/`image-set(…)` de um `style`. Entram também o vídeo com
+  // `preload="none"` e o `<track>` (buscam ao dar play) e o `action` de um
+  // formulário (envia ao clicar): quando acontece, o preço para o leitor é o
+  // mesmo. NÃO entra o link (`<a href>`): ir a outro site é o leitor que decide.
+  // O que o filtro já remove (iframe, object, embed, link, svg) continua
+  // reconhecido, porque o HTML de um molde de tema não passa pelo filtro.
+  // Não se proíbe nada — é conteúdo do dono; quem avisa é a tela Publicar.
+  // → [{ host, como: 'carrega' | 'envia' }], sem repetir, na ordem em que aparecem.
+  const BASE_LOCAL = 'https://site.invalid/';
+  const RE_URL_CSS = /(?:https?:)?\/\/([^\/\s'"()\\,;]+)/gi;
+  const RE_DATA_CSS = /url\(\s*(['"]?)data:[\s\S]*?\1\s*\)/gi;       // um data: pode trazer "http://www.w3.org/…" dentro, e não busca nada
+  const REL_QUE_CARREGA = /(?:^|\s)(?:stylesheet|icon|preload|prefetch|modulepreload|manifest|apple-touch-icon)(?:\s|$)/i;
+  function hostDe(valor) {
+    const v = String(valor == null ? '' : valor).trim();
+    if (!v) return null;
+    let url;
+    try { url = new URL(v, BASE_LOCAL); } catch (e) { return null; }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url.host === 'site.invalid' ? null : url.host.toLowerCase();
+  }
+  function externos(html) {
+    const achados = [], vistos = new Set();
+    const anotar = (host, como) => { if (!host || vistos.has(como + ' ' + host)) return; vistos.add(como + ' ' + host); achados.push({ host: host, como: como }); };
+    const doCss = (texto) => {
+      const semData = String(texto).replace(RE_DATA_CSS, '');
+      RE_URL_CSS.lastIndex = 0;
+      let m;
+      while ((m = RE_URL_CSS.exec(semData)) !== null) anotar(hostDe('https://' + m[1]), 'carrega');
+    };
+    let doc;
+    // documento INERTE, como em `inventario`: nada carrega, nada executa
+    try { doc = new DOMParser().parseFromString(String(html == null ? '' : html), 'text/html'); } catch (e) { return achados; }
+    for (const el of doc.querySelectorAll('*')) {
+      const tag = el.nodeName.toLowerCase();
+      if (tag === 'style') doCss(el.textContent || '');
+      for (const a of el.attributes) {
+        const nome = a.name.toLowerCase(), valor = a.value;
+        if (nome === 'style') doCss(valor);
+        else if (nome === 'srcset') { for (const parte of valor.split(',')) anotar(hostDe(parte.trim().split(/\s+/)[0]), 'carrega'); }
+        else if (nome === 'src' || nome === 'poster' || nome === 'background' || nome === 'data') anotar(hostDe(valor), 'carrega');
+        else if (nome === 'action' || nome === 'formaction') anotar(hostDe(valor), 'envia');
+        else if (nome === 'href' || nome === 'xlink:href') {
+          const carrega = tag === 'link' ? REL_QUE_CARREGA.test(el.getAttribute('rel') || '') : (tag === 'image' || tag === 'use' || tag === 'feimage');
+          if (carrega) anotar(hostDe(valor), 'carrega');
+        }
+      }
+    }
+    return achados;
+  }
+
   return Object.freeze({ caminhoCss, PURIFY, escapar, imagensClicaveis, renderizarCorpo, primeiroParagrafo, sha256Hex, contexto, opcoesDe, temaDe, htmlDe, gerarSite, previa, previaCorpo,
-    extrairBlocos, hrefSeguro, opcoesArtigos, temGaleria, BLOCOS, limparHtmlColado, grupoRemovido });
+    extrairBlocos, hrefSeguro, opcoesArtigos, temGaleria, BLOCOS, limparHtmlColado, grupoRemovido, externos });
 })();

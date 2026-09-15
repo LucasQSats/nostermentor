@@ -288,6 +288,37 @@ module.exports = async function (ctx, u) {
     return est.relays.join(' · ');
   });
 
+  await it('53: imagem de OUTRO servidor e formulário para fora numa página → T8 mostra "Arquivos de outros sites" com o caminho e os servidores, diz o preço para quem lê, fica antes do botão e NÃO impede de publicar; link para fora não entra; sem nada de fora o bloco não aparece', async () => {
+    const { p, ch } = await sessao({ relays: [f.ws('m-ok')] });
+    await p.pg.click('#btn-publicar'); await p.pg.waitForSelector('#t8-total', { timeout: 20000 });
+    assert(!(await p.pg.$('#t8-externos')), 'um site sem nada de fora não pode ter o aviso');
+    await p.pg.evaluate(async (pubkey) => {
+      const db = await Db.abrir(pubkey);
+      const pages = await db.getAll('pages');                 // sessao() cria uma página só: a inicial
+      const t = Modelo.transicao(pages[0], 'editar');
+      await db.put('pages', Object.assign({}, t.registro, { body: 'Olá.\n\n![foto](https://imagens.exemplo.test/foto.jpg)\n\n<form action="https://formularios.exemplo.test/enviar"><input name="nome"><button>Enviar</button></form>\n\n[um link para fora](https://links.exemplo.test/)' }));
+      db.fechar();
+    }, ch.pubkey);
+    await p.pg.evaluate(() => Shell.ir('t3')); await p.pg.waitForSelector('#t3');
+    await p.pg.evaluate(() => Shell.ir('t8'));
+    await p.pg.waitForSelector('#t8-externos', { timeout: 20000 });
+    const est = await p.pg.evaluate(() => {
+      const b = document.getElementById('t8-externos'), btn = document.getElementById('t8-assinar');
+      return { titulo: b.querySelector('h2').textContent, texto: b.textContent.replace(/\s+/g, ' '),
+        itens: [...b.querySelectorAll('li')].map(li => li.textContent), visivel: !!(b.offsetWidth || b.offsetHeight),
+        antesDoBotao: (b.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING) > 0, podeClicar: !btn.disabled };
+    });
+    assert(est.titulo === 'Arquivos de outros sites (1)', est.titulo);
+    assert(est.itens.length === 1 && /^\/index\.html — /.test(est.itens[0]) && /busca arquivos em imagens\.exemplo\.test/.test(est.itens[0]) && /envia o formulário para formularios\.exemplo\.test/.test(est.itens[0]), JSON.stringify(est.itens));
+    assert(!/links\.exemplo\.test/.test(est.texto), 'link para fora não busca nada — não pode entrar no aviso: ' + est.texto);
+    assert(/endereço de internet \(IP\)/.test(est.texto) && /hora da visita/.test(est.texto) && /não impede a publicação/.test(est.texto) && /tela Mídia/.test(est.texto), est.texto);
+    assert(est.visivel && est.antesDoBotao && est.podeClicar, JSON.stringify(est));
+    await p.pg.screenshot({ path: u.captura('t8-externos'), fullPage: true });
+    await p.pg.click('#t8-assinar'); await p.pg.waitForSelector('#t8-publicado', { timeout: 60000 });
+    await p.pg.close();
+    return est.itens[0];
+  });
+
   await it('guarda de concorrência: outra máquina publicou depois → T8 bloqueia com a faixa e "Recarregar da rede", sem deixar publicar por cima', async () => {
     const { p, ch } = await sessao({ relays: [f.ws('m-ok')] });
     await p.pg.click('#btn-publicar'); await p.pg.waitForSelector('#t8-total', { timeout: 20000 });
