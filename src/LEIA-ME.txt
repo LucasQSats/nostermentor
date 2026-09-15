@@ -17,7 +17,7 @@ Como abrir
     2. O Tails esquece tudo ao desligar: guarde a pasta no Persistent
        Storage, ou recopie-a a cada sessão.
     3. Nível de segurança: Standard ou Safer. Em Safest o painel não
-       arranca (o próprio painel explica isso na tela).
+       abre (o próprio painel explica isso na tela).
     4. Se o painel abrir e ficar parado no aviso inicial, recarregue (F5).
     5. Os seus dados (chave, backup, imagens) ficam no Persistent Storage:
        o painel os alcança pelo seletor de arquivos.
@@ -49,15 +49,21 @@ Remover não é apagar
   onde não.
 
 Estado desta versão
-  Marcos M1–M4 concluídos, M5 em curso. O ciclo completo funciona: entrar
-  com a chave (colar, arquivo ou gerar uma nova), ler o site pela rede,
-  escrever páginas e artigos com pré-visualização, enviar imagens (com os
-  metadados removidos antes de subir), PUBLICAR de verdade nos relays e nos
-  servidores Blossom, conferir a saúde da publicação e reenviar o mapa a
-  quem o perdeu, e exportar/importar o backup. Validado em Tails, Windows e
-  Linux (Firefox e Chrome).
-  O que ainda não existe: aviso de nova versão do app dentro do painel
-  (troca-se o arquivo à mão) e temas além do padrão.
+  Versão de desenvolvimento, anterior à 0.1.0. O ciclo completo funciona:
+  entrar com a chave (colar, arquivo ou gerar uma nova), reconstruir o site
+  pela rede, escrever páginas e artigos com pré-visualização, enviar imagens
+  e vídeos (em JPEG, PNG e WebP os metadados saem antes de subir), PUBLICAR
+  de verdade nos relays e nos servidores Blossom, conferir a saúde da
+  publicação e reenviar o mapa a quem o perdeu, tirar o site do ar e
+  exportar/importar o backup.
+  A aparência sai de uma galeria de 21 temas, com cores, letras e logo
+  ajustáveis. Em Contatos, o site pode receber mensagens privadas pelo Nostr
+  e respondê-las de dentro do painel (vem desligado), e mostrar aos leitores
+  outras formas de contato.
+  Testado no Tails em computador de verdade e no Linux, em Firefox e Chrome.
+  No Windows, ainda não foi testado numa máquina real.
+  O que ainda não existe: aviso de nova versão do app dentro do painel (por
+  enquanto, troque o arquivo à mão).
 
 Faça backup antes de trocar este arquivo por uma versão nova.
 

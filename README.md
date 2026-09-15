@@ -2,7 +2,7 @@
 
 Gerenciador de publicação de sites e blogs no protocolo **nsite**
 (Nostr + Blossom): um único arquivo HTML que se abre por `file://`,
-**sem instalar nada**, e funciona em Tails, Windows e Linux.
+**sem instalar nada**, e feito para funcionar em Tails, Windows e Linux.
 
 - O navegador é o runtime. Nenhum servidor do projeto no caminho.
 - A chave (nsec) nunca sai do navegador e nunca é gravada.
@@ -49,8 +49,8 @@ pixels e o perfil de cor ficam byte a byte iguais. Nos demais tipos, vídeo
 inclusive, **o app não sabe limpar e diz isso** em vez de deixar acreditar que
 limpou.
 
-No editor, além do Markdown: dois botões que inserem blocos prontos — um botão
-de ação e uma galeria de artigos — e um botão **HTML**, que cola trecho de
+No editor, além do Markdown: três botões que inserem blocos prontos — um botão
+de ação, uma galeria de artigos e os contatos do site — e um botão **HTML**, que cola trecho de
 fora já limpo pelo mesmo filtro da publicação, dizendo o que tirou e por
 quê. Artigos ganham etiquetas, e cada etiqueta vira uma página do site. Capas
 geram miniatura. Endereços antigos continuam funcionando quando uma página é
@@ -65,11 +65,26 @@ o tema que valida os valores, para que nada escrito por alguém de fora chegue
 fonte remota diria ao servidor dela quem visitou o site. Escrever um tema não
 exige ler o código do app — a especificação é o `TEMAS.md`.
 
+A tela **Contatos** tem duas metades. Em "Mensagens", o site recebe mensagens
+privadas pelo Nostr (NIP-17) e o dono responde de dentro do painel, com a chave
+do site: as mensagens são abertas só no navegador, e enquanto a aba está aberta
+o que chega aparece sozinho. Vem desligado — ligar publica na rede onde o site
+recebe mensagens, e desligar publica que ele deixou de receber. Em "Onde me
+encontrar", o dono preenche as formas de contato que quiser mostrar (e-mail,
+WhatsApp, Telegram, Instagram, X, Nostr, Signal ou outro link), cada uma com o
+aviso do que ela revela de quem a usa, e insere o bloco de contatos na página
+que escolher.
+
 Arquivos publicados por outra ferramenta são preservados; quando um deles
 ocupa um caminho que o app precisa gerar, a publicação **para** e o dono
 escolhe — nunca se troca em silêncio. E dá para tirar o site do ar: mapa
 vazio nos relays, blobs apagados onde o servidor deixar, placar servidor por
 servidor, e o conteúdo local intacto para republicar depois.
+
+Antes de publicar, o painel avisa quando uma página busca arquivo de outro
+servidor — uma imagem de fora entrega a esse servidor o IP e a hora de cada
+visita — e não impede nada. Avisa também quando o logo ou o ícone escolhido é
+SVG, que o Tor Browser no nível de segurança mais alto não mostra.
 
 ## Estado
 
@@ -78,11 +93,14 @@ entrar, editar, publicar na rede, guardar o backup, **reiniciar a máquina** e
 recuperar tudo a partir da chave. Publicar e tirar do ar foram medidos contra
 a rede real, não só contra servidor de teste — inclusive o gateway devolvendo
 `404` depois da remoção. Pelo Tor, arquivos de até 50 MB sobem inteiros; a
-partir de ~98 MB, não.
+partir de ~98 MB, não. Testado no Tails em computador de verdade e no Linux,
+em Firefox e Chrome; no Windows, ainda não numa máquina real.
 
 As telas da versão 1 estão completas: entrar, carregar, início, páginas,
-artigos, editor, mídia, configurações, publicar, temas, backup e ajuda. O que
-falta para a `0.1.0` é o aviso de versão nova dentro do painel.
+artigos, editor, mídia, contatos, configurações, publicar, temas, backup e
+ajuda. O painel é feito para computador (uma janela de pelo menos 600 pontos de
+largura); o site publicado serve a qualquer tela. O que falta para a `0.1.0` é
+o aviso de versão nova dentro do painel.
 
 A suíte roda em Firefox e Chrome, sempre nos dois — metade das correções de
 tema deste projeto veio de os dois discordarem.
