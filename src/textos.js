@@ -884,8 +884,9 @@ const Textos = Object.freeze({
       // aviso diz o preço: com a aba aberta, os relays sabem que o painel está aberto.
       escuta: {
         ligando: 'Preparando para receber as mensagens em tempo real…',
-        recebendo: 'Recebendo em tempo real: o que chegar aparece aqui sozinho, sem precisar verificar.',
-        recebendoParte: 'Recebendo em tempo real em {n} de {m} relays da sua caixa de entrada.',
+        // Sempre com o número, também quando são todos: um relay que falha precisa
+        // aparecer na conta, e "2 de 2" é o que diz ao dono que não falta nenhum.
+        recebendo: 'Recebendo em tempo real em {n} de {m} relays da sua caixa de entrada: o que chegar aparece aqui sozinho, sem precisar verificar.',
         semConexao: 'Sem conexão com os relays da sua caixa de entrada. Tentando de novo sozinho…',
         recusou: 'Não consegui ficar conectado aos relays da sua caixa de entrada: eles recusaram a conexão. Tente "Verificar agora" mais tarde.'
       },

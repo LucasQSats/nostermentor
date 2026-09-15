@@ -174,7 +174,7 @@
       const E = T.escuta;
       p.setAttribute('data-estado', estado);
       p.className = estado === 'recebendo' ? 'ok' : (estado === 'ligando' ? 'apoio' : 'alerta');
-      if (estado === 'recebendo') p.textContent = r.recebendo < r.total ? texto(E.recebendoParte, { n: r.recebendo, m: r.total }) : E.recebendo;
+      if (estado === 'recebendo') p.textContent = texto(E.recebendo, { n: r.recebendo, m: r.total });
       else if (estado === 'sem_conexao') p.textContent = E.semConexao;
       else if (estado === 'recusou') p.textContent = E.recusou;
       else p.textContent = E.ligando;

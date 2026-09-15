@@ -47,13 +47,13 @@ module.exports = async function (ctx, u) {
     await entrarCom(p.pg, dono.nsec);
     await esperarT2(p.pg, 30000);
     // aponta a caixa de entrada para o relay falso (é o que T7 → Avançado fará)
-    await p.pg.evaluate(async ([pubkey, url, ligado]) => {
+    await p.pg.evaluate(async ([pubkey, url, ligado, extras]) => {
       const db = await Db.abrir(pubkey);
       const site = await db.get('site', 'site');
-      site.messages = { enabled: ligado, relays: [url] };
+      site.messages = { enabled: ligado, relays: [url].concat(extras) };
       await db.put('site', site, 'site');
       db.fechar();
-    }, [dono.pubkey, f.ws(nomeRelay), o.desligado !== true]);
+    }, [dono.pubkey, f.ws(nomeRelay), o.desligado !== true, o.relaysExtra || []]);
     return { p, dono, ana, bento, relay: nomeRelay, deAna, deBento, comTag, forjada };
   }
 
@@ -731,10 +731,24 @@ module.exports = async function (ctx, u) {
     assert(await esperarNode(() => recebendo(s.p.pg), 10000), 'a escuta não chegou a "recebendo": ' + JSON.stringify(await estadoEscuta(s.p.pg)));
     const g = await s.p.pg.evaluate(() => ({ estado: document.getElementById('escuta-estado').textContent, aviso: (document.getElementById('aviso-escuta') || {}).textContent || '' }));
     assert(/Recebendo em tempo real/.test(g.estado), g.estado);
+    assert(/em 1 de 1 relays da sua caixa de entrada/.test(g.estado), 'a linha não diz em quantos relays está recebendo: ' + g.estado);
     assert(/sabem que o painel está aberto/.test(g.aviso) && /Tor/.test(g.aviso), 'falta o aviso honesto: ' + g.aviso);
     assert(await esperarNode(async () => f.assinaturasAbertas(s.relay) === 1, 3000), 'assinaturas abertas no relay da caixa: ' + f.assinaturasAbertas(s.relay));
     await s.p.pg.close();
     return g.estado;
+  });
+
+  await it('um relay da caixa FALHA e o outro recebe: a linha diz "1 de 2", e não uma frase que faz crer que chega de todos', async () => {
+    const recusa = 't13recusa-' + Math.random().toString(36).slice(2, 8);
+    f.relay(recusa, { modo: 'recusa' });
+    const s = await sessao({ relaysExtra: [f.ws(recusa)] });
+    await irAContatos(s.p.pg);
+    const disse = await esperarNode(async () => /em 1 de 2 relays da sua caixa de entrada/.test(((await estadoEscuta(s.p.pg)) || {}).texto || ''), 20000);
+    const e = await estadoEscuta(s.p.pg);
+    await s.p.pg.close();
+    assert(disse, 'a linha não contou o relay que falhou: ' + JSON.stringify(e));
+    assert(e.estado === 'recebendo', 'com um relay recebendo, o estado devia ser "recebendo": ' + e.estado);
+    return e.texto;
   });
 
   await it('⚠️ chega SEM CLIQUE: a mensagem nova aparece sozinha — e o envelope vem datado de 36 h atrás, o caso que uma escuta com `since = agora` perderia', async () => {
