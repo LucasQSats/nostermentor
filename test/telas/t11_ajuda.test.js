@@ -117,7 +117,7 @@ module.exports = async function (ctx, u) {
     await p.pg.close();
   });
 
-  await it('"Apoiar" e "Sobre": o endereço Lightning do projeto aparece como está em Textos.projeto e o contato é um link https para fora, em aba nova e sem referrer; sem site oficial a tela diz isso (não mostra placeholder); Sobre traz a versão REAL do app, a licença MIT, o código e as cinco bibliotecas com versão e licença', async () => {
+  await it('"Apoiar" e "Sobre": o endereço Lightning do projeto aparece como está em Textos.projeto e o contato é um link https para fora, em aba nova e sem referrer; o site oficial é o link do endereço no gateway, em aba nova e sem referrer, sem a frase de "ainda não publicado"; Sobre traz a versão REAL do app, a licença MIT, o código e as cinco bibliotecas com versão e licença', async () => {
     const { p } = await comAjuda();
     const apoio = await abaTexto(p.pg, 'apoio');
     // O endereço vem de um lugar só (Textos.projeto) e sai em <code>, sem
@@ -137,7 +137,16 @@ module.exports = async function (ctx, u) {
     });
     assert(ct && ct.href === ct.projeto && /^https:\/\/[^\s]+$/.test(ct.href) && ct.texto.length > 0, 'o contato tem de ser o link de Textos.projeto: ' + JSON.stringify(ct));
     assert(ct.alvo === '_blank' && /noopener/.test(ct.rel) && /noreferrer/.test(ct.rel), 'o contato abre em aba nova e sem referrer: ' + JSON.stringify(ct));
-    assert(/site oficial ainda não está publicado/.test(apoio), apoio.slice(0, 200));
+    // O site oficial é outro endereço de FORA, e o que a pessoa lê é o próprio
+    // endereço, com o rótulo antes; a frase de "ainda não publicado" some.
+    const so = await p.pg.evaluate(() => {
+      const e = document.getElementById('t11-site-projeto'), a = e && e.querySelector('a');
+      return e && { texto: e.textContent, href: a && a.getAttribute('href'), link: a && a.textContent, alvo: a && a.getAttribute('target'), rel: a && a.getAttribute('rel'), projeto: Textos.projeto.site };
+    });
+    assert(so && /^https:\/\/npub1[023456789acdefghjklmnpqrstuvwxyz]{58}\.nsite\.lol\/$/.test(so.projeto), 'Textos.projeto.site não é o endereço do site no gateway: ' + JSON.stringify(so && so.projeto));
+    assert(so.href === so.projeto && so.link === so.projeto && /^Site oficial do projeto: https:/.test(so.texto), 'o site oficial tem de aparecer como link, com o rótulo: ' + JSON.stringify(so));
+    assert(so.alvo === '_blank' && /noopener/.test(so.rel) && /noreferrer/.test(so.rel), 'o site oficial abre em aba nova e sem referrer: ' + JSON.stringify(so));
+    assert(!/site oficial ainda não está publicado/.test(apoio), 'com endereço, a tela não pode dizer que o site não existe');
     assert(/grátis e aberto, com licença MIT/.test(apoio) && /Publicado com Nostermentor/.test(apoio), 'falta o texto de A1');
     const sobre = await abaTexto(p.pg, 'sobre');
     await p.pg.screenshot({ path: u.captura('t11-sobre'), fullPage: true });

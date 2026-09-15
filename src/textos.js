@@ -1140,7 +1140,7 @@ const Textos = Object.freeze({
     licenca: 'MIT',
     repositorio: 'https://github.com/LucasQSats/nostermentor',
     lightning: 'actualquote735@walletofsatoshi.com',
-    site: '',
+    site: 'https://npub1j5tad3x8msv4sy6qnvyrcgvjhfjmlmh32l75kgch2jkqdgfudzaq2wmx2k.nsite.lol/',
     contato: 'https://x.com/LucasQSats'
   },
 
