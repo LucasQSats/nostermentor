@@ -104,8 +104,13 @@
     // O relógio que substitui o contador de não lidas. Fica no topo, à vista:
     // escondido, deixaria de servir para o que existe (risco 1 do plano).
     const cabeca = h('div', { class: 'cartao', id: 'cartao-verificacao' });
+    // "Escrever para alguém" (2026-09-25) tem um lugar só dele, entre o cartão
+    // e a lista: nem a verificação nem a mensagem que chega ao vivo o
+    // redesenham, e o que o dono está digitando fica onde está.
+    const nova = h('div', { id: 'nova-conversa' });
     const lista = h('div', { id: 'lista-conversas' });
     painel.appendChild(cabeca);
+    painel.appendChild(nova);
     painel.appendChild(lista);
 
     let conversas = [];
@@ -126,6 +131,11 @@
     // a ser outro. Sem isto, o que o dono estava escrevendo sumia.
     const rascunhos = new Map();
     let enviandoPara = null;        // pubkey da conversa com envio em andamento
+    // Escrever para alguém: o que foi digitado vive fora do desenho, como os
+    // rascunhos das respostas.
+    let escrevendo = false, enviandoNova = false;
+    const novaRascunho = { endereco: '', texto: '' };
+    let novaDesfecho = null;        // { classe, texto } do último aviso do cartão
 
     async function carregarDoBanco() {
       const msgs = await db.getAll('messages');
@@ -283,6 +293,10 @@
 
     function renderLista() {
       Shell.limpar(lista);
+      // Dentro de uma conversa a ação é responder: o "Escrever para alguém"
+      // some, para não empilhar dois botões em cima do "Voltar à lista". O que
+      // estava digitado nele fica guardado e volta com a lista.
+      nova.hidden = !!abertaCom;
       if (abertaCom) return renderConversa();
       if (!conversas.length) { lista.appendChild(h('p', { class: 'apoio', id: 'sem-conversas' }, T.nenhuma)); return; }
 
@@ -400,28 +414,9 @@
       if (conteudo.length > Mensagens.MAX_TEXTO) return dizer('erro', T.longa);
       enviandoPara = c.pubkey;
       btn.disabled = true; btn.textContent = T.enviando;
-      dizer('apoio', T.caixaDele);
       const meu = ctrl;
       try {
-        // A spec manda NÃO tentar quando a pessoa não publicou onde recebe.
-        const caixa = await Mensagens.caixaDe({ pubkey: c.pubkey, relays: Modelo.uniao(relaysCaixa, site.network && site.network.relays), sinal: meu.signal, assinarAuth: Shell.assinarAuth });
-        if (meu.signal.aborted) return;
-        if (!caixa.achou) return dizer('alerta', T.semCaixa);
-        const pacote = await Shell.embrulhar(conteudo, c.pubkey);
-        const r = await Mensagens.enviar({
-          paraEle: pacote.paraEle, paraMim: pacote.paraMim,
-          relaysDela: caixa.relays, relaysMeus: relaysCaixa,
-          sinal: meu.signal, assinarAuth: Shell.assinarAuth });
-        if (meu.signal.aborted) return;
-        if (!r.ok) return dizer('erro', T.naoEnviada);
-        dizer('', texto(T.enviada, { n: r.placarDela.com, m: r.placarDela.total })
-          + (r.placarMinha && !r.placarMinha.ok ? ' ' + T.copiaFalhou : ''));
-        rascunhos.delete(c.pubkey);
-        // A cópia que ficou na rede é a mesma que se guarda aqui: o id é o do
-        // rumor, o mesmo que voltará da próxima verificação — logo não duplica.
-        await guardar([Mensagens.registroDaMensagem(pacote.rumor, null, Shell.sessao().pubkey)]);
-        await carregarDoBanco();
-        renderLista();
+        if (await entregar(c.pubkey, conteudo, dizer, function () { rascunhos.delete(c.pubkey); })) renderLista();
       } catch (e) {
         if (!meu.signal.aborted) dizer('erro', e && e.message ? e.message : String(e));
       } finally {
@@ -431,8 +426,131 @@
       }
     }
 
+    // O caminho de um envio, o mesmo para responder e para começar a conversa
+    // com quem ainda não escreveu: achar a caixa DELA, embrulhar, enviar e
+    // guardar a cópia. `dizer(classe, texto)` mostra o andamento onde quem chamou quiser;
+    // `aoIr()` roda logo que se sabe que foi, antes de guardar.
+    // → true se chegou a pelo menos um relay da caixa dela.
+    async function entregar(pubkey, conteudo, dizer, aoIr) {
+      const meu = ctrl;
+      dizer('apoio', T.caixaDele);
+      // A spec manda NÃO tentar quando não se acha onde a pessoa recebe. Quem
+      // nunca escreveu para o site pode não estar nos nossos relays: a `caixaDe`
+      // procura também nos relays dela.
+      const caixa = await Mensagens.caixaDe({ pubkey: pubkey, relays: Modelo.uniao(relaysCaixa, site.network && site.network.relays), sinal: meu.signal, assinarAuth: Shell.assinarAuth });
+      if (meu.signal.aborted) return false;
+      if (!caixa.achou) { dizer('alerta', T.semCaixa); return false; }
+      const pacote = await Shell.embrulhar(conteudo, pubkey);
+      const r = await Mensagens.enviar({
+        paraEle: pacote.paraEle, paraMim: pacote.paraMim,
+        relaysDela: caixa.relays, relaysMeus: relaysCaixa,
+        sinal: meu.signal, assinarAuth: Shell.assinarAuth });
+      if (meu.signal.aborted) return false;
+      if (!r.ok) { dizer('erro', T.naoEnviada); return false; }
+      dizer('', texto(T.enviada, { n: r.placarDela.com, m: r.placarDela.total })
+        + (r.placarMinha && !r.placarMinha.ok ? ' ' + T.copiaFalhou : ''));
+      if (typeof aoIr === 'function') aoIr();
+      // A cópia que ficou na rede é a mesma que se guarda aqui: o id é o do
+      // rumor, o mesmo que voltará da próxima verificação — logo não duplica.
+      await guardar([Mensagens.registroDaMensagem(pacote.rumor, null, Shell.sessao().pubkey)]);
+      await carregarDoBanco();
+      return true;
+    }
+
+    // --- escrever para alguém (2026-09-25) ------------------------------------
+    // Começar uma conversa, não só responder. Só com as mensagens ligadas: sem
+    // a caixa de entrada do site publicada, a pessoa não teria onde responder.
+    const podeEscrever = ligado && relaysCaixa.length > 0;
+
+    function renderNova() {
+      Shell.limpar(nova);
+      if (!escrevendo) {
+        nova.appendChild(h('div', { class: 'acoes' },
+          h('button', { type: 'button', id: 'escrever-para-alguem', disabled: !podeEscrever, onclick: function () {
+            escrevendo = true; novaDesfecho = null; renderNova();
+            const e = document.getElementById('nova-endereco');
+            if (e) { try { e.focus(); } catch (x) {} }
+          } }, T.escrever)));
+        if (!podeEscrever) nova.appendChild(h('p', { class: 'apoio', id: 'escrever-desligado' }, T.escreverDesligado));
+        return;
+      }
+      const endereco = h('input', { type: 'text', id: 'nova-endereco', value: novaRascunho.endereco, placeholder: 'npub1…',
+        autocomplete: 'off', spellcheck: 'false' });
+      // O erro aparece enquanto ele digita, mas não com o campo vazio.
+      const erro = h('p', { class: 'erro', id: 'nova-endereco-erro', hidden: true }, T.enderecoInvalido);
+      function conferir() {
+        novaRascunho.endereco = endereco.value;
+        erro.hidden = !String(endereco.value).trim() || !!Mensagens.pubkeyDoEndereco(endereco.value);
+      }
+      endereco.addEventListener('input', conferir);
+      const campo = h('textarea', { id: 'nova-mensagem', rows: '4' });
+      campo.value = novaRascunho.texto;
+      campo.addEventListener('input', function () { novaRascunho.texto = campo.value; });
+      const desfecho = h('p', { id: 'nova-desfecho', hidden: !novaDesfecho, class: novaDesfecho ? novaDesfecho.classe : '' },
+        novaDesfecho ? novaDesfecho.texto : null);
+      nova.appendChild(h('div', { class: 'cartao', id: 'cartao-nova' },
+        h('h2', {}, T.escrever),
+        h('p', { class: 'apoio' }, T.escreverApoio),
+        h('label', { for: 'nova-endereco' }, T.enderecoRotulo), endereco, erro,
+        h('label', { for: 'nova-mensagem' }, T.mensagemRotulo), campo,
+        h('p', { class: 'apoio' }, T.escreveComoSite),
+        h('p', { class: 'apoio', id: 'nova-aviso-relays' }, T.escreverRelaysDela),
+        h('div', { class: 'acoes' },
+          h('button', { type: 'button', id: 'enviar-nova', disabled: enviandoNova, onclick: escreverNova }, enviandoNova ? T.enviando : T.enviar), ' ',
+          // Cancelar descarta o que foi digitado: é o que o nome promete.
+          h('button', { type: 'button', class: 'secundario', id: 'cancelar-nova', disabled: enviandoNova, onclick: function () {
+            escrevendo = false; novaDesfecho = null; novaRascunho.endereco = ''; novaRascunho.texto = ''; renderNova();
+          } }, T.cancelar)),
+        desfecho));
+      conferir();
+    }
+
+    async function escreverNova() {
+      // ⚠️ A trava vem ANTES de qualquer espera: entre o clique e o botão
+      // travado há uma consulta ao banco, e um duplo clique mandaria duas vezes.
+      if (enviandoNova) return;
+      enviandoNova = true;
+      const dizer = (classe, msg) => {
+        novaDesfecho = { classe: classe, texto: msg };
+        const d = document.getElementById('nova-desfecho');
+        if (d) { d.hidden = false; d.className = classe; d.textContent = msg; }
+      };
+      const meu = ctrl;
+      let travou = false;             // o cartão só é redesenhado se chegou a enviar
+      try {
+        const pubkey = Mensagens.pubkeyDoEndereco(novaRascunho.endereco);
+        const conteudo = String(novaRascunho.texto || '');
+        if (!pubkey) return dizer('erro', T.enderecoInvalido);
+        if (pubkey === sessao.pubkey) return dizer('erro', T.enderecoProprio);
+        // A conversa bloqueada não tem caixa de resposta; começar outra por aqui
+        // seria a porta dos fundos para o mesmo lugar.
+        const pessoa = await db.get('peers', pubkey);
+        if (pessoa && pessoa.bloqueado) return dizer('erro', T.enderecoBloqueado);
+        if (!conteudo.trim()) return dizer('erro', T.vazia);
+        if (conteudo.length > Mensagens.MAX_TEXTO) return dizer('erro', T.longa);
+        travou = true;
+        novaDesfecho = null;
+        renderNova();                 // botões travados, "Enviando…"
+        if (!(await entregar(pubkey, conteudo, dizer, function () { novaRascunho.endereco = ''; novaRascunho.texto = ''; }))) return;
+        if (meu.signal.aborted) return;
+        // Foi: o cartão fecha e a conversa abre, com o placar do envio no mesmo
+        // parágrafo da resposta — que sobrevive ao redesenho (`ultimoEnvio`).
+        ultimoEnvio = { peer: pubkey, classe: novaDesfecho.classe, texto: novaDesfecho.texto };
+        escrevendo = false; novaDesfecho = null;
+        abertaCom = pubkey;
+        renderLista();
+      } catch (e) {
+        if (!meu.signal.aborted) dizer('erro', e && e.message ? e.message : String(e));
+      } finally {
+        enviandoNova = false;
+        // Recusado antes da rede, o cartão fica como está — e o foco, onde estava.
+        if (travou && !meu.signal.aborted) renderNova();
+      }
+    }
+
     await carregarDoBanco();
     renderCabeca();
+    renderNova();
     renderLista();
     // 14 T13 decisão 26 — ao abrir, verifica sozinha; terminada a verificação,
     // escuta. Não se espera por isto: a tela já está desenhada com o que o banco

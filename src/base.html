@@ -358,6 +358,17 @@ button.perigoso:hover{background:var(--erro-escuro);border-color:var(--erro-escu
 .mensagens .mensagem .assunto{font-weight:600}
 .mensagens .mensagem .apagada{font-style:italic}
 #cartao-resposta textarea{width:100%;padding:7px 9px;border:1px solid var(--borda-campo);border-radius:3px;background:#fff;font:inherit}
+/* Escrever para alguém (2026-09-25): o bloco tem espaço próprio em cima e
+   embaixo — fechado, o botão colava na barra dos filtros e parecia um deles
+   (visto no print dele). Aberto, o cartão usa o mesmo espaço, sem somar
+   margens. Os dois campos ocupam a largura do cartão, como a resposta; a npub
+   em fonte monoespaçada, que é como se confere. */
+#nova-conversa{margin:16px 0 20px}
+#nova-conversa > .acoes{margin:0}
+#nova-conversa > .apoio{margin:6px 0 0}
+#cartao-nova label{display:block;margin:12px 0 4px;font-weight:600}
+#cartao-nova input[type=text],#cartao-nova textarea{width:100%;padding:7px 9px;border:1px solid var(--borda-campo);border-radius:3px;background:#fff;font:inherit}
+#cartao-nova #nova-endereco{font-family:ui-monospace,Menlo,Consolas,monospace}
 #busca-conversas{padding:4px 8px;border:1px solid var(--borda-campo);border-radius:3px;background:#fff;font:inherit;min-width:180px}
 /* Aba "Onde me encontrar" (Etapa 2) — cada forma de contato é um bloco com o
    canal, o endereço e o aviso daquele canal. Sem isto os oito campos saíam com

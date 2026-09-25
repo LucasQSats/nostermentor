@@ -228,7 +228,7 @@ module.exports = async function (ctx, u) {
     return desfecho;
   });
 
-  await it('sem 10050 da outra pessoa a tela NÃO finge que enviou: diz que ela não publicou onde recebe', async () => {
+  await it('sem 10050 da outra pessoa a tela NÃO finge que enviou: diz que não achou onde ela recebe', async () => {
     const s = await sessao();
     await irAContatos(s.p.pg);
     await verificar(s.p.pg);
@@ -243,7 +243,7 @@ module.exports = async function (ctx, u) {
       return d && !d.hidden && !/Procurando/.test(d.textContent);
     }, null, { timeout: 20000 });
     const desfecho = await s.p.pg.evaluate(() => document.getElementById('resposta-desfecho').textContent);
-    assert(/não publicou onde recebe mensagens/.test(desfecho), desfecho);
+    assert(/Não achei onde esta pessoa recebe mensagens/.test(desfecho), desfecho);
     assert(f.publicadosEm(s.relay).filter(e => e.kind === 1059).length === antes, '⚠️ mandou a mensagem mesmo sem caixa de entrada');
     await s.p.pg.close();
     return desfecho;
@@ -869,6 +869,155 @@ module.exports = async function (ctx, u) {
     assert(!g.desligado, '⚠️ as mensagens apareceram DESLIGADAS com a caixa publicada na rede (D8)');
     assert(chegou && g.previa === 'Mensagem que só a rede tem.', JSON.stringify(g));
     return 'escuta: ' + (escuta && escuta.estado);
+  });
+
+  // ==== escrever para alguém (2026-09-25) ==================================
+  // Começar uma conversa com quem nunca escreveu para o site. O caso difícil é o
+  // de verdade: a caixa de entrada dela NÃO está nos nossos relays — só a lista
+  // de relays dela (10002) está, e é ela que diz onde procurar.
+
+  // A Clara: a lista dela no relay da caixa do site; a caixa dela só num relay
+  // DELA, que pede identificação ao ligar (e deixa ler sem ela).
+  function clara(s) {
+    const ch = F.chave(), sufixo = Math.random().toString(36).slice(2, 8);
+    const escreve = 't13clara-escreve-' + sufixo, caixa = 't13clara-caixa-' + sufixo;
+    const pEscreve = f.relay(escreve, { modo: 'ok', auth: 'escrever', eventos: [F.caixaDeEntrada(ch, [f.ws(caixa)])] });
+    f.relay(caixa, { modo: 'ok', escrita: 'aceita', eventos: [] });
+    f.semear(s.relay, [F.relayList(ch, [f.ws(escreve)])]);
+    return { ch, escreve, caixa, pEscreve };
+  }
+  async function abrirCartaoNova(pg) {
+    await pg.click('#escrever-para-alguem');
+    await pg.waitForSelector('#cartao-nova', { timeout: 10000 });
+  }
+  const desfechoNova = (pg) => pg.evaluate(() => { const d = document.getElementById('nova-desfecho'); return d && !d.hidden ? d.textContent : ''; });
+
+  await it('⚠️ escrever para quem NUNCA escreveu, com a caixa dela só nos relays DELA: sai, a conversa abre com o placar, e na lista vira uma linha só com a mensagem do dono', async () => {
+    const s = await sessao();
+    const c = clara(s);
+    await irAContatos(s.p.pg);
+    await verificar(s.p.pg);
+    const meusAntes = f.publicadosEm(s.relay).filter(e => e.kind === 1059).length;
+    await abrirCartaoNova(s.p.pg);
+    const avisos = await s.p.pg.evaluate(() => document.getElementById('cartao-nova').textContent);
+    assert(/assinada pelo seu site/.test(avisos) && /fora do Tor, veem/.test(avisos), 'faltam os avisos no cartão: ' + avisos);
+    await s.p.pg.fill('#nova-endereco', 'nostr:' + c.ch.npub);      // como muitos aplicativos copiam
+    await s.p.pg.fill('#nova-mensagem', 'Olá! Vi o seu trabalho e queria conversar.');
+    await s.p.pg.screenshot({ path: u.captura('t13-escrever'), fullPage: true });
+    // O piso do painel (600 px, a suíte piso_painel) mede a aba com o cartão
+    // FECHADO; aberto e com a npub inteira no campo, também não pode rolar para o lado.
+    const tamanho = s.p.pg.viewportSize();
+    await s.p.pg.setViewportSize({ width: 600, height: 600 });
+    const piso = await s.p.pg.evaluate(() => ({ cw: document.documentElement.clientWidth, sw: document.documentElement.scrollWidth }));
+    await s.p.pg.setViewportSize(tamanho);
+    assert(piso.sw <= piso.cw, 'o cartão aberto estoura a 600 px: ' + JSON.stringify(piso));
+    // DUPLO clique, de propósito: só pode sair UM envelope (a conta vem abaixo).
+    await s.p.pg.dblclick('#enviar-nova');
+    await s.p.pg.waitForFunction(() => document.querySelectorAll('#mensagens-da-conversa li.minha').length === 1, null, { timeout: 30000 });
+    const g = await s.p.pg.evaluate(() => ({
+      titulo: (document.querySelector('#lista-conversas > h2') || {}).textContent || '',
+      desfecho: (document.getElementById('resposta-desfecho') || {}).textContent || '',
+      corpo: (document.querySelector('#mensagens-da-conversa li.minha .corpo') || {}).textContent || '',
+      cartao: !!document.getElementById('cartao-nova'),
+      botao: !!document.getElementById('escrever-para-alguem'),
+      // dentro da conversa o bloco some (a ação ali é responder)
+      escondido: document.getElementById('nova-conversa').hidden === true,
+      resposta: !!document.getElementById('resposta')
+    }));
+    const npubCurta = await s.p.pg.evaluate((npub) => Chave.abreviar(npub), c.ch.npub);
+    assert(g.titulo === npubCurta, 'a conversa aberta não é a da Clara: ' + g.titulo);
+    assert(/Enviada a 1 de 1 relays/.test(g.desfecho), 'placar: ' + g.desfecho);
+    assert(g.corpo === 'Olá! Vi o seu trabalho e queria conversar.', g.corpo);
+    assert(!g.cartao && g.botao && g.escondido && g.resposta, 'depois de enviar: ' + JSON.stringify(g));
+    // o envelope dela foi para a caixa DELA; a cópia, para a do site
+    const dela = f.publicadosEm(c.caixa).filter(e => e.kind === 1059);
+    assert(dela.length === 1 && dela[0].tags.some(t => t[0] === 'p' && t[1] === c.ch.pubkey), 'envelopes na caixa dela (com um duplo clique): ' + dela.length);
+    assert(f.publicadosEm(s.relay).filter(e => e.kind === 1059).length === meusAntes + 1, 'a cópia do dono não foi para a caixa do site');
+    // controle e medida: o relay dela pediu identificação, e o painel não deu
+    assert((c.pEscreve.desafios || []).length >= 1, 'o relay dela nem pediu identificação — o caso não mede nada');
+    assert(f.identificadosEm(c.escreve).length === 0, '⚠️ o painel se identificou ao relay de um estranho');
+    const v = await varrer(s.p.pg, s.dono.nsec);
+    assert(v.achados.length === 0, JSON.stringify(v.achados));
+    // na lista, a conversa que só tem a mensagem do dono é uma linha como as outras
+    await s.p.pg.click('#voltar-lista');
+    const l = await linhas(s.p.pg);
+    const deVolta = await s.p.pg.isVisible('#escrever-para-alguem');
+    const erros = { pageerror: s.p.erros, console: s.p.consoleErros };
+    await s.p.pg.close();
+    const daClara = l.find(x => x.npub === c.ch.npub);
+    assert(l.length === 3 && daClara && daClara.previa === 'Olá! Vi o seu trabalho e queria conversar.', JSON.stringify(l));
+    assert(l[0].npub === c.ch.npub, 'a conversa nova (a mais recente) não veio primeiro: ' + JSON.stringify(l.map(x => x.npub.slice(0, 12))));
+    assert(deVolta, 'de volta à lista, o "Escrever para alguém" não reapareceu');
+    assert(erros.pageerror.length === 0 && erros.console.length === 0, JSON.stringify(erros));
+    return g.desfecho;
+  });
+
+  await it('o endereço é conferido: inválido, o do próprio site, o de quem está bloqueado e o de quem não publicou caixa nenhuma NÃO saem — o texto fica, e Cancelar descarta', async () => {
+    const s = await sessao();
+    await irAContatos(s.p.pg);
+    await verificar(s.p.pg);
+    // a lista com o botão FECHADO — o estado em que ele colava na barra dos filtros
+    await s.p.pg.screenshot({ path: u.captura('t13-lista'), fullPage: true });
+    // bloqueia o Bento pela tela (a segunda linha); nas "Ativas" sobra a Ana
+    await s.p.pg.evaluate(() => Array.from(document.querySelectorAll('#lista-conversas li.conversa')[1].querySelectorAll('button')).find(b => b.textContent === 'Bloquear').click());
+    await s.p.pg.waitForFunction(() => document.querySelectorAll('#lista-conversas li.conversa').length === 1, null, { timeout: 10000 });
+    const antes = f.publicadosEm(s.relay).filter(e => e.kind === 1059).length;
+    await abrirCartaoNova(s.p.pg);
+    await s.p.pg.fill('#nova-mensagem', 'texto que não pode sumir');
+    // enquanto digita: o erro aparece com o endereço cortado, e não com o campo vazio
+    await s.p.pg.fill('#nova-endereco', s.ana.npub.slice(0, 20));
+    const erroDigitando = await s.p.pg.isVisible('#nova-endereco-erro');
+    await s.p.pg.fill('#nova-endereco', '');
+    const erroVazio = await s.p.pg.isVisible('#nova-endereco-erro');
+    const tentar = async (endereco, re) => {
+      await s.p.pg.fill('#nova-endereco', endereco);
+      await s.p.pg.click('#enviar-nova');
+      const ok = await esperarNode(async () => re.test(await desfechoNova(s.p.pg)), 30000);
+      return { ok, texto: await desfechoNova(s.p.pg) };
+    };
+    const r = {
+      invalido: await tentar(s.ana.npub.slice(0, -3), /não é um endereço npub válido/),
+      proprio: await tentar(s.dono.npub, /endereço do próprio site/),
+      bloqueado: await tentar(s.bento.npub, /está bloqueada/),
+      semCaixa: await tentar(F.chave().npub, /Não achei onde esta pessoa recebe mensagens/)
+    };
+    const texto = await s.p.pg.inputValue('#nova-mensagem');
+    await s.p.pg.click('#cancelar-nova');
+    await abrirCartaoNova(s.p.pg);
+    const depois = { endereco: await s.p.pg.inputValue('#nova-endereco'), texto: await s.p.pg.inputValue('#nova-mensagem'), desfecho: await desfechoNova(s.p.pg) };
+    const publicados = f.publicadosEm(s.relay).filter(e => e.kind === 1059).length;
+    await s.p.pg.close();
+    assert(erroDigitando && !erroVazio, 'erro enquanto digita: cortado=' + erroDigitando + ' vazio=' + erroVazio);
+    for (const k of Object.keys(r)) assert(r[k].ok, k + ': ' + r[k].texto);
+    assert(texto === 'texto que não pode sumir', 'a mensagem sumiu depois das recusas: ' + JSON.stringify(texto));
+    assert(publicados === antes, '⚠️ saiu envelope numa tentativa recusada');
+    assert(!depois.endereco && !depois.texto && !depois.desfecho, 'Cancelar não descartou: ' + JSON.stringify(depois));
+    return Object.keys(r).length + ' recusas';
+  });
+
+  await it('com as mensagens DESLIGADAS, "Escrever para alguém" fica travado e diz por quê', async () => {
+    const s = await sessao({ desligado: true });
+    await irAContatos(s.p.pg);
+    const g = await s.p.pg.evaluate(() => ({ travado: document.getElementById('escrever-para-alguem').disabled, porque: (document.getElementById('escrever-desligado') || {}).textContent || '' }));
+    await s.p.pg.close();
+    assert(g.travado && /ligue as mensagens primeiro/.test(g.porque), JSON.stringify(g));
+  });
+
+  await it('o que se digita no cartão sobrevive a uma mensagem que chega ao vivo — o endereço, o texto e o foco', async () => {
+    const s = await sessao();
+    await irAContatos(s.p.pg);
+    await esperarNode(() => recebendo(s.p.pg), 20000);
+    await abrirCartaoNova(s.p.pg);
+    await s.p.pg.fill('#nova-endereco', s.ana.npub);
+    await s.p.pg.click('#nova-mensagem');
+    await s.p.pg.keyboard.type('Escrevendo devagar');
+    const nova = F.mensagem(F.chave(), s.dono.pubkey, { content: 'chegou agora', created_at: Math.floor(Date.now() / 1000) });
+    f.empurrar(s.relay, [nova.envelope]);
+    const chegou = await esperarNode(async () => (await linhasAgora(s.p.pg)) === 3, 10000);
+    const g = await s.p.pg.evaluate(() => ({ endereco: document.getElementById('nova-endereco').value, texto: document.getElementById('nova-mensagem').value, foco: document.activeElement && document.activeElement.id }));
+    await s.p.pg.close();
+    assert(chegou, 'a mensagem nova não chegou à lista');
+    assert(g.endereco === s.ana.npub && g.texto === 'Escrevendo devagar' && g.foco === 'nova-mensagem', JSON.stringify(g));
   });
 
   return R;

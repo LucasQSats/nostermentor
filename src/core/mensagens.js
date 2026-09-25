@@ -31,7 +31,8 @@ const Mensagens = (function () {
   // Kinds (NIP-17 / NIP-59 / NIP-42 / NIP-09), nenhum inventado.
   const KIND_APAGAR = 5, KIND_REACAO = 7, KIND_SELO = 13, KIND_MENSAGEM = 14,
         KIND_ARQUIVO = 15, KIND_ANTIGO = 4, KIND_ENVELOPE = 1059,
-        KIND_ENVELOPE_EFEMERO = 21059, KIND_CAIXA = 10050, KIND_AUTH = 22242;
+        KIND_ENVELOPE_EFEMERO = 21059, KIND_CAIXA = 10050, KIND_AUTH = 22242,
+        KIND_RELAYS = 10002;   // NIP-65: onde a pessoa escreve e onde lê
   // O que pode chegar dentro de um envelope e o painel sabe tratar.
   const KINDS_MIOLO = Object.freeze([KIND_MENSAGEM, KIND_ARQUIVO, KIND_REACAO, KIND_APAGAR]);
   // Conversa: o que vira linha na lista. Reação e deleção não viram (14 T13).
@@ -39,6 +40,10 @@ const Mensagens = (function () {
 
   const MAX_ENVELOPES = 500;          // teto de uma busca; o relay costuma dar bem menos
   const MAX_TEXTO = 16384;            // teto do que se envia; a spec não impõe, o bom senso sim
+  // Quantos relays DELA se consultam atrás da caixa de entrada. A NIP-65 pede
+  // listas de "2-4 relays of each category"; quem publica mais que isso não
+  // ganha mais conexões daqui — cada uma é um relay escolhido por um estranho.
+  const MAX_RELAYS_DELA = 4;
   const RE_HEX64 = /^[0-9a-f]{64}$/;
 
   // A caixa de entrada de fábrica e o teto de relays vivem no `core/modelo.js`,
@@ -63,6 +68,21 @@ const Mensagens = (function () {
     return Modelo.uniao(urls.filter(Relay.urlValida)).slice(0, Modelo.MAX_RELAYS_CAIXA);
   }
 
+  // --- a lista de relays (kind 10002) --------------------------------------
+
+  // NIP-65, relida em 2026-09-25 (`65.md` no commit `999f9bfbf5fe`): tags `r`
+  // com um marcador opcional `read` ou `write` — "If the marker is omitted, the
+  // relay is both read and write" — e "When downloading events from a user,
+  // clients SHOULD use the write relays of that user". A caixa de entrada é um
+  // evento DELA, então se procura onde ela ESCREVE.
+  function relaysDeEscrita(evento) {
+    if (!evento || !Array.isArray(evento.tags)) return [];
+    const urls = evento.tags
+      .filter(t => Array.isArray(t) && t[0] === 'r' && (!t[2] || t[2] === 'write'))
+      .map(t => String(t[1] || ''));
+    return Modelo.uniao(urls.filter(Relay.urlValida)).slice(0, MAX_RELAYS_DELA);
+  }
+
   // --- filtros de consulta -------------------------------------------------
 
   // Os envelopes endereçados a mim. O 21059 (efêmero) fica DE FORA de propósito:
@@ -77,6 +97,11 @@ const Mensagens = (function () {
   // `nip04` não entra no app e o formato é `unrecommended` pela própria spec.
   function filtroAntigas(pubkey) { return { kinds: [KIND_ANTIGO], '#p': [pubkey], limit: 100 }; }
   function filtroCaixa(pubkey) { return { kinds: [KIND_CAIXA], authors: [pubkey], limit: 1 }; }
+  // A caixa de entrada E a lista de relays numa consulta só: se a caixa não
+  // estiver nos nossos relays, a lista diz onde mais procurar, sem uma volta a
+  // mais. Os dois kinds são substituíveis (um de cada por pessoa); o `limit`
+  // só segura um relay que guarde versões velhas.
+  function filtroCaixaERelays(pubkey) { return { kinds: [KIND_CAIXA, KIND_RELAYS], authors: [pubkey], limit: 10 }; }
 
   // --- o id do rumor, recalculado -----------------------------------------
 
@@ -252,6 +277,14 @@ const Mensagens = (function () {
     try { const d = NT.nip19.decode(String(npub).trim()); return d && d.type === 'npub' && eHex64(d.data) ? d.data : null; }
     catch (e) { return null; }
   }
+  // O endereço que o dono cola para escrever para alguém: a npub, sozinha ou como
+  // link `nostr:` (NIP-21), que é como muitos aplicativos a copiam. NIP-05
+  // (`nome@dominio`) fica de fora: resolvê-lo é perguntar a um servidor web
+  // desconhecido. → pubkey hex ou null.
+  function pubkeyDoEndereco(texto) {
+    const s = String(texto == null ? '' : texto).trim().replace(/^nostr:/i, '');
+    return s ? pubkeyDeNpub(s) : null;
+  }
 
   // Busca no que está em mãos: apelido, nome, npub ou texto (14 T13).
   function filtrar(conversas, opts) {
@@ -363,22 +396,50 @@ const Mensagens = (function () {
     return ids.size;
   }
 
-  // A caixa de entrada de quem se quer responder. A spec é explícita: sem ela,
-  // NÃO se tenta enviar — a tela diz "esta pessoa não publicou onde recebe
-  // mensagens" em vez de fingir que enviou.
-  // → { relays: [...], achou: bool }
-  async function caixaDe(o) {
-    o = o || {};
-    const r = await Relay.consultar(Modelo.uniao(o.relays), filtroCaixa(o.pubkey), {
-      sinal: o.sinal, timeoutMs: o.timeoutMs, assinarAuth: o.assinarAuth });
+  // O evento mais novo de `kind` publicado por `pubkey` entre o que os relays
+  // devolveram — só o dela, só o kind certo e só com a assinatura conferida.
+  function maisNovo(resultados, kind, pubkey) {
     let melhor = null;
-    for (const x of r) for (const ev of x.eventos) {
-      if (ev.kind !== KIND_CAIXA || ev.pubkey !== o.pubkey) continue;   // só o dela, e do kind certo
+    for (const x of resultados) for (const ev of x.eventos) {
+      if (ev.kind !== kind || ev.pubkey !== pubkey) continue;           // só o dela, e do kind certo
       if (!Chave.verificar(ev)) continue;                               // veio da rede: é dado (02 G.0)
       if (!melhor || ev.created_at > melhor.created_at) melhor = ev;    // substituível: vale a mais nova
     }
+    return melhor;
+  }
+
+  // A caixa de entrada de quem vai receber. A spec é explícita: sem ela, NÃO se
+  // tenta enviar — a tela diz "não achei onde esta pessoa recebe mensagens"
+  // em vez de fingir que enviou.
+  // Procura em duas etapas:
+  //   1. nos NOSSOS relays (`o.relays`: caixa e publicação), pedindo junto a
+  //      lista de relays dela (10002). Quem já nos escreveu costuma estar aqui;
+  //   2. só se a etapa 1 não achou uma caixa com relays: nos relays onde ELA
+  //      escreve, tirados da lista. É o que faz funcionar escrever para quem nunca
+  //      escreveu para o site. Nessa etapa o painel NÃO se identifica (NIP-42):
+  //      são relays escolhidos por um estranho, e identificar-se contaria a eles
+  //      qual é o site (14 T13 decisão 5). A caixa é pública; não precisa disso.
+  // Se as duas etapas acharem caixa, vale a mais nova (é substituível).
+  // → { relays: [...], achou: bool, evento, relaysDela: [...] }
+  //   `relaysDela`: os relays da etapa 2 que foram consultados ([] se não houve).
+  async function caixaDe(o) {
+    o = o || {};
+    const nossos = Modelo.uniao(o.relays);
+    const r1 = await Relay.consultar(nossos, filtroCaixaERelays(o.pubkey), {
+      sinal: o.sinal, timeoutMs: o.timeoutMs, assinarAuth: o.assinarAuth });
+    let melhor = maisNovo(r1, KIND_CAIXA, o.pubkey);
+    let relaysDela = [];
+    if (!(melhor && relaysDaCaixa(melhor).length) && !(o.sinal && o.sinal.aborted)) {
+      relaysDela = relaysDeEscrita(maisNovo(r1, KIND_RELAYS, o.pubkey)).filter(u => nossos.indexOf(u) === -1);
+      if (relaysDela.length) {
+        // ⚠️ sem `assinarAuth`, de propósito — ver acima.
+        const r2 = await Relay.consultar(relaysDela, filtroCaixa(o.pubkey), { sinal: o.sinal, timeoutMs: o.timeoutMs });
+        const dela = maisNovo(r2, KIND_CAIXA, o.pubkey);
+        if (dela && (!melhor || dela.created_at > melhor.created_at)) melhor = dela;
+      }
+    }
     const relays = melhor ? relaysDaCaixa(melhor) : [];
-    return { relays: relays, achou: !!melhor && relays.length > 0, evento: melhor };
+    return { relays: relays, achou: !!melhor && relays.length > 0, evento: melhor, relaysDela: relaysDela };
   }
 
   // Envia os dois envelopes: o dela vai à caixa DELA, o meu vai à minha — são
@@ -471,11 +532,11 @@ const Mensagens = (function () {
 
   return Object.freeze({
     KIND_APAGAR, KIND_REACAO, KIND_SELO, KIND_MENSAGEM, KIND_ARQUIVO, KIND_ANTIGO,
-    KIND_ENVELOPE, KIND_ENVELOPE_EFEMERO, KIND_CAIXA, KIND_AUTH,
-    KINDS_MIOLO, KINDS_CONVERSA, MAX_TEXTO, MAX_ENVELOPES, LIMITE_ESCUTA,
-    modeloCaixa, relaysDaCaixa, filtroEnvelopes, filtroAntigas, filtroCaixa, filtroEscuta,
+    KIND_ENVELOPE, KIND_ENVELOPE_EFEMERO, KIND_CAIXA, KIND_AUTH, KIND_RELAYS,
+    KINDS_MIOLO, KINDS_CONVERSA, MAX_TEXTO, MAX_ENVELOPES, LIMITE_ESCUTA, MAX_RELAYS_DELA,
+    modeloCaixa, relaysDaCaixa, relaysDeEscrita, filtroEnvelopes, filtroAntigas, filtroCaixa, filtroCaixaERelays, filtroEscuta,
     idDoRumor, rumorBemFormado, abrir, abrirVarias, registroDaMensagem,
-    consolidar, agrupar, filtrar, nomeDe, nomeDoPerfil, npubDe, pubkeyDeNpub,
+    consolidar, agrupar, filtrar, nomeDe, nomeDoPerfil, npubDe, pubkeyDeNpub, pubkeyDoEndereco,
     montarResposta, modeloAuth, buscar, contarAntigas, caixaDe, enviar, escutar
   });
 })();

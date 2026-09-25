@@ -51,7 +51,8 @@ const Shell = (function () {
   }
   // 61 — as mensagens privadas. A `sk` NUNCA sai daqui: a tela pede o trabalho
   // feito, não a chave. `abrirEnvelopes` decifra o que veio da rede;
-  // `embrulhar` monta os dois envelopes de uma resposta; `assinarAuth` é o
+  // `embrulhar` monta os dois envelopes de uma resposta ou de uma mensagem
+  // nova; `assinarAuth` é o
   // 22242 do NIP-42, e só existe enquanto há sessão — que é exatamente a regra
   // "só se identifica quem tem chave na memória" (14 T13 decisão 5).
   function abrirEnvelopes(envelopes) {

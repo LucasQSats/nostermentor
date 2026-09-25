@@ -26,7 +26,11 @@ function manifest(ch, o) {
   return finalizeEvent({ kind: 15128, created_at: o.created_at || agora(), tags, content: '' }, o.skDe || ch.sk);
 }
 function perfil(ch, o) { return finalizeEvent({ kind: 0, created_at: (o && o.created_at) || agora(), tags: [], content: JSON.stringify({ name: (o && o.name) || 'Site de teste', about: (o && o.about) || 'sobre' }) }, ch.sk); }
-function relayList(ch, relays) { return finalizeEvent({ kind: 10002, created_at: agora(), tags: relays.map(r => ['r', r]), content: '' }, ch.sk); }
+// Cada relay é uma URL ou [URL, marcador] — `read`/`write` da NIP-65.
+function relayList(ch, relays, o) {
+  return finalizeEvent({ kind: 10002, created_at: (o && o.created_at) || agora(),
+    tags: relays.map(r => Array.isArray(r) ? ['r'].concat(r) : ['r', r]), content: '' }, ch.sk);
+}
 function serverList(ch, servers) { return finalizeEvent({ kind: 10063, created_at: agora(), tags: servers.map(s => ['server', s]), content: '' }, ch.sk); }
 function efemero(ch) { return finalizeEvent({ kind: 20169, created_at: agora(), tags: [], content: 'sonda' }, ch.sk); }
 

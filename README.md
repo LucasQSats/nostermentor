@@ -69,8 +69,9 @@ exige ler o código do app — a especificação é o `TEMAS.md`.
 
 A tela **Contatos** tem duas metades. Em "Mensagens", o site recebe mensagens
 privadas pelo Nostr (NIP-17) e o dono responde de dentro do painel, com a chave
-do site: as mensagens são abertas só no navegador, e enquanto a aba está aberta
-o que chega aparece sozinho. Vem desligado — ligar publica na rede onde o site
+do site — ou começa a conversa, escrevendo para qualquer endereço Nostr que
+publique onde recebe mensagens. As mensagens são abertas só no navegador, e
+enquanto a aba está aberta o que chega aparece sozinho. Vem desligado — ligar publica na rede onde o site
 recebe mensagens, e desligar publica que ele deixou de receber. Em "Onde me
 encontrar", o dono preenche as formas de contato que quiser mostrar (e-mail,
 WhatsApp, Telegram, Instagram, X, Nostr, Signal ou outro link), cada uma com o

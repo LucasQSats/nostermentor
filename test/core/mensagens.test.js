@@ -237,6 +237,109 @@ module.exports = async function (ctx, u) {
     assert(r.achou === false && r.relays.length === 0, JSON.stringify(r));
   });
 
+  // --- escrever para quem nunca escreveu para o site (2026-09-25) --------------
+  // A caixa de quem nunca escreveu pode não estar nos nossos relays. A NIP-65
+  // manda procurar os eventos de uma pessoa nos relays onde ELA escreve.
+
+  // Assina o 22242 com a chave do dono, como o Shell faz na tela.
+  const caixaDeComAuth = (relays, pubkey) => p.pg.evaluate(([relays, pk, sk]) => Mensagens.caixaDe({
+    relays: relays, pubkey: pk, timeoutMs: 8000,
+    assinarAuth: (u, d) => Chave.assinar(Mensagens.modeloAuth(u, d), new Uint8Array(sk)) }), [relays, pubkey, sk]);
+  const pedidosEm = (persona) => (persona.recebidas || []).filter(m => m[0] === 'REQ').length;
+
+  await it('o endereço colado vira pubkey: npub sozinha ou como link `nostr:`; nsec, hex, npub cortada, e-mail e vazio NÃO', async () => {
+    const npubErrada = ana.npub.slice(0, -1) + (ana.npub.slice(-1) === 'q' ? 'p' : 'q');
+    const r = await p.pg.evaluate(([npub, nsec, hex, errada]) => ({
+      pura: Mensagens.pubkeyDoEndereco(npub),
+      link: Mensagens.pubkeyDoEndereco('  nostr:' + npub + '\n'),
+      maiusculo: Mensagens.pubkeyDoEndereco('NOSTR:' + npub),
+      nsec: Mensagens.pubkeyDoEndereco(nsec),
+      hex: Mensagens.pubkeyDoEndereco(hex),
+      cortada: Mensagens.pubkeyDoEndereco(npub.slice(0, -3)),
+      errada: Mensagens.pubkeyDoEndereco(errada),
+      email: Mensagens.pubkeyDoEndereco('fulano@exemplo.test'),
+      vazio: Mensagens.pubkeyDoEndereco('   '),
+      nulo: Mensagens.pubkeyDoEndereco(null)
+    }), [ana.npub, bento.nsec, ana.pubkey, npubErrada]);
+    assert(r.pura === ana.pubkey && r.link === ana.pubkey && r.maiusculo === ana.pubkey, JSON.stringify([r.pura, r.link, r.maiusculo]));
+    // ⚠️ a nsec colada por engano não pode virar destinatário (nem ser aceita
+    // como "endereço"): o tipo precisa ser npub.
+    const recusados = ['nsec', 'hex', 'cortada', 'errada', 'email', 'vazio', 'nulo'].filter(k => r[k] !== null);
+    assert(recusados.length === 0, 'aceitou o que não é npub: ' + recusados.join(', '));
+    return '3 aceitos · 7 recusados';
+  });
+
+  await it('relaysDeEscrita (NIP-65): sem marcador conta como escrita, `read` fica de fora, só wss:, sem repetir, no máximo 4', async () => {
+    const ev = { kind: 10002, tags: [
+      ['r', 'wss://a.exemplo'], ['r', 'wss://b.exemplo', 'read'], ['r', 'wss://c.exemplo', 'write'],
+      ['r', 'https://d.exemplo'], ['r', 'wss://a.exemplo/', 'write'], ['x', 'wss://h.exemplo'],
+      ['r', 'wss://e.exemplo'], ['r', 'wss://f.exemplo'], ['r', 'wss://g.exemplo']] };
+    const r = await p.pg.evaluate((ev) => ({ lista: Mensagens.relaysDeEscrita(ev), max: Mensagens.MAX_RELAYS_DELA, nada: Mensagens.relaysDeEscrita(null) }), ev);
+    const esperado = ['wss://a.exemplo', 'wss://c.exemplo', 'wss://e.exemplo', 'wss://f.exemplo'];
+    assert(r.max === 4, 'teto: ' + r.max);
+    assert(JSON.stringify(r.lista) === JSON.stringify(esperado), JSON.stringify(r.lista));
+    assert(Array.isArray(r.nada) && r.nada.length === 0, JSON.stringify(r.nada));
+  });
+
+  await it('⚠️ a caixa só nos relays DELA: a lista (10002) lida nos nossos diz onde procurar, a caixa é achada lá — e o painel NÃO se identifica a eles', async () => {
+    const clara = F.chave();
+    // Os nossos pedem identificação ao ligar (e deixam ler sem ela): é o
+    // CONTROLE — prova, na mesma rodada, que o painel responde ao desafio
+    // quando pode. Os dela também pedem, e aí ele não pode responder.
+    const nosso = f.relay('n71-nosso', { modo: 'ok', auth: 'escrever', eventos: [
+      F.relayList(clara, [[f.ws('n71-dela'), 'write'], [f.ws('n71-leitura'), 'read'], f.ws('n71-ambos')])] });
+    const dela = f.relay('n71-dela', { modo: 'ok', auth: 'escrever', eventos: [F.caixaDeEntrada(clara, [f.ws('n71-caixa-clara')])] });
+    const ambos = f.relay('n71-ambos', { modo: 'ok', auth: 'escrever', eventos: [] });
+    const leitura = f.relay('n71-leitura', { modo: 'ok', eventos: [F.caixaDeEntrada(clara, [f.ws('n71-errado')], { created_at: AGORA + 60 })] });
+    const r = await caixaDeComAuth([f.ws('n71-nosso')], clara.pubkey);
+    assert(r.achou === true && JSON.stringify(r.relays) === JSON.stringify([f.ws('n71-caixa-clara')]), JSON.stringify(r.relays));
+    assert(JSON.stringify(r.relaysDela) === JSON.stringify([f.ws('n71-dela'), f.ws('n71-ambos')]), 'relays da etapa 2: ' + JSON.stringify(r.relaysDela));
+    // o relay só de LEITURA dela não é onde ela escreve: nem se pergunta
+    assert(pedidosEm(leitura) === 0, 'consultou o relay de leitura dela');
+    // No nosso pode haver 2: identificado antes do fim, o painel repete o pedido.
+    assert(pedidosEm(nosso) >= 1 && pedidosEm(dela) === 1 && pedidosEm(ambos) === 1, 'pedidos: ' + [pedidosEm(nosso), pedidosEm(dela), pedidosEm(ambos)]);
+    // o controle, e depois o que interessa
+    assert(f.identificadosEm('n71-nosso').length >= 1, 'CONTROLE: o painel não se identificou nem no NOSSO relay — o caso não mede nada');
+    assert((dela.desafios || []).length >= 1 && (ambos.desafios || []).length >= 1, 'os relays dela não chegaram a pedir identificação');
+    assert(f.identificadosEm('n71-dela').length === 0 && f.identificadosEm('n71-ambos').length === 0, '⚠️ o painel se identificou a relays escolhidos por um estranho');
+    return 'achada em ' + r.relaysDela.length + ' relays dela · identificação só no nosso';
+  });
+
+  await it('quando os nossos relays já têm a caixa, os relays dela NEM são consultados', async () => {
+    const bia = F.chave();
+    f.relay('n71-nosso2', { modo: 'ok', eventos: [F.caixaDeEntrada(bia, [f.ws('n71-caixa-bia')]), F.relayList(bia, [f.ws('n71-dela2')])] });
+    const dela = f.relay('n71-dela2', { modo: 'ok', eventos: [F.caixaDeEntrada(bia, [f.ws('n71-outra')], { created_at: AGORA + 60 })] });
+    const r = await caixaDeComAuth([f.ws('n71-nosso2')], bia.pubkey);
+    assert(r.achou === true && JSON.stringify(r.relays) === JSON.stringify([f.ws('n71-caixa-bia')]), JSON.stringify(r.relays));
+    assert(r.relaysDela.length === 0 && pedidosEm(dela) === 0, 'foi aos relays dela sem precisar: ' + JSON.stringify(r.relaysDela) + ' · ' + pedidosEm(dela));
+  });
+
+  await it('entre as duas etapas vale a caixa mais NOVA: desligada nos nossos e religada nos dela → achou; religada antes e desligada depois → não', async () => {
+    // Dani desligou (caixa vazia) e depois religou — a nova está só nos dela.
+    const dani = F.chave(), edu = F.chave();
+    f.relay('n71-nosso3', { modo: 'ok', eventos: [
+      F.caixaDeEntrada(dani, [], { created_at: AGORA - 100 }), F.relayList(dani, [f.ws('n71-dela3')]),
+      // Edu fez o contrário: a caixa VAZIA é a mais nova, e está nos nossos.
+      F.caixaDeEntrada(edu, [], { created_at: AGORA }), F.relayList(edu, [f.ws('n71-dela3')])] });
+    f.relay('n71-dela3', { modo: 'ok', eventos: [
+      F.caixaDeEntrada(dani, [f.ws('n71-caixa-dani')], { created_at: AGORA }),
+      F.caixaDeEntrada(edu, [f.ws('n71-caixa-edu')], { created_at: AGORA - 100 })] });
+    const d = await caixaDeComAuth([f.ws('n71-nosso3')], dani.pubkey);
+    const e = await caixaDeComAuth([f.ws('n71-nosso3')], edu.pubkey);
+    assert(d.achou === true && JSON.stringify(d.relays) === JSON.stringify([f.ws('n71-caixa-dani')]), 'Dani: ' + JSON.stringify(d));
+    // a de Edu foi procurada (a dos nossos estava vazia), achada, e PERDEU para a mais nova
+    assert(e.relaysDela.length === 1 && e.achou === false && e.relays.length === 0, 'Edu: ' + JSON.stringify({ achou: e.achou, relays: e.relays, dela: e.relaysDela }));
+  });
+
+  await it('uma lista (10002) forjada — assinada por outra chave em nome dela — não manda o painel a lugar nenhum', async () => {
+    const fabi = F.chave(), intruso = F.chave();
+    const forjada = Object.assign({}, F.relayList(intruso, [f.ws('n71-armadilha')]), { pubkey: fabi.pubkey });
+    f.relay('n71-nosso4', { modo: 'ok', eventos: [forjada] });
+    const armadilha = f.relay('n71-armadilha', { modo: 'ok', eventos: [F.caixaDeEntrada(fabi, [f.ws('n71-caixa-falsa')])] });
+    const r = await caixaDeComAuth([f.ws('n71-nosso4')], fabi.pubkey);
+    assert(r.achou === false && r.relaysDela.length === 0 && pedidosEm(armadilha) === 0, JSON.stringify({ r, pedidos: pedidosEm(armadilha) }));
+  });
+
   await it('responder produz DOIS envelopes — um para ela, um para mim — com o MESMO id de rumor', async () => {
     const r = await p.pg.evaluate(([sk, para]) => Mensagens.montarResposta('obrigado pela mensagem', new Uint8Array(sk), para)
       .then(x => ({ rumor: x.rumor, paraEle: x.paraEle, paraMim: x.paraMim })), [sk, ana.pubkey]);

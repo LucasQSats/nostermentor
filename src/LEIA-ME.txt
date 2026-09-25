@@ -57,9 +57,9 @@ Estado desta versão
   publicação e reenviar o mapa a quem o perdeu, tirar o site do ar e
   exportar/importar o backup.
   A aparência sai de uma galeria de 21 temas, com cores, letras e logo
-  ajustáveis. Em Contatos, o site pode receber mensagens privadas pelo Nostr
-  e respondê-las de dentro do painel (vem desligado), e mostrar aos leitores
-  outras formas de contato.
+  ajustáveis. Em Contatos, o site pode receber mensagens privadas pelo Nostr,
+  respondê-las de dentro do painel e escrever primeiro para quem quiser (vem
+  desligado), e mostrar aos leitores outras formas de contato.
   Testado no Tails em computador de verdade e no Linux, em Firefox e Chrome.
   No Windows, ainda não foi testado numa máquina real.
   O que ainda não existe: aviso de nova versão do app dentro do painel (por

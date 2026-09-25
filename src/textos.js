@@ -879,7 +879,9 @@ const Textos = Object.freeze({
       responder: 'Responder',
       enviando: 'Enviando…',
       caixaDele: 'Procurando onde esta pessoa recebe mensagens…',
-      semCaixa: 'Esta pessoa não publicou onde recebe mensagens. Pela regra do Nostr, não devo tentar enviar — a mensagem não chegaria.',
+      // O painel só sabe que NÃO ACHOU: a caixa pode estar num relay que não
+      // respondeu. Dizer "não publicou" afirmava o que ele não tem como saber.
+      semCaixa: 'Não achei onde esta pessoa recebe mensagens. Pela regra do Nostr, não devo tentar enviar — a mensagem não chegaria.',
       enviada: 'Enviada a {n} de {m} relays da caixa dela.',
       naoEnviada: 'Não consegui enviar a nenhum relay da caixa dela. Tente de novo mais tarde.',
       copiaFalhou: 'Enviada, mas não consegui guardar a cópia nos seus relays: ela pode não aparecer aqui na próxima sessão.',
@@ -889,6 +891,21 @@ const Textos = Object.freeze({
       longa: 'Mensagem longa demais.',
       grupoAviso: 'Esta mensagem foi mandada a mais de uma pessoa. O painel não responde a grupos — responder aqui fala só com quem escreveu.',
       minha: 'você',
+      // Escrever para alguém que ainda não escreveu para o site (2026-09-25).
+      escrever: 'Escrever para alguém',
+      escreverApoio: 'Para começar uma conversa com quem ainda não escreveu para o site. Cole o endereço Nostr da pessoa — ele começa com npub1.',
+      escreverDesligado: 'Para escrever para alguém, ligue as mensagens primeiro: sem isso a pessoa não teria onde responder.',
+      enderecoRotulo: 'Endereço Nostr da pessoa',
+      enderecoInvalido: 'Isso não é um endereço npub válido. Confira se copiou o endereço inteiro, do npub1 até o fim.',
+      enderecoProprio: 'Este é o endereço do próprio site.',
+      enderecoBloqueado: 'Esta pessoa está bloqueada. Desbloqueie a conversa antes de escrever para ela.',
+      mensagemRotulo: 'Mensagem',
+      // 14 T13 decisão 8, também aqui: a mensagem nova sai como o site.
+      escreveComoSite: 'A mensagem sai assinada pelo seu site, não por você como pessoa.',
+      // O preço de procurar a caixa de quem nunca escreveu: relays que ela escolheu.
+      escreverRelaysDela: 'Para achar onde a pessoa recebe mensagens, o painel pode consultar os relays que ela mesma escolheu. Pelo Tor eles não veem o seu IP; fora do Tor, veem.',
+      enviar: 'Enviar',
+      cancelar: 'Cancelar',
       // 14 T13 decisão 26 (2026-09-14) — ao vivo. O estado fica à vista, e o
       // aviso diz o preço: com a aba aberta, os relays sabem que o painel está aberto.
       escuta: {
