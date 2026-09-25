@@ -4,6 +4,8 @@ Gerenciador de publicação de sites e blogs no protocolo **nsite**
 (Nostr + Blossom): um único arquivo HTML que se abre por `file://`,
 **sem instalar nada**, e feito para funcionar em Tails, Windows e Linux.
 
+**Site do projeto:** <https://npub1j5tad3x8msv4sy6qnvyrcgvjhfjmlmh32l75kgch2jkqdgfudzaq2wmx2k.nsite.lol/> — feito e publicado com o próprio Nostermentor. Para começar, o [passo a passo do primeiro site](https://npub1j5tad3x8msv4sy6qnvyrcgvjhfjmlmh32l75kgch2jkqdgfudzaq2wmx2k.nsite.lol/blog/seu-primeiro-site-no-nostr-sem-terminal.html).
+
 - O navegador é o runtime. Nenhum servidor do projeto no caminho.
 - A chave (nsec) nunca sai do navegador e nunca é gravada.
 - A rede é o banco de dados: o site publicado é reconstruído a partir da npub.
